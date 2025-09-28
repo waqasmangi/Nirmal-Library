@@ -1,3 +1,6 @@
+<!-- Chosen Palette: Teal, Amber, Stone (Minimal and Educational) -->
+<!-- Application Structure Plan: Thematic Learning Sections (Alphabet -> Vocab -> Grammar -> Practice). This structure is linear and pedagogical, optimizing for guided, step-by-step learning. All interactive elements (TTS, Quizzes, Flashcards) are contained within this single page to maximize focus on the learning material. -->
+<!-- Visualization & Content Choices: Alphabet (Report Info -> Inform -> Clickable HTML Grid -> Detail Display for exploration -> Vanilla JS/HTML). Vocab (Report Info -> Inform/Organize -> CSS Flip Cards + TTS -> Categorized Tabs for organization -> Vanilla JS/HTML). Grammar (Report Info -> Inform -> Accordions + TTS -> Click-to-expand details for synthesis -> Vanilla JS/HTML). Practice (Report Info -> Change -> JS-driven Quizzes -> Next button for progression -> Vanilla JS/HTML). CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 <!DOCTYPE html>
 <html lang="sd" dir="rtl">
 <head>
@@ -7,11 +10,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- Custom Font: MB Lateefi.ttf -->
+    <!-- Custom Font: MB Lateefi.otf (CORRECTED) -->
     <style>
         @font-face {
             font-family: 'MBLateefi';
-            src: url('MB Lateefi.ttf') format('truetype');
+            src: url('MB Lateefi.otf') format('opentype');
             font-weight: normal;
             font-style: normal;
         }
@@ -71,23 +74,7 @@
         }
     </style>
     
-    <!-- Firebase is only needed for the TTS check on load, but primarily for consistency -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        setLogLevel('Debug');
-        
-        const firebaseConfig = {
-            apiKey: "AIzaSyBxgOhd3y5L7Xl_IzWkuJ02PBlswR9lt5k",
-            authDomain: "nirmal-library.firebaseapp.com",
-            projectId: "nirmal-library", 
-            storageBucket: "nirmal-library.firebasestorage.app",
-            messagingSenderId: "157338670869",
-            appId: "1:157338670869:web:f44c9b0a3d9e9ebedcfb1c"
-        };
-
         // --- TTS Helper Function ---
         window.speakText = function(text) {
             if ('speechSynthesis' in window) {
@@ -106,8 +93,370 @@
         };
         // --- End TTS Helper Function ---
         
-        // --- Initialization (Only for TTS welcome message) ---
-        // Moved initialization logic to the bottom script block to ensure all data and elements are defined globally
+        // Data and Quiz Logic 
+        const alphabetData = [
+            { letter: 'A a', sound: 'اي / اَ', example: 'Apple', meaning: 'سيب', type: 'vowel', detail: 'اھو انگريزيءَ جو پھريون اکر آھي ۽ اڪثر ٻن قسمن جا آواز ڏيندو آھي: ننڍو آواز جيئن "Cat" ۾، ۽ ڊگھو آواز جيئن "Cake" ۾.' },
+            { letter: 'B b', sound: 'ب', example: 'Ball', meaning: 'گيڙو', type: 'consonant', detail: 'ھي اکر سندھيءَ جي "ب" وانگر آواز ڏيندو آھي.' },
+            { letter: 'C c', sound: 'ڪ / س', example: 'Cat', meaning: 'ٻلي', type: 'consonant', detail: 'C اڪثر "ڪ" آواز ڏيندو آھي، پر جڏھن I, E, يا Y کان اڳيان اچي تہ "س" آواز ڏيندو آھي (جيئن City ۾).' },
+            { letter: 'D d', sound: 'ڊ', example: 'Dog', meaning: 'ڪتو', type: 'consonant', detail: 'سندھيءَ جي "ڊ" وانگر آواز.' },
+            { letter: 'E e', sound: 'اي / اِي', example: 'Egg', meaning: 'بيضو', type: 'vowel', detail: 'ھن جا بہ ٻہ آواز ٿيندا آھن. ننڍو آواز جيئن "Bed" ۾ ۽ ڊگھو آواز جيئن "He" ۾.' },
+            { letter: 'F f', sound: 'ف', example: 'Fish', meaning: 'مڇي', type: 'consonant', detail: 'سندھيءَ جي "ف" وانگر آواز.' },
+            { letter: 'G g', sound: 'گ / ج', example: 'Goat', meaning: 'ٻڪري', type: 'consonant', detail: 'اڪثر "گ" آواز ڏيندو، پر I, E, يا Y کان اڳيان اچي تہ "ج" آواز ڏيندو (جيئن General ۾).' },
+            { letter: 'H h', sound: 'ھ', example: 'House', meaning: 'گھر', type: 'consonant', detail: 'سندھيءَ جي "ھ" وانگر آواز.' },
+            { letter: 'I i', sound: 'اِ / آءِ', example: 'Ink', meaning: 'مس', type: 'vowel', detail: 'ننڍو آواز جيئن "Pin" ۾ ۽ ڊگھو آواز جيئن "Fine" ۾.' },
+            { letter: 'J j', sound: 'ج', example: 'Jug', meaning: 'لوٽو', type: 'consonant', detail: 'سندھيءَ جي "ج" وانگر سخت آواز.' },
+            { letter: 'K k', sound: 'ڪ', example: 'Key', meaning: 'چاٻي', type: 'consonant', detail: 'سندھيءَ جي "ڪ" وانگر آواز.' },
+            { letter: 'L l', sound: 'ل', example: 'Lion', meaning: 'شينهن', type: 'consonant', detail: 'سندھيءَ جي "ل" وانگر آواز.' },
+            { letter: 'M m', sound: 'م', example: 'Man', meaning: 'ماڻهو', type: 'consonant', detail: 'سندھيءَ جي "م" وانگر آواز.' },
+            { letter: 'N n', sound: 'ن', example: 'Nose', meaning: 'نڪ', type: 'consonant', detail: 'سندھيءَ جي "ن" وانگر آواز.' },
+            { letter: 'O o', sound: 'او / آ', example: 'Owl', meaning: 'اُلو', type: 'vowel', detail: 'ننڍو آواز جيئن "Dog" ۾ ۽ ڊگھو آواز جيئن "Go" ۾.' },
+            { letter: 'P p', sound: 'پ', example: 'Pen', meaning: 'قلم', type: 'consonant', detail: 'سندھيءَ جي "پ" وانگر آواز.' },
+            { letter: 'Q q', sound: 'ق', example: 'Queen', meaning: 'راڻي', type: 'consonant', detail: 'ھي اڪثر "u" سان گڏجي "ڪو" آواز ڏيندو آھي (جيئن Question ۾).' },
+            { letter: 'R r', sound: 'ر', example: 'Rat', meaning: 'چوهو', type: 'consonant', detail: 'سندھيءَ جي "ر" وانگر آواز.' },
+            { letter: 'S s', sound: 'س', example: 'Sun', meaning: 'سج', type: 'consonant', detail: 'سندھيءَ جي "س" وانگر آواز.' },
+            { letter: 'T t', sound: 'ٽ', example: 'Tree', meaning: 'وڻ', type: 'consonant', detail: 'سندھيءَ جي "ٽ" وانگر آواز.' },
+            { letter: 'U u', sound: 'اَ / يو', example: 'Umbrella', meaning: 'ڇٽي', type: 'vowel', detail: 'ننڍو آواز جيئن "Cup" ۾ ۽ ڊگھو آواز جيئن "Use" ۾.' },
+            { letter: 'V v', sound: 'و', example: 'Van', meaning: 'وين', type: 'consonant', detail: 'سندھيءَ جي "و" جھڙو آواز پر ھلڪو سخت.' },
+            { letter: 'W w', sound: 'و', example: 'Watch', meaning: 'گھڙي', type: 'consonant', detail: 'سندھيءَ جي "و" جھڙو نرم آواز.' },
+            { letter: 'X x', sound: 'ڪس / ز', example: 'Box', meaning: 'دٻو', type: 'consonant', detail: 'ھي عام طور تي ٻن اکرن جو آواز ڏيندو آھي (ڪس).' },
+            { letter: 'Y y', sound: 'ي', example: 'Yes', meaning: 'ھا', type: 'consonant', detail: 'لفظ جي شروعات ۾ ھي "ي" جو آواز ڏيندو آھي، پر آخر ۾ حرف علت جھڙو ٿي ويندو آھي (جيئن Happy ۾).' },
+            { letter: 'Z z', sound: 'ز', example: 'Zoo', meaning: 'چڙيا گھر', type: 'consonant', detail: 'سندھيءَ جي "ز" وانگر آواز.' }
+        ];
+        
+        const vocabularyData = {
+            family: [
+                { en: 'I', sd: 'مان', pr: 'آءِ', type: 'Pronoun' }, { en: 'You', sd: 'تون / اوھين', pr: 'يو', type: 'Pronoun' },
+                { en: 'He', sd: 'ھو (مرد لاءِ)', pr: 'ھِي', type: 'Pronoun' }, { en: 'She', sd: 'ھوءَ (عورت لاءِ)', pr: 'شِي', type: 'Pronoun' },
+                { en: 'It', sd: 'ھي / اُھو', pr: 'اِٽ', type: 'Pronoun' }, { en: 'We', sd: 'اسان', pr: 'وي', type: 'Pronoun' },
+                { en: 'They', sd: 'اُھي', pr: 'دي', type: 'Pronoun' }, { en: 'Father', sd: 'پيءُ / ابا', pr: 'فاڌر', type: 'Noun' },
+                { en: 'Mother', sd: 'ماءُ / امڙ', pr: 'مڌر', type: 'Noun' }, { en: 'Brother', sd: 'ڀاءُ', pr: 'برادر', type: 'Noun' },
+                { en: 'Sister', sd: 'ڀيڻ', pr: 'سسٽر', type: 'Noun' }, { en: 'Friend', sd: 'دوست / يار', pr: 'فرينڊ', type: 'Noun' }
+            ],
+            verbs: [
+                { en: 'Come', sd: 'اچڻ', pr: 'ڪم', type: 'Verb' }, { en: 'Go', sd: 'وڃڻ', pr: 'گو', type: 'Verb' },
+                { en: 'Eat', sd: 'کائڻ', pr: 'ايٽ', type: 'Verb' }, { en: 'Drink', sd: 'پيئڻ', pr: 'ڊرِنڪ', type: 'Verb' },
+                { en: 'Read', sd: 'پڙھڻ', pr: 'ريڊ', type: 'Verb' }, { en: 'Write', sd: 'لکڻ', pr: 'رائيٽ', type: 'Verb' },
+                { en: 'Sleep', sd: 'سمهڻ', pr: 'سليپ', type: 'Verb' }, { en: 'Run', sd: 'ڊوڙڻ', pr: 'رن', type: 'Verb' },
+                { en: 'Walk', sd: 'ھلڻ', pr: 'واڪ', type: 'Verb' }, { en: 'Speak', sd: 'ڳالهائڻ', pr: 'اسپيڪ', type: 'Verb' }
+            ],
+            things: [
+                { en: 'School', sd: 'اسڪول', pr: 'اسڪول', type: 'Noun' }, { en: 'House', sd: 'گھر', pr: 'ھائوس', type: 'Noun' },
+                { en: 'Market', sd: 'بازار', pr: 'مارڪيٽ', type: 'Noun' }, { en: 'Book', sd: 'ڪتاب', pr: 'بُڪ', type: 'Noun' },
+                { en: 'Pen', sd: 'قلم', pr: 'پين', type: 'Noun' }, { en: 'Chair', sd: 'ڪرسي', pr: 'چيئر', type: 'Noun' },
+                { en: 'Table', sd: 'ميز', pr: 'ٽيبل', type: 'Noun' }, { en: 'Water', sd: 'پاڻي', pr: 'واٽر', type: 'Noun' },
+                { en: 'Food', sd: 'کاڌو', pr: 'فوڊ', type: 'Noun' }, { en: 'City', sd: 'شھر', pr: 'سٽي', type: 'Noun' }
+            ],
+            numbers: [
+                { en: 'One', sd: 'ھڪ', pr: 'ون', type: 'Noun' }, { en: 'Two', sd: 'ٻہ', pr: 'ٽو', type: 'Noun' },
+                { en: 'Three', sd: 'ٽي', pr: 'ٿري', type: 'Noun' }, { en: 'Four', sd: 'چار', pr: 'فور', type: 'Noun' },
+                { en: 'Five', sd: 'پنج', pr: 'فائيو', type: 'Noun' }, { en: 'Ten', sd: 'ڏھ', pr: 'ٽين', type: 'Noun' },
+                { en: 'Twenty', sd: 'ويھ', pr: 'ٽوِينٽي', type: 'Noun' }, { en: 'Hundred', sd: 'سَو', pr: 'ھنڊريڊ', type: 'Noun' }
+            ]
+        };
+        
+        const grammarQuizData = [
+            { sentence: 'The **teacher** is happy.', correct: 'Noun', word: 'teacher' },
+            { sentence: 'We **read** books.', correct: 'Verb', word: 'read' },
+            { sentence: '**She** drinks water.', correct: 'Pronoun', word: 'She' },
+            { sentence: 'Ali **runs** fast.', correct: 'Verb', word: 'runs' },
+            { sentence: 'I love my **city**.', correct: 'Noun', word: 'city' },
+            { sentence: '**They** play cricket.', correct: 'Pronoun', word: 'They' },
+            { sentence: 'The **cat** is sleeping.', correct: 'Noun', word: 'cat' },
+            { sentence: 'He **walks** slowly.', correct: 'Verb', word: 'walks' },
+        ];
+        
+        let grammarCurrentQuestionIndex = 0;
+        let vocabCurrentQuestionIndex = 0;
+        let allVocab = [];
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+        
+        // --- Functions defined globally for the handlers below to access ---
+
+        function loadVocabQuestion() {
+            const vocabQuizQuestion = document.getElementById('vocab-quiz-question');
+            const vocabQuizOptions = document.getElementById('vocab-quiz-options');
+            const vocabFeedback = document.getElementById('vocab-feedback');
+            const nextVocabBtn = document.getElementById('next-vocab-question');
+
+            if(vocabCurrentQuestionIndex >= allVocab.length) {
+                vocabQuizQuestion.textContent = "مشق مڪمل ٿي وئي! وڌيڪ مشق لاءِ صفحي کي ريفريش ڪريو.";
+                vocabQuizOptions.innerHTML = "";
+                vocabFeedback.textContent = "";
+                if(nextVocabBtn) nextVocabBtn.style.display = 'none';
+                return;
+            }
+
+            vocabFeedback.textContent = '';
+            const question = allVocab[vocabCurrentQuestionIndex];
+            vocabQuizQuestion.textContent = `لفظ "**${question.sd}**" جي انگريزي معنيٰ ڇا آھي؟`;
+            
+            const options = [question.en];
+            while(options.length < 4) {
+                const randomWord = allVocab[Math.floor(Math.random() * allVocab.length)].en;
+                if(!options.includes(randomWord)) {
+                    options.push(randomWord);
+                }
+            }
+            shuffleArray(options);
+
+            vocabQuizOptions.innerHTML = '';
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.className = 'latin p-4 border-2 rounded-lg hover:bg-amber-100 transition-colors bg-white shadow-sm font-semibold';
+                button.addEventListener('click', (e) => {
+                    e.target.parentNode.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                    if (option === question.en) {
+                        e.target.classList.add('bg-green-200', 'border-green-500');
+                        vocabFeedback.textContent = 'بلڪل صحيح!';
+                        vocabFeedback.className = 'mt-4 font-semibold text-center text-green-600';
+                    } else {
+                        e.target.classList.add('bg-red-200', 'border-red-500');
+                        e.target.parentNode.querySelectorAll('button').forEach(btn => {
+                            if (btn.textContent === question.en) {
+                                btn.classList.add('bg-green-300', 'border-green-500');
+                            }
+                        });
+                        vocabFeedback.textContent = `غلط. صحيح جواب آھي: ${question.en}`;
+                        vocabFeedback.className = 'mt-4 font-semibold text-center text-red-600';
+                    }
+                });
+                vocabQuizOptions.appendChild(button);
+            });
+        }
+
+        window.loadGrammarQuestion = function() {
+            const grammarQuizSentence = document.getElementById('grammar-quiz-sentence');
+            const grammarQuizOptions = document.getElementById('grammar-quiz-options');
+            const grammarFeedback = document.getElementById('grammar-feedback');
+            const nextGrammarBtn = document.getElementById('next-grammar-question');
+
+            if(grammarCurrentQuestionIndex >= grammarQuizData.length) {
+                grammarQuizSentence.innerHTML = "مشق مڪمل ٿي وئي! وڌيڪ مشق لاءِ صفحي کي ريفريش ڪريو.";
+                grammarQuizOptions.innerHTML = "";
+                grammarFeedback.textContent = "";
+                if(nextGrammarBtn) nextGrammarBtn.style.display = 'none';
+                return;
+            }
+
+            grammarFeedback.textContent = '';
+            const question = grammarQuizData[grammarCurrentQuestionIndex];
+            grammarQuizSentence.innerHTML = question.sentence;
+            
+            grammarQuizOptions.querySelectorAll('button').forEach(button => {
+                button.disabled = false;
+                button.classList.remove('bg-green-200', 'bg-red-200', 'border-green-500', 'border-red-500');
+                button.removeEventListener('click', checkGrammarAnswer); // Remove previous listener to prevent double triggering
+                button.addEventListener('click', checkGrammarAnswer);
+            });
+
+            function checkGrammarAnswer(e) {
+                grammarQuizOptions.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                if (e.target.dataset.type === question.correct) {
+                    e.target.classList.add('bg-green-200', 'border-green-500');
+                    grammarFeedback.textContent = 'صحيح جواب!';
+                    grammarFeedback.className = 'mt-4 font-semibold text-center text-green-600';
+                } else {
+                    e.target.classList.add('bg-red-200', 'border-red-500');
+                    const correctAnswerButton = grammarQuizOptions.querySelector(`[data-type="${question.correct}"]`);
+                    if (correctAnswerButton) {
+                        correctAnswerButton.classList.add('bg-green-200', 'border-green-500');
+                    }
+                    grammarFeedback.textContent = `غلط. صحيح جواب آھي: ${question.correct}`;
+                    grammarFeedback.className = 'mt-4 font-semibold text-center text-red-600';
+                }
+            }
+        }
+        
+        // --- End Functions defined globally ---
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get buttons and element references now that the DOM is ready
+            const nextVocabBtn = document.getElementById('next-vocab-question');
+            const nextGrammarBtn = document.getElementById('next-grammar-question');
+            
+            // TTS Welcome Message
+            // window.speakText("Welcome to Nirmal Jevtani Library, Basic English Learning Page."); // Removed TTS from here to avoid conflicts
+
+            // Mobile Menu Logic
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+            
+            // Smooth Scrolling
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                    if (!mobileMenu.classList.contains('hidden')) {
+                         mobileMenu.classList.add('hidden');
+                    }
+                });
+            });
+
+            // Start Quiz and Vocab Render after content load
+            allVocab = [...vocabularyData.family, ...vocabularyData.verbs, ...vocabularyData.things, ...vocabularyData.numbers];
+            shuffleArray(allVocab);
+            window.loadVocabQuestion();
+            shuffleArray(grammarQuizData);
+            window.loadGrammarQuestion();
+
+            // Set up Quiz Next Button Handlers
+            if (nextVocabBtn) {
+                nextVocabBtn.addEventListener('click', () => {
+                    vocabCurrentQuestionIndex++;
+                    window.loadVocabQuestion();
+                });
+            }
+            
+            if (nextGrammarBtn) {
+                nextGrammarBtn.addEventListener('click', () => {
+                    grammarCurrentQuestionIndex++;
+                    window.loadGrammarQuestion();
+                });
+            }
+
+
+            // Remaining DOM logic (Alphabet, Vocab Tabs, Accordions)
+
+            const alphabetGrid = document.getElementById('alphabet-grid');
+            const alphabetDetail = document.getElementById('alphabet-detail');
+            alphabetData.forEach(item => {
+                const div = document.createElement('div');
+                div.className = `latin p-4 border-2 rounded-lg cursor-pointer hover:bg-amber-100 hover:border-amber-400 transition-colors text-2xl font-bold ${item.type === 'vowel' ? 'bg-teal-50 border-teal-400' : 'bg-white'}`;
+                div.textContent = item.letter.split(' ')[0];
+                
+                div.addEventListener('click', () => {
+                    document.getElementById('detail-letter').textContent = item.letter;
+                    document.getElementById('detail-sound').textContent = item.sound;
+                    document.getElementById('detail-example').textContent = item.example;
+                    document.getElementById('detail-meaning').textContent = item.meaning;
+                    document.getElementById('detail-type').textContent = item.detail;
+                    alphabetDetail.classList.remove('hidden');
+                    alphabetDetail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+                alphabetGrid.appendChild(div);
+            });
+
+            const toggleVowelsBtn = document.getElementById('toggle-vowels');
+            let vowelsOnly = false;
+            toggleVowelsBtn.addEventListener('click', () => {
+                vowelsOnly = !vowelsOnly;
+                document.querySelectorAll('#alphabet-grid > div').forEach(div => {
+                    const item = alphabetData.find(a => a.letter.startsWith(div.textContent));
+                    if (vowelsOnly && item && item.type !== 'vowel') {
+                        div.classList.add('hidden');
+                    } else {
+                        div.classList.remove('hidden');
+                    }
+                });
+                toggleVowelsBtn.textContent = vowelsOnly ? 'سڀ اکر ڏيکاريو' : 'صرف حرف علت (Vowels) ڏيکاريو';
+            });
+            
+            const vocabContent = document.getElementById('vocab-content');
+            const vocabTabs = document.querySelectorAll('.vocab-tab');
+
+            function renderVocab(category) {
+                vocabContent.innerHTML = '';
+                const data = vocabularyData[category] || [];
+                data.forEach(word => {
+                    const card = document.createElement('div');
+                    card.className = 'card-flip h-32 bg-white rounded-lg shadow-md cursor-pointer';
+                    card.innerHTML = `
+                        <div class="card-inner">
+                            <div class="card-front bg-white rounded-lg border-2 border-teal-200">
+                                <div class="flex items-center">
+                                    <p class="text-3xl font-bold latin">${word.en}</p>
+                                    <button class="speaker-icon text-2xl" onclick="event.stopPropagation(); window.speakText('${word.en}')">🔊</button>
+                                </div>
+                                <p class="text-xs mt-1 text-gray-500 latin">(${word.type})</p>
+                            </div>
+                            <div class="card-back bg-teal-600 text-white rounded-lg">
+                                <p class="text-2xl font-bold">${word.sd}</p>
+                                <p class="latin text-lg text-amber-300">(${word.pr})</p>
+                            </div>
+                        </div>
+                    `;
+                    card.addEventListener('click', function() {
+                        const inner = this.querySelector('.card-inner');
+                        inner.style.transform = inner.style.transform === 'rotateY(180deg)' ? 'rotateY(0deg)' : 'rotateY(180deg)';
+                    });
+                    vocabContent.appendChild(card);
+                });
+            }
+
+            vocabTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    vocabTabs.forEach(t => {
+                        t.classList.remove('border-amber-500', 'text-amber-600', 'font-semibold');
+                        t.classList.add('border-transparent');
+                    });
+                    tab.classList.add('border-amber-500', 'text-amber-600', 'font-semibold');
+                    tab.classList.remove('border-transparent');
+                    renderVocab(tab.dataset.tab);
+                });
+            });
+
+            renderVocab('family');
+            
+            const vowelQuizContainer = document.getElementById('vowel-quiz');
+            const vowelFeedback = document.getElementById('vowel-feedback');
+            const vowelQuizWords = ['Computer', 'Book', 'Sindh', 'Pen', 'Mango', 'Chair', 'Table', 'Water'];
+
+            vowelQuizWords.forEach(word => {
+                const wordDiv = document.createElement('div');
+                wordDiv.className = 'flex flex-row p-2 bg-stone-100 rounded-md shadow-inner';
+                word.split('').forEach(char => {
+                    const span = document.createElement('span');
+                    span.textContent = char;
+                    span.className = 'cursor-pointer p-1 hover:bg-amber-200 rounded text-teal-700 font-semibold';
+                    span.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if ('aeiouAEIOU'.includes(char)) {
+                            span.classList.add('bg-green-300', 'text-white');
+                            span.classList.remove('bg-red-300', 'text-teal-700');
+                            vowelFeedback.textContent = 'صحيح!';
+                            vowelFeedback.className = 'mt-4 font-semibold text-center text-green-600';
+                        } else {
+                            span.classList.add('bg-red-300', 'text-white');
+                            vowelFeedback.textContent = 'وري ڪوشش ڪريو! (حرف علت A, E, I, O, U آهن)';
+                             vowelFeedback.className = 'mt-4 font-semibold text-center text-red-600';
+                        }
+                    });
+                    wordDiv.appendChild(span);
+                });
+                vowelQuizContainer.appendChild(wordDiv);
+            });
+
+            
+            // Accordion logic
+            document.querySelectorAll('.accordion-header').forEach(button => {
+                button.addEventListener('click', () => {
+                    const item = button.closest('.accordion-item');
+                    const content = document.getElementById(button.dataset.target);
+                    const isActive = item.classList.toggle('accordion-active');
+                    
+                    button.querySelector('span:last-child').textContent = isActive ? '−' : '+';
+                    
+                    if (isActive) {
+                        content.style.maxHeight = content.scrollHeight + 50 + "px";
+                    } else {
+                        content.style.maxHeight = "0";
+                    }
+                });
+            });
+        });
     </script>
 </head>
 <body class="bg-stone-50 text-gray-800">
@@ -116,7 +465,7 @@
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
             <div class="text-center md:text-right mb-2 md:mb-0">
                 <h1 class="text-3xl md:text-4xl font-bold">بنيادي انگريزي سکيا</h1>
-                <p class="text-sm text-amber-300 mt-1">نِرمل جيتواڻي لائبريري جي طرفان</p>
+                <p class="text-sm text-amber-300 mt-1">نرمل جيوتاڻي لائبريري جي طرفان</p>
             </div>
             <nav class="hidden md:flex space-x-reverse space-x-6">
                 <a href="index.html" class="hover:text-amber-300 font-bold text-amber-500">← مکيه پورٽل</a>
@@ -140,26 +489,7 @@
         
         <!-- Banner Image/Illustration -->
         <div class="mb-10 rounded-lg overflow-hidden shadow-2xl border-b-8 border-teal-500">
-             <img src="data:image/png;base64, " alt="انگريزي سکڻ وارو صفحو" class="w-full h-auto object-cover">
-             <!-- Placeholder for image generation (nano-banana model) -->
-             <script>
-                 (async () => {
-                     const prompt = "A vibrant illustration of a focused student wearing headphones, looking at digital flashcards with English words and Sindhi meanings. The setting is modern and bright, emphasizing engagement and language learning. High-quality, modern, digital art style.";
-                     const apiKey = ""
-                     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
-                     const payload = {
-                         contents: [{ parts: [{ text: prompt }] }],
-                         generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-                     };
-                     const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                     const result = await response.json();
-                     const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
-                     if (base64Data) {
-                         document.querySelector('#learning-banner-image').src = `data:image/png;base64,${base64Data}`;
-                     }
-                 })();
-             </script>
-             <img id="learning-banner-image" src="https://placehold.co/1200x250/fff7ed/f97316?text=Basic+English+Learning+Journey" alt="سکو بينر" class="w-full h-auto object-cover">
+             <img id="learning-banner-image" src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/gh-pages/learning-page.jpg" alt="سکو بينر" class="w-full h-auto object-cover">
         </div>
 
         <!-- Alphabet Section -->
@@ -369,13 +699,13 @@
     </main>
 
     <footer class="text-center p-4 bg-stone-200 text-gray-600">
-        <p>&copy; 2025 نِرمل جيتواڻي لائبريري. سڀ حق محفوظ آھن.</p>
+        <p>&copy; 2025 نرمل جيوتاڻي لائبريري. سڀ حق محفوظ آھن.</p>
         <p class="text-sm mt-1 latin">Website Version 1.0</p>
         <p class="text-xs mt-1"><a href="index.html" class="text-teal-600 hover:text-teal-800">مکيه پورٽل ڏانهن واپس</a></p>
     </footer>
 
     <script>
-        // Data and Quiz Logic (Copied from index.html)
+        // Data and Quiz Logic 
         const alphabetData = [
             { letter: 'A a', sound: 'اي / اَ', example: 'Apple', meaning: 'سيب', type: 'vowel', detail: 'اھو انگريزيءَ جو پھريون اکر آھي ۽ اڪثر ٻن قسمن جا آواز ڏيندو آھي: ننڍو آواز جيئن "Cat" ۾، ۽ ڊگھو آواز جيئن "Cake" ۾.' },
             { letter: 'B b', sound: 'ب', example: 'Ball', meaning: 'گيڙو', type: 'consonant', detail: 'ھي اکر سندھيءَ جي "ب" وانگر آواز ڏيندو آھي.' },
@@ -389,20 +719,20 @@
             { letter: 'J j', sound: 'ج', example: 'Jug', meaning: 'لوٽو', type: 'consonant', detail: 'سندھيءَ جي "ج" وانگر سخت آواز.' },
             { letter: 'K k', sound: 'ڪ', example: 'Key', meaning: 'چاٻي', type: 'consonant', detail: 'سندھيءَ جي "ڪ" وانگر آواز.' },
             { letter: 'L l', sound: 'ل', example: 'Lion', meaning: 'شينهن', type: 'consonant', detail: 'سندھيءَ جي "ل" وانگر آواز.' },
-            { letter: 'M m', sound: 'م', example: 'Man', type: 'consonant', detail: 'سندھيءَ جي "م" وانگر آواز.' },
-            { letter: 'N n', sound: 'ن', example: 'Nose', type: 'consonant', detail: 'سندھيءَ جي "ن" وانگر آواز.' },
+            { letter: 'M m', sound: 'م', example: 'Man', meaning: 'ماڻهو', type: 'consonant', detail: 'سندھيءَ جي "م" وانگر آواز.' },
+            { letter: 'N n', sound: 'ن', example: 'Nose', meaning: 'نڪ', type: 'consonant', detail: 'سندھيءَ جي "ن" وانگر آواز.' },
             { letter: 'O o', sound: 'او / آ', example: 'Owl', meaning: 'اُلو', type: 'vowel', detail: 'ننڍو آواز جيئن "Dog" ۾ ۽ ڊگھو آواز جيئن "Go" ۾.' },
-            { letter: 'P p', sound: 'پ', example: 'Pen', type: 'consonant', detail: 'سندھيءَ جي "پ" وانگر آواز.' },
-            { letter: 'Q q', sound: 'ق', example: 'Queen', type: 'consonant', detail: 'ھي اڪثر "u" سان گڏجي "ڪو" آواز ڏيندو آھي (جيئن Question ۾).' },
-            { letter: 'R r', sound: 'ر', example: 'Rat', type: 'consonant', detail: 'سندھيءَ جي "ر" وانگر آواز.' },
-            { letter: 'S s', sound: 'س', example: 'Sun', type: 'consonant', detail: 'سندھيءَ جي "س" وانگر آواز.' },
-            { letter: 'T t', sound: 'ٽ', example: 'Tree', type: 'consonant', detail: 'سندھيءَ جي "ٽ" وانگر آواز.' },
-            { letter: 'U u', sound: 'اَ / يو', example: 'Umbrella', type: 'vowel', detail: 'ننڍو آواز جيئن "Cup" ۾ ۽ ڊگھو آواز جيئن "Use" ۾.' },
-            { letter: 'V v', sound: 'و', example: 'Van', type: 'consonant', detail: 'سندھيءَ جي "و" جھڙو آواز پر ھلڪو سخت.' },
-            { letter: 'W w', sound: 'و', example: 'Watch', type: 'consonant', detail: 'سندھيءَ جي "و" جھڙو نرم آواز.' },
-            { letter: 'X x', sound: 'ڪس / ز', example: 'Box', type: 'consonant', detail: 'ھي عام طور تي ٻن اکرن جو آواز ڏيندو آھي (ڪس).' },
-            { letter: 'Y y', sound: 'ي', example: 'Yes', type: 'consonant', detail: 'لفظ جي شروعات ۾ ھي "ي" جو آواز ڏيندو آھي، پر آخر ۾ حرف علت جھڙو ٿي ويندو آھي (جيئن Happy ۾).' },
-            { letter: 'Z z', sound: 'ز', example: 'Zoo', type: 'consonant', detail: 'سندھيءَ جي "ز" وانگر آواز.' }
+            { letter: 'P p', sound: 'پ', example: 'Pen', meaning: 'قلم', type: 'consonant', detail: 'سندھيءَ جي "پ" وانگر آواز.' },
+            { letter: 'Q q', sound: 'ق', example: 'Queen', meaning: 'راڻي', type: 'consonant', detail: 'ھي اڪثر "u" سان گڏجي "ڪو" آواز ڏيندو آھي (جيئن Question ۾).' },
+            { letter: 'R r', sound: 'ر', example: 'Rat', meaning: 'چوهو', type: 'consonant', detail: 'سندھيءَ جي "ر" وانگر آواز.' },
+            { letter: 'S s', sound: 'س', example: 'Sun', meaning: 'سج', type: 'consonant', detail: 'سندھيءَ جي "س" وانگر آواز.' },
+            { letter: 'T t', sound: 'ٽ', example: 'Tree', meaning: 'وڻ', type: 'consonant', detail: 'سندھيءَ جي "ٽ" وانگر آواز.' },
+            { letter: 'U u', sound: 'اَ / يو', example: 'Umbrella', meaning: 'ڇٽي', type: 'vowel', detail: 'ننڍو آواز جيئن "Cup" ۾ ۽ ڊگھو آواز جيئن "Use" ۾.' },
+            { letter: 'V v', sound: 'و', example: 'Van', meaning: 'وين', type: 'consonant', detail: 'سندھيءَ جي "و" جھڙو آواز پر ھلڪو سخت.' },
+            { letter: 'W w', sound: 'و', example: 'Watch', meaning: 'گھڙي', type: 'consonant', detail: 'سندھيءَ جي "و" جھڙو نرم آواز.' },
+            { letter: 'X x', sound: 'ڪس / ز', example: 'Box', meaning: 'دٻو', type: 'consonant', detail: 'ھي عام طور تي ٻن اکرن جو آواز ڏيندو آھي (ڪس).' },
+            { letter: 'Y y', sound: 'ي', example: 'Yes', meaning: 'ھا', type: 'consonant', detail: 'لفظ جي شروعات ۾ ھي "ي" جو آواز ڏيندو آھي، پر آخر ۾ حرف علت جھڙو ٿي ويندو آھي (جيئن Happy ۾).' },
+            { letter: 'Z z', sound: 'ز', example: 'Zoo', meaning: 'چڙيا گھر', type: 'consonant', detail: 'سندھيءَ جي "ز" وانگر آواز.' }
         ];
         
         const vocabularyData = {
@@ -470,7 +800,7 @@
                 vocabQuizQuestion.textContent = "مشق مڪمل ٿي وئي! وڌيڪ مشق لاءِ صفحي کي ريفريش ڪريو.";
                 vocabQuizOptions.innerHTML = "";
                 vocabFeedback.textContent = "";
-                nextVocabBtn.style.display = 'none';
+                if(nextVocabBtn) nextVocabBtn.style.display = 'none';
                 return;
             }
 
@@ -513,7 +843,7 @@
             });
         }
 
-        function loadGrammarQuestion() {
+        window.loadGrammarQuestion = function() {
             const grammarQuizSentence = document.getElementById('grammar-quiz-sentence');
             const grammarQuizOptions = document.getElementById('grammar-quiz-options');
             const grammarFeedback = document.getElementById('grammar-feedback');
@@ -523,7 +853,7 @@
                 grammarQuizSentence.innerHTML = "مشق مڪمل ٿي وئي! وڌيڪ مشق لاءِ صفحي کي ريفريش ڪريو.";
                 grammarQuizOptions.innerHTML = "";
                 grammarFeedback.textContent = "";
-                nextGrammarBtn.style.display = 'none';
+                if(nextGrammarBtn) nextGrammarBtn.style.display = 'none';
                 return;
             }
 
@@ -563,10 +893,10 @@
             // Get buttons and element references now that the DOM is ready
             const nextVocabBtn = document.getElementById('next-vocab-question');
             const nextGrammarBtn = document.getElementById('next-grammar-question');
-            const grammarQuizOptions = document.getElementById('grammar-quiz-options');
-
-            window.speakText("Welcome to Nirmal Jevtani Library, Basic English Learning Page.");
             
+            // TTS Welcome Message
+            // window.speakText("Welcome to Nirmal Jevtani Library, Basic English Learning Page."); // Removed TTS from here to avoid conflicts
+
             // Mobile Menu Logic
             const mobileMenuButton = document.getElementById('mobile-menu-button');
             const mobileMenu = document.getElementById('mobile-menu');
@@ -590,20 +920,24 @@
             // Start Quiz and Vocab Render after content load
             allVocab = [...vocabularyData.family, ...vocabularyData.verbs, ...vocabularyData.things, ...vocabularyData.numbers];
             shuffleArray(allVocab);
-            loadVocabQuestion();
+            window.loadVocabQuestion();
             shuffleArray(grammarQuizData);
-            loadGrammarQuestion();
+            window.loadGrammarQuestion();
 
             // Set up Quiz Next Button Handlers
-            nextVocabBtn.addEventListener('click', () => {
-                vocabCurrentQuestionIndex++;
-                loadVocabQuestion();
-            });
+            if (nextVocabBtn) {
+                nextVocabBtn.addEventListener('click', () => {
+                    vocabCurrentQuestionIndex++;
+                    window.loadVocabQuestion();
+                });
+            }
             
-            nextGrammarBtn.addEventListener('click', () => {
-                grammarCurrentQuestionIndex++;
-                loadGrammarQuestion();
-            });
+            if (nextGrammarBtn) {
+                nextGrammarBtn.addEventListener('click', () => {
+                    grammarCurrentQuestionIndex++;
+                    window.loadGrammarQuestion();
+                });
+            }
 
 
             // Remaining DOM logic (Alphabet, Vocab Tabs, Accordions)
