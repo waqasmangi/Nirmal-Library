@@ -36,6 +36,15 @@
         .max-h-96 {
             max-height: 24rem;
         }
+        /* New: Responsive Placeholder Styling for better mobile visibility */
+        .responsive-placeholder::placeholder {
+            font-size: 0.8rem; /* Default small size on mobile */
+        }
+        @media (min-width: 640px) {
+            .responsive-placeholder::placeholder {
+                font-size: 1rem; /* Larger size on desktop */
+            }
+        }
     </style>
     
     <!-- Firebase SDK Imports for Live Feedback System -->
@@ -312,146 +321,146 @@
                 formData.append('_subject', `New Advanced Suggestion: ${userName}`); 
                 await sendFormspreeEmail('advanced-feedback-form', formData);
 
-                const safeChanges = changes.replace(/'/g, "\\'").replace(/"/g, '\\"');
-                const safeTopic = learnMore.replace(/'/g, "\\'").replace(/"/g, '\\"');
-                
-                status.innerHTML = `<p class="text-green-600 font-semibold">توهان جا تفصيلي رايا موڪليا ويا! مهرباني.</p>
-                    <button onclick="window.shareSuggestion('${advanceLevel}', '${safeChanges}', '${safeTopic}')" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors flex items-center mx-auto">
-                        WhatsApp تي شيئر ڪريو 💬
-                    </button>`;
-
-                status.classList.remove('text-amber-600', 'text-red-600');
-                status.classList.add('text-green-600');
-                document.getElementById('changes-wanted').value = '';
-                document.getElementById('learn-more-topic').value = '';
-            } catch (e) {
-                console.error("Error adding advanced feedback: ", e);
-                status.textContent = `رايا موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied يا Firebase ڪنيڪشن). مھرباني ڪري چيڪ ڪريو.`;
-                status.classList.remove('text-green-600', 'text-amber-600');
-                status.classList.add('text-red-600');
-            }
-        };
-        // --- End Review & Suggestion Submission ---
-
-
-        function listenForReviews(db, appId) {
-            const reviewsRef = getReviewsCollectionRef(db, appId);
-            const q = query(reviewsRef, orderBy('timestamp', 'desc')); 
+            const safeChanges = changes.replace(/'/g, "\\'").replace(/"/g, '\\"');
+            const safeTopic = learnMore.replace(/'/g, "\\'").replace(/"/g, '\\"');
             
-            onSnapshot(q, (snapshot) => {
-                const reviewsList = document.getElementById('reviews-list');
-                reviewsList.innerHTML = '';
-                
-                let totalRating = 0;
-                let reviewCount = 0;
+            status.innerHTML = `<p class="text-green-600 font-semibold">توهان جا تفصيلي رايا موڪليا ويا! مهرباني.</p>
+                <button onclick="window.shareSuggestion('${advanceLevel}', '${safeChanges}', '${safeTopic}')" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors flex items-center mx-auto">
+                    WhatsApp تي شيئر ڪريو 💬
+                </button>`;
 
-                snapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    const reviewElement = document.createElement('div');
-                    
-                    const stars = '★'.repeat(data.rating) + '☆'.repeat(5 - data.rating);
-                    const userNameDisplay = data.userName || "اڻڄاتل";
-                    const likesCount = data.likes || 0;
-
-                    reviewElement.className = 'bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-3 text-right-aligned';
-                    reviewElement.innerHTML = `
-                        <div class="flex justify-between items-center mb-2">
-                            <p class="text-amber-500 text-xl">${stars}</p>
-                            <p class="text-sm text-gray-500 font-bold">${userNameDisplay}</p>
-                        </div>
-                        <p class="text-gray-700">${data.text}</p>
-                        <div class="mt-3 text-right">
-                             <button onclick="window.toggleLike('${doc.id}', ${likesCount})" class="text-red-500 hover:text-red-600 transition-colors flex items-center float-left">
-                                 <span class="mr-1">${likesCount}</span> ♥ 
-                             </button>
-                        </div>
-                    `;
-                    reviewsList.appendChild(reviewElement);
-
-                    totalRating += data.rating;
-                    reviewCount++;
-                });
-
-                const avgRating = reviewCount > 0 ? (totalRating / reviewCount).toFixed(1) : 0;
-                document.getElementById('average-rating').textContent = `${avgRating} ستارن جي درجه بندي (${reviewCount} تبصرا)`;
-                
-                if (reviewCount === 0) {
-                     reviewsList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪو تبصرو ناهي. پھريون تبصرو شامل ڪريو!</p>';
-                }
-            }, (error) => {
-                 console.error("Error listening to reviews: ", error);
-                 document.getElementById('reviews-list').innerHTML = `<p class="text-center text-red-600 mt-4">تبصرو لوڊ نه ٿي سگھيو (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
-            });
+            status.classList.remove('text-amber-600', 'text-red-600');
+            status.classList.add('text-green-600');
+            document.getElementById('changes-wanted').value = '';
+            document.getElementById('learn-more-topic').value = '';
+        } catch (e) {
+            console.error("Error adding advanced feedback: ", e);
+            status.textContent = `رايا موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied يا Firebase ڪنيڪشن). مھرباني ڪري چيڪ ڪريو.`;
+            status.classList.remove('text-green-600', 'text-amber-600');
+            status.classList.add('text-red-600');
         }
+    };
+    // --- End Review & Suggestion Submission ---
+
+
+    function listenForReviews(db, appId) {
+        const reviewsRef = getReviewsCollectionRef(db, appId);
+        const q = query(reviewsRef, orderBy('timestamp', 'desc')); 
         
-        function listenForAdvancedFeedback(db, appId) {
-            const feedbackRef = getAdvancedFeedbackCollectionRef(db, appId);
-            const q = query(feedbackRef, orderBy('timestamp', 'desc')); 
+        onSnapshot(q, (snapshot) => {
+            const reviewsList = document.getElementById('reviews-list');
+            reviewsList.innerHTML = '';
             
-            onSnapshot(q, (snapshot) => {
-                const feedbackList = document.getElementById('advanced-feedback-list');
-                feedbackList.innerHTML = '';
+            let totalRating = 0;
+            let reviewCount = 0;
+
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                const reviewElement = document.createElement('div');
                 
-                if (snapshot.docs.length === 0) {
-                    feedbackList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪا به ترقي جي تجويز ناهي. پھريون شامل ڪريو!</p>';
-                    return;
-                }
+                const stars = '★'.repeat(data.rating) + '☆'.repeat(5 - data.rating);
+                const userNameDisplay = data.userName || "اڻڄاتل";
+                const likesCount = data.likes || 0;
 
-                snapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    const itemElement = document.createElement('div');
-                    
-                    const userNameDisplay = data.userName || "اڻڄاتل";
-                    const advanceText = data.advanceLevel === 'Yes' ? 'تيار آهي' : 'وڌيڪ مشق گهرجي';
+                reviewElement.className = 'bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-3 text-right-aligned';
+                reviewElement.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="text-amber-500 text-xl">${stars}</p>
+                        <p class="text-sm text-gray-500 font-bold">${userNameDisplay}</p>
+                    </div>
+                    <p class="text-gray-700">${data.text}</p>
+                    <div class="mt-3 text-right">
+                         <button onclick="window.toggleLike('${doc.id}', ${likesCount})" class="text-red-500 hover:text-red-600 transition-colors flex items-center float-left">
+                             <span class="mr-1">${likesCount}</span> ♥ 
+                         </button>
+                    </div>
+                `;
+                reviewsList.appendChild(reviewElement);
 
-                    itemElement.className = 'bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-400 mb-3 text-right-aligned';
-                    itemElement.innerHTML = `
-                        <div class="mb-2">
-                            <p class="text-lg font-bold text-teal-700">${userNameDisplay} (رايا ڏيندڙ)</p>
-                            <p class="text-sm text-gray-600">اڳڀرائي جي تياري: <span class="font-semibold">${advanceText}</span></p>
-                        </div>
-                        <p class="mt-2">**تبديلي گهربل:** <span class="text-gray-700">${data.changesWanted}</span></p>
-                        <p>**وڌيڪ سکڻ جو موضوع:** <span class="text-gray-700">${data.learnMoreTopic}</span></p>
-                    `;
-                    feedbackList.appendChild(itemElement);
-                });
-            }, (error) => {
-                 console.error("Error listening to advanced feedback: ", error);
-                 document.getElementById('advanced-feedback-list').innerHTML = `<p class="text-center text-red-600 mt-4">رايا لوڊ نه ٿي سگھيا (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
-            });
-        }
-        
-        // --- Structural Logic Refactor ---
-        function startAppLogic() {
-            // TTS Welcome Message
-            window.speakText("Welcome to Nirmal Jevtani Library Thariri Muhabat");
-
-            const mobileMenuButton = document.getElementById('mobile-menu-button');
-            const mobileMenu = document.getElementById('mobile-menu');
-            mobileMenuButton.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
+                totalRating += data.rating;
+                reviewCount++;
             });
 
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    document.querySelector(this.getAttribute('href')).scrollIntoView({
-                        behavior: 'smooth'
-                    });
-                    if (!mobileMenu.classList.contains('hidden')) {
-                         mobileMenu.classList.add('hidden');
-                    }
-                });
-            });
-
-            if (userName === "اڻڄاتل") {
-                window.changeUserName();
+            const avgRating = reviewCount > 0 ? (totalRating / reviewCount).toFixed(1) : 0;
+            document.getElementById('average-rating').textContent = `${avgRating} ستارن جي درجه بندي (${reviewCount} تبصرا)`;
+            
+            if (reviewCount === 0) {
+                 reviewsList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪو تبصرو ناهي. پھريون تبصرو شامل ڪريو!</p>';
             }
-            initFirebaseAndAuth();
-        }
+        }, (error) => {
+             console.error("Error listening to reviews: ", error);
+             document.getElementById('reviews-list').innerHTML = `<p class="text-center text-red-600 mt-4">تبصرو لوڊ نه ٿي سگھيو (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
+        });
+    }
+    
+    function listenForAdvancedFeedback(db, appId) {
+        const feedbackRef = getAdvancedFeedbackCollectionRef(db, appId);
+        const q = query(feedbackRef, orderBy('timestamp', 'desc')); 
+        
+        onSnapshot(q, (snapshot) => {
+            const feedbackList = document.getElementById('advanced-feedback-list');
+            feedbackList.innerHTML = '';
+            
+            if (snapshot.docs.length === 0) {
+                feedbackList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪا به ترقي جي تجويز ناهي. پھريون شامل ڪريو!</p>';
+                return;
+            }
 
-        document.addEventListener('DOMContentLoaded', startAppLogic);
-    </script>
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                const itemElement = document.createElement('div');
+                
+                const userNameDisplay = data.userName || "اڻڄاتل";
+                const advanceText = data.advanceLevel === 'Yes' ? 'تيار آهي' : 'وڌيڪ مشق گهرجي';
+
+                itemElement.className = 'bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-400 mb-3 text-right-aligned';
+                itemElement.innerHTML = `
+                    <div class="mb-2">
+                        <p class="text-lg font-bold text-teal-700">${userNameDisplay} (رايا ڏيندڙ)</p>
+                        <p class="text-sm text-gray-600">اڳڀرائي جي تياري: <span class="font-semibold">${advanceText}</span></p>
+                    </div>
+                    <p class="mt-2">**تبديلي گهربل:** <span class="text-gray-700">${data.changesWanted}</span></p>
+                    <p>**وڌيڪ سکڻ جو موضوع:** <span class="text-gray-700">${data.learnMoreTopic}</span></p>
+                `;
+                feedbackList.appendChild(itemElement);
+            });
+        }, (error) => {
+             console.error("Error listening to advanced feedback: ", error);
+             document.getElementById('advanced-feedback-list').innerHTML = `<p class="text-center text-red-600 mt-4">رايا لوڊ نه ٿي سگھيا (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
+        });
+    }
+    
+    // --- Structural Logic Refactor ---
+    function startAppLogic() {
+        // TTS Welcome Message
+        window.speakText("Welcome to Nirmal Jevtani Library Thariri Muhabat");
+
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+                if (!mobileMenu.classList.contains('hidden')) {
+                     mobileMenu.classList.add('hidden');
+                }
+            });
+        });
+
+        if (userName === "اڻڄاتل") {
+            window.changeUserName();
+        }
+        initFirebaseAndAuth();
+    }
+
+    document.addEventListener('DOMContentLoaded', startAppLogic);
+</script>
 </head>
 <body class="bg-stone-50 text-gray-800">
 
@@ -487,10 +496,16 @@
             <button id="change-name-btn" class="text-xs text-blue-600 font-normal underline mr-2" onclick="window.changeUserName()">نالو تبديل ڪريو</button>
         </p>
         
-        <!-- Banner Image/Illustration -->
-        <div class="mb-10 rounded-lg overflow-hidden shadow-2xl border-b-8 border-teal-500">
-             <img id="banner-image" src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/gh-pages/library-portal.jpg" alt="لائبريري بينر" class="w-full h-auto object-cover">
+        <!-- NEW: Large Portal Title (Replaces Banner) -->
+        <div class="py-12 md:py-20 bg-teal-600 rounded-lg shadow-xl mb-10 border-b-8 border-amber-400">
+            <h2 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-tight">
+                نرمل جيوتاڻي لائبريري
+            </h2>
+            <p class="text-xl sm:text-2xl mt-3 text-amber-200">
+                آن لائين پورٽل
+            </p>
         </div>
+        
 
 
         <!-- Library Inventory Section (TOP PRIORITY) -->
@@ -499,7 +514,7 @@
             <p class="text-center text-lg text-gray-600 mb-8">ھي لائبريريءَ ۾ موجود ڪتابن جي لائيو فهرست آھي، جنھن کي لائبريرين طرفان شامل ڪيو ويو آھي. ھتي سرچ ڪريو ته ڪھڙا ڪتاب اسان وٽ موجود آھن.</p>
             
             <div class="max-w-4xl mx-auto mb-4">
-                 <input type="text" id="inventory-search" onkeyup="window.filterInventory()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors text-right-aligned" placeholder="ڪتاب جو نالو يا ڪيٽيگري ڳوليو (Search by Title or Category)...">
+                 <input type="text" id="inventory-search" onkeyup="window.filterInventory()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors text-right-aligned responsive-placeholder" placeholder="ڪتاب جو نالو يا ڪيٽيگري ڳوليو (Search by Title or Category)...">
             </div>
 
             <div class="overflow-x-auto max-w-4xl mx-auto bg-white rounded-lg shadow-xl border-t-4 border-amber-500 max-h-96 overflow-y-auto">
@@ -543,7 +558,7 @@
                 </select>
 
                 <label for="review-text" class="block text-right mb-2 font-medium">توهان جو تبصرو</label>
-                <textarea id="review-text" rows="4" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned" placeholder="هتي لکو ته توهان کي ھي ويبسائيٽ ڪيئن لڳي..."></textarea>
+                <textarea id="review-text" rows="4" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned responsive-placeholder" placeholder="هتي لکو ته توهان کي ھي ويبسائيٽ ڪيئن لڳي..."></textarea>
                 
                 <div id="review-status" class="text-center mb-4 font-semibold text-sm"></div>
 
@@ -581,10 +596,10 @@
                 </select>
 
                 <label for="learn-more-topic" class="block text-right mb-2 font-medium">توهان وڌيڪ ڪهڙو موضوع سکڻ چاهيو ٿا؟ (مثال: جملن جي جوڙجڪ، گفتگو)</label>
-                <textarea id="learn-more-topic" rows="2" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned" placeholder="جيئن: Prepositions يا Dialogue writing"></textarea>
+                <textarea id="learn-more-topic" rows="2" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned responsive-placeholder" placeholder="جيئن: Prepositions يا Dialogue writing"></textarea>
                 
                 <label for="changes-wanted" class="block text-right mb-2 font-medium">هن ويبسائيٽ ۾ توهان ڪهڙيون تبديليون چاهيو ٿا؟</label>
-                <textarea id="changes-wanted" rows="3" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned" placeholder="جيئن: وڌيڪ مثال، وڊيوز، يا گهٽ مشق"></textarea>
+                <textarea id="changes-wanted" rows="3" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned responsive-placeholder" placeholder="جيئن: وڌيڪ مثال، وڊيوز، يا گهٽ مشق"></textarea>
 
                 
                 <div id="advanced-feedback-status" class="text-center mb-4 font-semibold text-sm"></div>
