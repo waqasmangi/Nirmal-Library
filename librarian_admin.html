@@ -1,3 +1,6 @@
+<!-- Chosen Palette: Teal, Amber, Stone (Minimal and Educational) -->
+<!-- Application Structure Plan: Dedicated Admin Dashboard with client-side password protection. Structure includes a persistent Form for CRUD operations (Add/Edit) and a Live Table (Book Inventory) with Delete/Edit buttons. Search function added for usability. Focus is on quick data management. -->
+<!-- Visualization & Content Choices: Login Screen (Report Info -> Security -> Simple Form + JS Validation -> Password input for access control -> Vanilla JS/HTML). Book Inventory (Report Info -> Organize -> Live Table + Search -> CRUD actions for management -> Firestore/Vanilla JS). CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 <!DOCTYPE html>
 <html lang="sd" dir="rtl">
 <head>
@@ -6,11 +9,30 @@
     <title>لائبريري انتظاميا پينل</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Custom Font: MB Lateefi.otf (CORRECTED) -->
+    <style>
+        @font-face {
+            font-family: 'MBLateefi';
+            src: url('MB Lateefi.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        body {
+            font-family: 'MBLateefi', 'Noto Nastaliq Urdu', serif;
+        }
+        .latin {
+            font-family: Inter, sans-serif;
+        }
+        .text-right-aligned {
+             text-align: right;
+        }
+    </style>
+
     <!-- Firebase SDK Imports for Database Management -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, setLogLevel, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, setLogLevel, doc, deleteDoc, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         setLogLevel('Debug');
         
@@ -32,6 +54,21 @@
         let inventoryData = []; // Global storage for all books
         let currentBookIdToEdit = null; // State to track which book is being edited
 
+        window.checkPassword = function() {
+            const inputPassword = document.getElementById('password-input').value;
+            const status = document.getElementById('login-status');
+            
+            if (inputPassword === ADMIN_PASSWORD) {
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('admin-content').classList.remove('hidden');
+                initFirebaseAndAuth();
+            } else {
+                status.textContent = 'غلط پاسورڊ. ٻيهر ڪوشش ڪريو.';
+                status.classList.add('text-red-500');
+            }
+        };
+
+        // --- Firebase Initialization and Auth ---
         async function initFirebaseAndAuth() {
             try {
                 const app = initializeApp(firebaseConfig);
@@ -151,7 +188,7 @@
 
         function listenForBooks(db, appId) {
             const booksRef = collection(db, `artifacts/${appId}/public/data/book_inventory`);
-            const q = query(booksRef); 
+            const q = query(booksRef, orderBy('timestamp', 'desc')); // Order by timestamp for latest first
             
             onSnapshot(q, (snapshot) => {
                 // 1. Store the full data set
@@ -205,27 +242,31 @@
         document.addEventListener('DOMContentLoaded', function() {
             const accessKey = prompt("مهرباني ڪري انتظاميا پاسورڊ داخل ڪريو:");
             if (accessKey === ADMIN_PASSWORD) {
-                document.getElementById('login-gate').classList.add('hidden');
+                document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('admin-content').classList.remove('hidden');
                 initFirebaseAndAuth();
             } else {
-                document.getElementById('login-gate').innerHTML = '<p class="text-red-500 font-bold text-2xl">غلط پاسورڊ. مهرباني ڪري ٻيهر ڪوشش ڪريو.</p>';
+                document.getElementById('login-screen').innerHTML = '<p class="text-red-500 font-bold text-2xl">غلط پاسورڊ. مهرباني ڪري ٻيهر ڪوشش ڪريو.</p>';
             }
         });
 
     </script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Noto Nastaliq Urdu', serif; }
-    </style>
 </head>
 <body class="bg-stone-50 text-gray-800 p-8">
 
-    <div id="login-gate" class="flex justify-center items-center h-screen text-center">
-        <p class="text-xl text-gray-600">انتظاميا پينل لوڊ ٿي رهيو آهي...</p>
+    <!-- Login Screen -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center p-4 bg-teal-800">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md text-center">
+            <h1 class="text-3xl font-bold mb-4 text-teal-700">لائبريري انتظاميا پينل</h1>
+            <p class="text-gray-600 mb-6">رسائي لاءِ پاسورڊ داخل ڪريو:</p>
+            <input type="password" id="password-input" class="w-full p-3 border border-gray-300 rounded-md mb-4 text-center" placeholder="پاسورڊ">
+            <button onclick="window.checkPassword()" class="w-full bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition-colors">رسائي</button>
+            <p id="login-status" class="mt-4 text-sm"></p>
+            <p class="mt-6 text-sm text-teal-600"><a href="index.html" class="underline hover:text-teal-800">مکيه ويبسائيٽ ڏانهن واپس</a></p>
+        </div>
     </div>
 
+    <!-- Admin Panel (Hidden until login) -->
     <div id="admin-content" class="container mx-auto hidden">
         <header class="text-center mb-10 pb-5 border-b-2 border-teal-500">
             <h1 class="text-4xl font-bold text-teal-700">نِرمل لائبريري ڪتابن جو انتظاميا پينل</h1>
@@ -240,11 +281,11 @@
         <div id="add-book-form-card" class="bg-white p-6 rounded-lg shadow-xl max-w-2xl mx-auto mb-10 border-t-4 border-amber-500">
             <h2 class="text-2xl font-bold mb-4 text-center">نئون ڪتاب شامل ڪريو</h2>
             <div class="mb-4">
-                <label for="book-title" class="block text-right mb-2 font-medium">ڪتاب جو نالو</label>
-                <input type="text" id="book-title" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: انگريزي گرامر جا بنيادي اصول">
+                <label for="book-title" class="block text-right mb-2 font-medium">ڪتاب جو نالو (مثال: Basic English Grammar)</label>
+                <input type="text" id="book-title" class="w-full p-2 border border-gray-300 rounded-md" placeholder="ڪتاب جو نالو">
             </div>
             <div class="mb-6">
-                <label for="book-category" class="block text-right mb-2 font-medium">ڪيٽيگري</label>
+                <label for="book-category" class="block text-right mb-2 font-medium">ڪيٽيگري (مثال: انگريزي، تاريخ، ناول)</label>
                 <input type="text" id="book-category" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: تعليم، تاريخ، ناول، سائنس">
             </div>
             
@@ -260,7 +301,7 @@
         <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">موجوده ڪتابن جي فهرست</h2>
         
         <div class="max-w-4xl mx-auto mb-4">
-             <input type="text" id="admin-search" onkeyup="window.filterBookList()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب ڳوليو (نالو يا ڪيٽيگري)">
+            <input type="text" id="admin-search" onkeyup="window.filterBookList()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب ڳوليو (نالو يا ڪيٽيگري)">
         </div>
         
         <div class="overflow-x-auto bg-white rounded-lg shadow-xl">
