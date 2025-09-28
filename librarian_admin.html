@@ -10,7 +10,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, setLogLevel, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, setLogLevel, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         setLogLevel('Debug');
         
@@ -30,6 +30,7 @@
         let db;
         let auth;
         let inventoryData = []; // Global storage for all books
+        let currentBookIdToEdit = null; // State to track which book is being edited
 
         async function initFirebaseAndAuth() {
             try {
@@ -54,27 +55,45 @@
             
             if (!title || !category) {
                 status.textContent = 'ڪتاب جو نالو ۽ ڪيٽيگري لازمي آھن.';
+                status.classList.remove('text-green-600', 'text-amber-500');
                 status.classList.add('text-red-600');
                 return;
             }
-            status.classList.remove('text-red-600');
-            status.textContent = 'ڪتاب جمع ڪري رهيو آهي...';
+            status.classList.remove('text-red-600', 'text-green-600');
+            status.classList.add('text-amber-500');
+            status.textContent = currentBookIdToEdit ? 'تبديليون محفوظ ڪري رهيو آهي...' : 'ڪتاب جمع ڪري رهيو آهي...';
+
 
             try {
-                await addDoc(collection(db, `artifacts/${appId}/public/data/book_inventory`), {
-                    title: title,
-                    category: category,
-                    timestamp: serverTimestamp()
-                });
+                if (currentBookIdToEdit) {
+                    // EDIT MODE: Update existing document
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/book_inventory`, currentBookIdToEdit), {
+                        title: title,
+                        category: category,
+                    });
+                    status.textContent = `ڪتاب "${title}" جون تبديليون ڪاميابي سان محفوظ ٿي ويون!`;
+                } else {
+                    // ADD MODE: Add new document
+                    await addDoc(collection(db, `artifacts/${appId}/public/data/book_inventory`), {
+                        title: title,
+                        category: category,
+                        timestamp: serverTimestamp()
+                    });
+                    status.textContent = `ڪتاب "${title}" ڪاميابي سان شامل ڪيو ويو!`;
+                }
 
-                status.textContent = `ڪتاب "${title}" ڪاميابي سان شامل ڪيو ويو!`;
+                status.classList.remove('text-amber-500');
                 status.classList.add('text-green-600');
+                
+                // Reset form state
                 document.getElementById('book-title').value = '';
                 document.getElementById('book-category').value = '';
+                window.cancelEdit(); // Reset to Add Mode
 
             } catch (e) {
-                console.error("Error adding book: ", e);
-                status.textContent = `ڪتاب شامل ڪرڻ ۾ غلطي ٿي. (رول چيڪ ڪريو): ${e.message}`;
+                console.error("Error submitting book: ", e);
+                status.textContent = `ڪتاب محفوظ ڪرڻ ۾ غلطي ٿي. (رول چيڪ ڪريو): ${e.message}`;
+                status.classList.remove('text-amber-500', 'text-green-600');
                 status.classList.add('text-red-600');
             }
         };
@@ -89,6 +108,44 @@
                     console.error("Error deleting book: ", e);
                 }
             }
+        };
+
+        // NEW: Function to load data into the form for editing
+        window.editBook = function(bookId) {
+            const bookToEdit = inventoryData.find(book => book.id === bookId);
+            if (!bookToEdit) {
+                alert("ڪتاب نه ملي سگھيو!");
+                return;
+            }
+            
+            document.getElementById('book-title').value = bookToEdit.title;
+            document.getElementById('book-category').value = bookToEdit.category;
+            
+            currentBookIdToEdit = bookId; // Set global state
+            
+            // Change button appearance and add Cancel button
+            document.getElementById('submit-book-btn').textContent = 'تبديليون محفوظ ڪريو';
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+            
+            // Clear status message
+            document.getElementById('status').textContent = 'ڪتاب ايڊٽ ڪرڻ لاءِ تياري...';
+            document.getElementById('status').classList.remove('text-green-600', 'text-red-600');
+            document.getElementById('status').classList.add('text-amber-500');
+
+            // Scroll to form
+            document.getElementById('add-book-form-card').scrollIntoView({ behavior: 'smooth' });
+        };
+        
+        // NEW: Function to reset the form after editing or cancellation
+        window.cancelEdit = function() {
+            currentBookIdToEdit = null;
+            document.getElementById('book-title').value = '';
+            document.getElementById('book-category').value = '';
+            
+            // Reset button appearance
+            document.getElementById('submit-book-btn').textContent = 'ڪتاب شامل ڪريو';
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+            document.getElementById('status').textContent = '';
         };
 
 
@@ -135,7 +192,8 @@
                     <td class="p-4 font-semibold">${data.title}</td>
                     <td class="p-4">${data.category}</td>
                     <td class="p-4 text-sm text-gray-500">${data.time}</td>
-                    <td class="p-4">
+                    <td class="p-4 space-x-2 space-x-reverse flex justify-end">
+                        <button onclick="window.editBook('${data.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors text-sm">ايڊٽ ڪريو</button>
                         <button onclick="window.deleteBook('${data.id}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm">حذف ڪريو</button>
                     </td>
                 `;
@@ -178,8 +236,8 @@
             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-center">← مکيه ويبسائيٽ ڏانهن واپس وڃو</a>
         </div>
 
-        <!-- Add Book Form -->
-        <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl mx-auto mb-10 border-t-4 border-amber-500">
+        <!-- Add/Edit Book Form -->
+        <div id="add-book-form-card" class="bg-white p-6 rounded-lg shadow-xl max-w-2xl mx-auto mb-10 border-t-4 border-amber-500">
             <h2 class="text-2xl font-bold mb-4 text-center">نئون ڪتاب شامل ڪريو</h2>
             <div class="mb-4">
                 <label for="book-title" class="block text-right mb-2 font-medium">ڪتاب جو نالو</label>
@@ -192,7 +250,10 @@
             
             <div id="status" class="text-center mb-4 font-semibold text-sm"></div>
 
-            <button onclick="window.submitBook()" class="w-full bg-teal-600 text-white font-bold py-3 rounded-md hover:bg-teal-700 transition-colors">ڪتاب شامل ڪريو</button>
+            <div class="flex space-x-2 space-x-reverse">
+                <button onclick="window.submitBook()" id="submit-book-btn" class="w-full bg-teal-600 text-white font-bold py-3 rounded-md hover:bg-teal-700 transition-colors">ڪتاب شامل ڪريو</button>
+                <button onclick="window.cancelEdit()" id="cancel-edit-btn" class="hidden bg-gray-400 text-white font-bold py-3 px-4 rounded-md hover:bg-gray-500 transition-colors whitespace-nowrap">منسوخ ڪريو</button>
+            </div>
         </div>
 
         <!-- Book List Table -->
