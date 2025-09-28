@@ -145,7 +145,7 @@
         };
         
         window.shareSuggestion = function(level, changes, topic) {
-            const levelText = level === 'Yes' ? 'تيار آهيان' : 'وڌيڪ مشق گهرجي';
+            const levelText = level === 'مقرر نه ڪيل' ? 'تياري جي سطح مقرر نه ڪئي وئي' : level; // Use static placeholder
             const message = `💡 نئين ترقي جي تجويز: ${userName} طرفان\n- تياري جي سطح: ${levelText}\n- تبديلي گهربل: ${changes}\n- سکڻ جو نئون موضوع: ${topic}\n`;
             window.shareOnWhatsApp(message);
         };
@@ -295,27 +295,28 @@
         };
         
         window.submitAdvancedFeedback = async function() {
-            const advanceLevel = document.getElementById('advance-level').value;
+            // const advanceLevel = document.getElementById('advance-level').value; // REMOVED
             const changes = document.getElementById('changes-wanted').value.trim();
             const learnMore = document.getElementById('learn-more-topic').value.trim();
             const status = document.getElementById('advanced-feedback-status');
             
-            if (!advanceLevel || !changes || !learnMore) { status.textContent = 'مھرباني ڪري سڀئي خالي جايون ڀريو.'; return; }
+            // Modified check: removed check for advanceLevel
+            if (!changes || !learnMore) { status.textContent = 'مھرباني ڪري سڀئي خالي جايون ڀريو.'; return; }
 
             status.textContent = 'رايا موڪلي رهيو آهي...';
             status.classList.remove('text-red-600', 'text-green-600');
             status.classList.add('text-amber-600');
             
             try {
-                // 1. Save to Firestore (for persistent display)
+                // 1. Save to Firestore (Removed advanceLevel field)
                 await addDoc(getAdvancedFeedbackCollectionRef(db, appId), {
-                    userName: userName, advanceLevel: advanceLevel, changesWanted: changes, learnMoreTopic: learnMore, timestamp: serverTimestamp()
+                    userName: userName, changesWanted: changes, learnMoreTopic: learnMore, timestamp: serverTimestamp()
                 });
                 
-                // 2. Send Email via Formspree (for notification)
+                // 2. Send Email via Formspree (Removed advanceLevel field)
                 const formData = new FormData();
                 formData.append('Name', userName);
-                formData.append('Level_Readiness', advanceLevel);
+                // formData.append('Level_Readiness', advanceLevel); // REMOVED
                 formData.append('Changes_Requested', changes);
                 formData.append('Topic_Requested', learnMore);
                 formData.append('_subject', `New Advanced Suggestion: ${userName}`); 
@@ -324,8 +325,9 @@
             const safeChanges = changes.replace(/'/g, "\\'").replace(/"/g, '\\"');
             const safeTopic = learnMore.replace(/'/g, "\\'").replace(/"/g, '\\"');
             
+            // Modified shareSuggestion call (using a static placeholder 'مقرر نه ڪيل' for the removed level)
             status.innerHTML = `<p class="text-green-600 font-semibold">توهان جا تفصيلي رايا موڪليا ويا! مهرباني.</p>
-                <button onclick="window.shareSuggestion('${advanceLevel}', '${safeChanges}', '${safeTopic}')" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors flex items-center mx-auto">
+                <button onclick="window.shareSuggestion('مقرر نه ڪيل', '${safeChanges}', '${safeTopic}')" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors flex items-center mx-auto">
                     WhatsApp تي شيئر ڪريو 💬
                 </button>`;
 
@@ -411,13 +413,13 @@
                 const itemElement = document.createElement('div');
                 
                 const userNameDisplay = data.userName || "اڻڄاتل";
-                const advanceText = data.advanceLevel === 'Yes' ? 'تيار آهي' : 'وڌيڪ مشق گهرجي';
+                // Removed: const advanceText = data.advanceLevel === 'Yes' ? 'تيار آهي' : 'وڌيڪ مشق گهرجي';
 
                 itemElement.className = 'bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-400 mb-3 text-right-aligned';
                 itemElement.innerHTML = `
                     <div class="mb-2">
                         <p class="text-lg font-bold text-teal-700">${userNameDisplay} (رايا ڏيندڙ)</p>
-                        <p class="text-sm text-gray-600">اڳڀرائي جي تياري: <span class="font-semibold">${advanceText}</span></p>
+                        <p class="text-sm text-gray-600">اڳڀرائي جي رايا.</p>
                     </div>
                     <p class="mt-2">**تبديلي گهربل:** <span class="text-gray-700">${data.changesWanted}</span></p>
                     <p>**وڌيڪ سکڻ جو موضوع:** <span class="text-gray-700">${data.learnMoreTopic}</span></p>
@@ -587,11 +589,7 @@
                     <input type="hidden" name="Feedback_Type" value="Advanced_Suggestion">
                 </form>
 
-                <label for="advance-level" class="block text-right mb-2 font-medium">ڇا توهان ايندڙ سطح تي وڃڻ چاهيو ٿا؟</label>
-                <select id="advance-level" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50">
-                    <option value="Yes">ها، مان تيار آهيان!</option>
-                    <option value="No">نه، مون کي هن سطح تي وڌيڪ مشق گهرجي.</option>
-                </select>
+                <!-- Removed: ڇا توهان ايندڙ سطح تي وڃڻ چاهيو ٿا؟ -->
 
                 <label for="learn-more-topic" class="block text-right mb-2 font-medium">توهان وڌيڪ ڪهڙو موضوع سکڻ چاهيو ٿا؟ (مثال: جملن جي جوڙجڪ، گفتگو)</label>
                 <textarea id="learn-more-topic" rows="2" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned responsive-placeholder" placeholder="جيئن: Prepositions يا Dialogue writing"></textarea>
