@@ -93,6 +93,31 @@
             }
         };
         
+        // --- WhatsApp Share Function ---
+        window.shareOnWhatsApp = function(message) {
+            // Using the user's confirmed hosted link for the backlink
+            const websiteLink = "http://nirmallibrary.atwebpages.com/index.html";
+            const fullMessage = encodeURIComponent(`${message}\n\n[نِرمل لائبريري ويبسائيٽ]\n${websiteLink}`);
+            
+            // Open WhatsApp link
+            window.open(`whatsapp://send?text=${fullMessage}`, '_blank');
+        };
+
+        // Prepare Review message for sharing
+        window.shareReview = function(text, rating) {
+            const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+            const message = `نئون تبصرو: ${userName} طرفان\nدرجه بندي: ${stars}\nروايو: ${text}\n`;
+            window.shareOnWhatsApp(message);
+        };
+        
+        // Prepare Suggestion message for sharing
+        window.shareSuggestion = function(level, changes, topic) {
+            const levelText = level === 'Yes' ? 'تيار آهيان' : 'وڌيڪ مشق گهرجي';
+            const message = `نئين ترقي جي تجويز: ${userName} طرفان\n- تياري جي سطح: ${levelText}\n- تبديلي گهربل: ${changes}\n- سکڻ جو نئون موضوع: ${topic}\n`;
+            window.shareOnWhatsApp(message);
+        };
+        // --- End WhatsApp Share Function ---
+
         // --- Firebase Initialization and Auth ---
         async function initFirebaseAndAuth() {
             try {
@@ -168,7 +193,14 @@
                     timestamp: serverTimestamp()
                 });
 
-                reviewStatus.textContent = 'توهان جو تبصرو موڪليو ويو! مهرباني.';
+                // Success: Display success message and WhatsApp button (VISUALLY DISTINGUISHED)
+                const safeText = text.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                reviewStatus.innerHTML = `
+                    <p class="text-green-600 font-semibold">توهان جو تبصرو موڪليو ويو! مهرباني.</p>
+                    <button onclick="window.shareReview('${safeText}', ${parseInt(rating, 10)})" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors flex items-center mx-auto">
+                        WhatsApp تي شيئر ڪريو 💬
+                    </button>`;
+
                 reviewStatus.classList.remove('text-amber-600', 'text-red-600');
                 reviewStatus.classList.add('text-green-600');
                 document.getElementById('review-text').value = '';
@@ -215,8 +247,16 @@
                     learnMoreTopic: learnMore,
                     timestamp: serverTimestamp()
                 });
+                
+                // Success: Display success message and WhatsApp button (VISUALLY DISTINGUISHED)
+                const safeChanges = changes.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                const safeTopic = learnMore.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                
+                status.innerHTML = `<p class="text-green-600 font-semibold">توهان جا تفصيلي رايا موڪليا ويا! مهرباني.</p>
+                    <button onclick="window.shareSuggestion('${advanceLevel}', '${safeChanges}', '${safeTopic}')" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors flex items-center mx-auto">
+                        WhatsApp تي شيئر ڪريو 💬
+                    </button>`;
 
-                status.textContent = 'توهان جا تفصيلي رايا موڪليا ويا! مهرباني.';
                 status.classList.remove('text-amber-600', 'text-red-600');
                 status.classList.add('text-green-600');
                 document.getElementById('changes-wanted').value = '';
@@ -755,6 +795,7 @@
 
     <footer class="text-center p-4 bg-stone-200 text-gray-600">
         <p>&copy; 2025 نِرمل جيتواڻي لائبريري. سڀ حق محفوظ آھن.</p>
+        <p class="text-sm mt-1 latin">Website Version 1.0</p>
     </footer>
 
     <script>
