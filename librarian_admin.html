@@ -29,6 +29,7 @@
         
         let db;
         let auth;
+        let inventoryData = []; // Global storage for all books
 
         async function initFirebaseAndAuth() {
             try {
@@ -96,37 +97,51 @@
             const q = query(booksRef); 
             
             onSnapshot(q, (snapshot) => {
-                const list = document.getElementById('book-list');
-                list.innerHTML = '';
-                
-                if (snapshot.docs.length === 0) {
-                    list.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">لائبريريءَ ۾ ڪي بہ ڪتاب شامل ناهن.</td></tr>';
-                    return;
-                }
-
-                snapshot.docs.forEach((doc, index) => {
-                    const data = doc.data();
-                    const row = document.createElement('tr');
-                    row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                    
-                    const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleDateString('sd-PK') : 'نامعلوم';
-
-                    row.innerHTML = `
-                        <td class="p-4">${index + 1}</td>
-                        <td class="p-4 font-semibold">${data.title}</td>
-                        <td class="p-4">${data.category}</td>
-                        <td class="p-4 text-sm text-gray-500">${time}</td>
-                        <td class="p-4">
-                            <button onclick="window.deleteBook('${doc.id}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm">حذف ڪريو</button>
-                        </td>
-                    `;
-                    list.appendChild(row);
-                });
+                // 1. Store the full data set
+                inventoryData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    time: doc.data().timestamp ? new Date(doc.data().timestamp.toDate()).toLocaleDateString('sd-PK') : 'نامعلوم'
+                }));
+                // 2. Render the initial list (unfiltered)
+                filterBookList(); 
             }, (error) => {
                  console.error("Error listening to books: ", error);
-                 document.getElementById('book-list').innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-600">لوڊ ڪرڻ ۾ غلطي: ${error.message}</td></tr>`;
+                 document.getElementById('book-list').innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-600">لوڊ ڪرڻ ۾ غلطي: ${error.message}</td></tr>`;
             });
         }
+        
+        window.filterBookList = function() {
+            const searchTerm = document.getElementById('admin-search').value.toLowerCase().trim();
+            const list = document.getElementById('book-list');
+            list.innerHTML = '';
+            
+            const filteredData = inventoryData.filter(book => 
+                book.title.toLowerCase().includes(searchTerm) || 
+                book.category.toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredData.length === 0) {
+                 list.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">ڪابه ڪتاب نه ملي سگهي.</td></tr>';
+                 return;
+            }
+
+            filteredData.forEach((data, index) => {
+                const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                row.innerHTML = `
+                    <td class="p-4">${index + 1}</td>
+                    <td class="p-4 font-semibold">${data.title}</td>
+                    <td class="p-4">${data.category}</td>
+                    <td class="p-4 text-sm text-gray-500">${data.time}</td>
+                    <td class="p-4">
+                        <button onclick="window.deleteBook('${data.id}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm">حذف ڪريو</button>
+                    </td>
+                `;
+                list.appendChild(row);
+            });
+        };
         
         // --- Admin Access Gate ---
         document.addEventListener('DOMContentLoaded', function() {
@@ -158,6 +173,10 @@
             <h1 class="text-4xl font-bold text-teal-700">نِرمل لائبريري ڪتابن جو انتظاميا پينل</h1>
             <p class="mt-2 text-gray-600">ڪتاب شامل ڪريو ۽ فهرست کي منظم ڪريو.</p>
         </header>
+        
+        <div class="max-w-2xl mx-auto mb-6">
+            <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-center">← مکيه ويبسائيٽ ڏانهن واپس وڃو</a>
+        </div>
 
         <!-- Add Book Form -->
         <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl mx-auto mb-10 border-t-4 border-amber-500">
@@ -178,6 +197,11 @@
 
         <!-- Book List Table -->
         <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">موجوده ڪتابن جي فهرست</h2>
+        
+        <div class="max-w-4xl mx-auto mb-4">
+             <input type="text" id="admin-search" onkeyup="window.filterBookList()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب ڳوليو (نالو يا ڪيٽيگري)">
+        </div>
+        
         <div class="overflow-x-auto bg-white rounded-lg shadow-xl">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead>
