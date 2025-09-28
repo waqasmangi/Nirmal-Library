@@ -42,12 +42,23 @@
         
         // --- TTS Helper Function ---
         window.speakText = function(text) {
+            // Check if TTS is supported by the browser
             if ('speechSynthesis' in window) {
+                // Ensure a voice is available and set
+                const voices = speechSynthesis.getVoices();
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'en-US'; 
+                
+                // Try to use a common US English voice for clear English pronunciation
+                const enVoice = voices.find(voice => voice.lang === 'en-US' || voice.lang.startsWith('en'));
+                if (enVoice) {
+                    utterance.voice = enVoice;
+                } else {
+                    utterance.lang = 'en-US'; 
+                }
+
                 speechSynthesis.speak(utterance);
             } else {
-                console.error("TTS not supported by this browser or blocked due to file:// protocol.");
+                console.error("TTS not supported by this browser.");
             }
         };
         // --- End TTS Helper Function ---
@@ -96,6 +107,7 @@
         // --- WhatsApp Share Function ---
         window.shareOnWhatsApp = function(message) {
             // Using the user's confirmed hosted link for the backlink
+            // NOTE: Using HTTPS is highly recommended for WhatsApp functionality
             const websiteLink = "http://nirmallibrary.atwebpages.com/index.html";
             const fullMessage = encodeURIComponent(`${message}\n\n[نِرمل لائبريري ويبسائيٽ]\n${websiteLink}`);
             
@@ -106,14 +118,14 @@
         // Prepare Review message for sharing
         window.shareReview = function(text, rating) {
             const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
-            const message = `نئون تبصرو: ${userName} طرفان\nدرجه بندي: ${stars}\nروايو: ${text}\n`;
+            const message = `📚 نئون تبصرو: ${userName} طرفان\nدرجه بندي: ${stars}\nروايو: ${text}\n`;
             window.shareOnWhatsApp(message);
         };
         
         // Prepare Suggestion message for sharing
         window.shareSuggestion = function(level, changes, topic) {
             const levelText = level === 'Yes' ? 'تيار آهيان' : 'وڌيڪ مشق گهرجي';
-            const message = `نئين ترقي جي تجويز: ${userName} طرفان\n- تياري جي سطح: ${levelText}\n- تبديلي گهربل: ${changes}\n- سکڻ جو نئون موضوع: ${topic}\n`;
+            const message = `💡 نئين ترقي جي تجويز: ${userName} طرفان\n- تياري جي سطح: ${levelText}\n- تبديلي گهربل: ${changes}\n- سکڻ جو نئون موضوع: ${topic}\n`;
             window.shareOnWhatsApp(message);
         };
         // --- End WhatsApp Share Function ---
@@ -361,6 +373,9 @@
 
 
         document.addEventListener('DOMContentLoaded', function() {
+            // WELCOME TTS MESSAGE
+            window.speakText("Welcome to Nirmal Jevtani Library, Thariri Muhabat.");
+
             // Check if name is needed before proceeding to Firebase init
             if (userName === "اڻڄاتل") {
                 window.changeUserName();
