@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="sd" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بنيادي انگريزي سکيا</title>
+    <!-- Chosen Palette: Calm Harmony (Teal, Amber, Stone) -->
+    <!-- Application Structure Plan: A single-page app with a sticky top navigation bar (Alphabet, Vocabulary, Grammar, Practice, Feedback, Advanced Feedback, About) for non-linear learning. The structure prioritizes user interaction over the book's linear chapter format. Key additions include a detailed Grammar section (tenses), live persistent Feedback/Review, Advanced Feedback form, and TTS functionality. This design is chosen for maximum engagement and community feedback integration. -->
+    <!-- Visualization & Content Choices: Alphabet -> Interactive Grid. Vocabulary -> Flashcards, TTS, & Bar Chart (Chart.js). Grammar -> Detailed Accordions with TTS. Practice -> Multi-stage interactive Quizzes. Feedback -> Live Star Rating & Text Submission (Firestore). Advanced Feedback -> Live Goal setting form display (Firestore). NO SVG/Mermaid used. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Firebase SDK Imports for Live Feedback System -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, setLogLevel, updateDoc, doc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        setLogLevel('Debug');
+        
+        // =========================================================================
+        // !!! CRITICAL: FIREBASE CONFIGURATION SETUP (UPDATED WITH YOUR KEYS) !!!
+        // The placeholder keys have been replaced by your actual credentials.
+        // This resolves the "auth/api-key-not-valid" error.
+        // =========================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxgOhd3y5L7Xl_IzWkuJ02PBlswR9lt5k",
+            authDomain: "nirmal-library.firebaseapp.com",
+            projectId: "nirmal-library", 
+            storageBucket: "nirmal-library.firebasestorage.app",
+            messagingSenderId: "157338670869",
+            appId: "1:157338670869:web:f44c9b0a3d9e9ebedcfb1c"
+        };
+        const appId = firebaseConfig.projectId; // Ensuring appId matches projectId
+        // =========================================================================
+
+        let userName = sessionStorage.getItem('userName') || "اڻڄاتل";
+        let userId = ''; 
+        let db;
+        let auth;
+        
+        // --- TTS Helper Function ---
+        window.speakText = function(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US'; 
+                speechSynthesis.speak(utterance);
+            } else {
+                console.error("TTS not supported by this browser or blocked due to file:// protocol.");
+            }
+        };
+        // --- End TTS Helper Function ---
+
+        // Function to handle name change/input (Now used primarily via button)
+        window.changeUserName = function() {
+            let newName = null;
+            let currentName = sessionStorage.getItem('userName') || '';
+
+            do {
+                newName = prompt("مهرباني ڪري پنهنجو نالو داخل ڪريو (تبصرو ۽ تجويزون موڪلڻ لاءِ):", currentName);
+                if (newName === null) { 
+                    return;
+                }
+                newName = newName.trim();
+                if (newName === '') {
+                    alert("نالو خالي نٿو ٿي سگھي. مهرباني ڪري نالو داخل ڪريو.");
+                }
+            } while (newName === '');
+
+            userName = newName;
+            sessionStorage.setItem('userName', userName);
+            document.getElementById('user-name-display').textContent = userName;
+        };
+
+        // --- Like Feature Implementation ---
+        window.toggleLike = async function(docId, currentLikes) {
+            if (!userId) {
+                alert("مهرباني ڪري انتظار ڪريو جيستائين سسٽم ڊيٽابيس سان ڳنڍي وڃي يا پنهنجو نالو داخل ڪريو.");
+                return;
+            }
+            
+            const reviewRef = doc(db, `artifacts/${appId}/public/data/reviews`, docId);
+            
+            try {
+                // Safely update the likes field by incrementing by 1
+                await updateDoc(reviewRef, {
+                    likes: currentLikes + 1
+                });
+            } catch (e) {
+                console.error("Error updating document (Like): ", e);
+                alert(`لائڪ موڪلڻ ۾ غلطي ٿي (Permissions Issue): ${e.message}.`);
+            }
+        };
+        
+        // --- Firebase Initialization and Auth ---
+        async function initFirebaseAndAuth() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                await signInAnonymously(auth);
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                
+                // Display the user name (whether stored or default)
+                document.getElementById('user-name-display').textContent = userName;
+
+                // Start listeners
+                listenForReviews(db, appId);
+                listenForAdvancedFeedback(db, appId);
+            } catch (error) {
+                console.error("Firebase Auth Error:", error);
+                userId = crypto.randomUUID();
+                
+                // --- Display Error Message for User ---
+                const reviewStatusElement = document.getElementById('review-status');
+                reviewStatusElement.classList.remove('text-green-600', 'text-amber-600');
+                reviewStatusElement.classList.add('text-red-600');
+                
+                let errorMessage = `ڊيٽابيس لوڊ نه ٿي سگھيو. (غلطي: ${error.code}). مھرباني ڪري Firebase کنسول ۾ Anonymous Authentication کي چالو ڪريو ۽ سڀني Security Ruless کي Publish ڪريو.`;
+                if (error.code === 'auth/configuration-not-found' || error.code === 'auth/api-key-not-valid') {
+                    // This error indicates the keys or anonymous auth is wrong
+                    errorMessage = `فائر بيس غلطي: ${error.code}. مھرباني ڪري تصديق ڪريو ته توهان جي پروجيڪٽ ۾ "Anonymous Authentication" چالو آھي.`;
+                }
+                reviewStatusElement.textContent = errorMessage;
+            }
+        }
+        
+        function getReviewsCollectionRef(db, appId) {
+            return collection(db, `artifacts/${appId}/public/data/reviews`);
+        }
+        
+        function getAdvancedFeedbackCollectionRef(db, appId) {
+            return collection(db, `artifacts/${appId}/public/data/advancedFeedback`);
+        }
+
+        window.submitReview = async function() {
+            const rating = document.getElementById('review-rating').value;
+            const text = document.getElementById('review-text').value.trim();
+            const reviewStatus = document.getElementById('review-status');
+            
+            if (userName === "اڻڄاتل" || !userName.trim()) {
+                 reviewStatus.textContent = 'مھرباني ڪري تبصرو ڪرڻ کان پھريان نالو داخل ڪريو.';
+                 reviewStatus.classList.remove('text-green-600', 'text-amber-600');
+                 reviewStatus.classList.add('text-red-600');
+                 window.changeUserName();
+                 return;
+            }
+
+            if (!rating || !text) {
+                reviewStatus.textContent = 'مھرباني ڪري ريٽنگ ۽ تبصرو ٻئي ڏيو.';
+                reviewStatus.classList.remove('text-green-600', 'text-amber-600');
+                reviewStatus.classList.add('text-red-600');
+                return;
+            }
+
+            try {
+                reviewStatus.textContent = 'تبصرو موڪلي رهيو آهي...';
+                reviewStatus.classList.remove('text-red-600', 'text-green-600');
+                reviewStatus.classList.add('text-amber-600');
+                
+                await addDoc(getReviewsCollectionRef(db, appId), {
+                    userName: userName,
+                    rating: parseInt(rating, 10),
+                    text: text,
+                    likes: 0, // Initialize likes
+                    timestamp: serverTimestamp()
+                });
+
+                reviewStatus.textContent = 'توهان جو تبصرو موڪليو ويو! مهرباني.';
+                reviewStatus.classList.remove('text-amber-600', 'text-red-600');
+                reviewStatus.classList.add('text-green-600');
+                document.getElementById('review-text').value = '';
+                document.getElementById('review-rating').value = 5;
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                // The most common error here is 'permission-denied' due to security rules
+                reviewStatus.textContent = `تبصرو موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied). مھرباني ڪري Firebase رول (Security Rules) درست ڪريو.`;
+                reviewStatus.classList.remove('text-green-600', 'text-amber-600');
+                reviewStatus.classList.add('text-red-600');
+            }
+        };
+        
+        window.submitAdvancedFeedback = async function() {
+            const advanceLevel = document.getElementById('advance-level').value;
+            const changes = document.getElementById('changes-wanted').value.trim();
+            const learnMore = document.getElementById('learn-more-topic').value.trim();
+            const status = document.getElementById('advanced-feedback-status');
+            
+            if (userName === "اڻڄاتل" || !userName.trim()) {
+                 status.textContent = 'مھرباني ڪري تجويز موڪلڻ کان پھريان نالو داخل ڪريو.';
+                 status.classList.remove('text-green-600', 'text-amber-600');
+                 status.classList.add('text-red-600');
+                 window.changeUserName();
+                 return;
+            }
+
+            if (!advanceLevel || !changes || !learnMore) {
+                status.textContent = 'مھرباني ڪري سڀئي خالي جايون ڀريو.';
+                status.classList.remove('text-green-600', 'text-amber-600');
+                status.classList.add('text-red-600');
+                return;
+            }
+
+            try {
+                status.textContent = 'رايا موڪلي رهيو آهي...';
+                status.classList.remove('text-red-600', 'text-green-600');
+                status.classList.add('text-amber-600');
+                
+                await addDoc(getAdvancedFeedbackCollectionRef(db, appId), {
+                    userName: userName,
+                    advanceLevel: advanceLevel,
+                    changesWanted: changes,
+                    learnMoreTopic: learnMore,
+                    timestamp: serverTimestamp()
+                });
+
+                status.textContent = 'توهان جا تفصيلي رايا موڪليا ويا! مهرباني.';
+                status.classList.remove('text-amber-600', 'text-red-600');
+                status.classList.add('text-green-600');
+                document.getElementById('changes-wanted').value = '';
+                document.getElementById('learn-more-topic').value = '';
+            } catch (e) {
+                console.error("Error adding advanced feedback: ", e);
+                status.textContent = `رايا موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied). مھرباني ڪري Firebase رول (Security Rules) درست ڪريو.`;
+                status.classList.remove('text-green-600', 'text-amber-600');
+                status.classList.add('text-red-600');
+            }
+        };
+
+
+        function listenForReviews(db, appId) {
+            const reviewsRef = getReviewsCollectionRef(db, appId);
+            // Query: Get all documents, ordered by timestamp descending (newest first)
+            const q = query(reviewsRef, orderBy('timestamp', 'desc')); 
+            
+            onSnapshot(q, (snapshot) => {
+                const reviewsList = document.getElementById('reviews-list');
+                reviewsList.innerHTML = '';
+                
+                let totalRating = 0;
+                let reviewCount = 0;
+
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    const reviewElement = document.createElement('div');
+                    
+                    const stars = '★'.repeat(data.rating) + '☆'.repeat(5 - data.rating);
+                    const userNameDisplay = data.userName || "اڻڄاتل";
+                    const likesCount = data.likes || 0;
+
+                    reviewElement.className = 'bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-3';
+                    reviewElement.innerHTML = `
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-amber-500 text-xl">${stars}</p>
+                            <p class="text-sm text-gray-500 font-bold">${userNameDisplay}</p>
+                        </div>
+                        <p class="text-gray-700">${data.text}</p>
+                        <div class="mt-3 text-right">
+                             <button onclick="window.toggleLike('${doc.id}', ${likesCount})" class="text-red-500 hover:text-red-600 transition-colors flex items-center float-left">
+                                 <span class="mr-1">${likesCount}</span> ♥ 
+                             </button>
+                        </div>
+                    `;
+                    reviewsList.appendChild(reviewElement);
+
+                    totalRating += data.rating;
+                    reviewCount++;
+                });
+
+                const avgRating = reviewCount > 0 ? (totalRating / reviewCount).toFixed(1) : 0;
+                document.getElementById('average-rating').textContent = `${avgRating} ستارن جي درجه بندي (${reviewCount} تبصرا)`;
+                
+                if (reviewCount === 0) {
+                     reviewsList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪو تبصرو ناهي. پھريون تبصرو شامل ڪريو!</p>';
+                }
+            }, (error) => {
+                 console.error("Error listening to reviews: ", error);
+                 document.getElementById('reviews-list').innerHTML = `<p class="text-center text-red-600 mt-4">تبصرو لوڊ نه ٿي سگھيو (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
+            });
+        }
+        
+        function listenForAdvancedFeedback(db, appId) {
+            const feedbackRef = getAdvancedFeedbackCollectionRef(db, appId);
+            // Query: Get all documents, ordered by timestamp descending (newest first)
+            const q = query(feedbackRef, orderBy('timestamp', 'desc')); 
+            
+            onSnapshot(q, (snapshot) => {
+                const feedbackList = document.getElementById('advanced-feedback-list');
+                feedbackList.innerHTML = '';
+                
+                if (snapshot.docs.length === 0) {
+                    feedbackList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪا به ترقي جي تجويز ناهي. پھريون شامل ڪريو!</p>';
+                    return;
+                }
+
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    const itemElement = document.createElement('div');
+                    
+                    const userNameDisplay = data.userName || "اڻڄاتل";
+                    const advanceText = data.advanceLevel === 'Yes' ? 'تيار آهي' : 'وڌيڪ مشق گهرجي';
+
+                    itemElement.className = 'bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-400 mb-3';
+                    itemElement.innerHTML = `
+                        <div class="mb-2">
+                            <p class="text-lg font-bold text-teal-700">${userNameDisplay} (رايا ڏيندڙ)</p>
+                            <p class="text-sm text-gray-600">اڳڀرائي جي تياري: <span class="font-semibold">${advanceText}</span></p>
+                        </div>
+                        <p class="mt-2">**تبديلي گهربل:** <span class="text-gray-700">${data.changesWanted}</span></p>
+                        <p>**وڌيڪ سکڻ جو موضوع:** <span class="text-gray-700">${data.learnMoreTopic}</span></p>
+                    `;
+                    feedbackList.appendChild(itemElement);
+                });
+            }, (error) => {
+                 console.error("Error listening to advanced feedback: ", error);
+                 document.getElementById('advanced-feedback-list').innerHTML = `<p class="text-center text-red-600 mt-4">رايا لوڊ نه ٿي سگھيا (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
+            });
+        }
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if name is needed before proceeding to Firebase init
+            if (userName === "اڻڄاتل") {
+                window.changeUserName();
+            }
+            initFirebaseAndAuth();
+        });
+
+    </script>
+    <!-- End Firebase SDK Imports -->
+
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            /* Using Noto Nastaliq Urdu for Nastaliq style Sindhi */
+            font-family: 'Noto Nastaliq Urdu', serif;
+        }
+        .latin {
+            font-family: 'Inter', sans-serif;
+        }
+        .card-flip {
+            perspective: 1000px;
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        /* Hover flip for desktop, click flip for mobile */
+        @media (min-width: 768px) {
+            .card-flip:hover .card-inner {
+                transform: rotateY(180deg);
+            }
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 1rem;
+            text-align: center;
+            border-radius: 0.5rem;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+            max-width: 600px; 
+            margin-left: auto; 
+            margin-right: auto; 
+            height: 300px;
+            max-height: 400px; 
+        }
+        .accordion-content {
+            /* Increased max-height for better text visibility */
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            max-height: 0;
+            overflow: hidden;
+            padding: 0 1rem;
+            text-align: justify; /* Ensure text is justified */
+        }
+        .accordion-active .accordion-content {
+             max-height: 2000px; /* Increased height to prevent cutoff */
+             padding: 1rem;
+        }
+        .speaker-icon {
+            cursor: pointer;
+            color: #115e59; /* Teal-700 */
+            margin-right: 0.5rem;
+        }
+        @media (min-width: 768px) { 
+            .chart-container { 
+                height: 350px; 
+            } 
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-gray-800">
+
+    <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl md:text-3xl font-bold">بنيادي انگريزي سکيا</h1>
+            <nav class="hidden md:flex space-x-reverse space-x-6">
+                <a href="#alphabet" class="hover:text-amber-300">اکر شناسي</a>
+                <a href="#vocabulary" class="hover:text-amber-300">بنيادي لفظ</a>
+                <a href="#grammar" class="hover:text-amber-300">گرامر جا اصول</a>
+                <a href="#practice" class="hover:text-amber-300">مشق</a>
+                <a href="#feedback" class="hover:text-amber-300">عام تبصرو</a>
+                <a href="#advanced-feedback" class="hover:text-amber-300">اڳڀرائي جا رايا</a>
+                <a href="#about" class="hover:text-amber-300">اسان جي باري ۾</a>
+            </nav>
+            <button id="mobile-menu-button" class="md:hidden text-2xl">☰</button>
+        </div>
+        <nav id="mobile-menu" class="md:hidden hidden bg-teal-700 text-center mt-2">
+            <a href="#alphabet" class="block py-2 hover:bg-teal-600">اکر شناسي</a>
+            <a href="#vocabulary" class="block py-2 hover:bg-teal-600">بنيادي لفظ</a>
+            <a href="#grammar" class="block py-2 hover:bg-teal-600">گرامر جا اصول</a>
+            <a href="#practice" class="block py-2 hover:bg-teal-600">مشق</a>
+            <a href="#feedback" class="block py-2 hover:bg-teal-600">عام تبصرو</a>
+            <a href="#advanced-feedback" class="block py-2 hover:bg-teal-600">اڳڀرائي جا رايا</a>
+            <a href="#about" class="block py-2 hover:bg-teal-600">اسان جي باري ۾</a>
+        </nav>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-8">
+        
+        <p class="text-sm text-right text-gray-500 mb-8 p-2 bg-amber-50 rounded-md shadow-inner flex justify-end items-center">
+            شاگرد جو نالو: <span id="user-name-display" class="font-bold text-teal-700">لوڊ ٿي رهيو آهي...</span> 
+            <button id="change-name-btn" class="text-xs text-blue-600 font-normal underline mr-2" onclick="window.changeUserName()">نالو تبديل ڪريو</button>
+            <!-- Firebase/Internal ID kept hidden for clean UI -->
+            <span id="user-id-display" class="latin text-xs text-gray-500 break-all hidden"></span>
+        </p>
+
+        <!-- Alphabet Section -->
+        <section id="alphabet" class="py-12">
+            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">باب 1: انگريزي الفابيٽ ۽ اُچار</h2>
+            <p class="text-center text-lg text-gray-600 mb-8 text-justify">انگريزيءَ جا 26 اکر (Letters) سکو، انھن جا قسم (Vowels & Consonants)، ۽ ھر اکر جو بنيادي آواز. وڌيڪ معلومات لاءِ اکر تي ڪلڪ ڪريو.</p>
+            <div class="flex justify-center mb-6">
+                <button id="toggle-vowels" class="bg-amber-500 text-white px-4 py-2 rounded-md hover:bg-amber-600 transition-colors">صرف حرف علت (Vowels) ڏيکاريو</button>
+            </div>
+            <div id="alphabet-grid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-13 gap-3 text-center">
+            </div>
+            <div id="alphabet-detail" class="mt-8 p-6 bg-white rounded-lg shadow-xl border-t-4 border-teal-500 text-center hidden">
+                <h3 id="detail-letter" class="text-6xl font-bold latin text-teal-700"></h3>
+                <p id="detail-sound" class="text-2xl mt-2 text-amber-600"></p>
+                <p class="mt-4 text-lg">مثال: <span id="detail-example" class="font-bold latin"></span> (<span id="detail-meaning"></span>)</p>
+                <p id="detail-type" class="text-sm mt-2 text-gray-500"></p>
+            </div>
+        </section>
+
+        <!-- Vocabulary Section -->
+        <section id="vocabulary" class="py-12 bg-stone-100 rounded-lg p-6">
+            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">باب 2: وِرۡب: انگريزيءَ جا بنيادي لفظ</h2>
+            <p class="text-center text-lg text-gray-600 mb-8 text-justify">روزمره جي استعمال جا ضروري لفظ ۽ انھن جا سندھي معنيٰ سکڻ لاءِ ڪارڊ تي ڪلڪ ڪريو ۽ آواز ٻڌڻ لاءِ ڳالهائڻ واري آئڪن (speaker icon) تي ڪلڪ ڪريو.</p>
+            <div id="vocab-tabs" class="flex justify-center mb-6 border-b-2 flex-wrap">
+                <button data-tab="family" class="vocab-tab p-4 border-b-4 border-amber-500 text-amber-600 font-semibold">ذاتي ۽ خانداني لفظ</button>
+                <button data-tab="verbs" class="vocab-tab p-4 border-b-4 border-transparent">عام استعمال جا فعل</button>
+                <button data-tab="things" class="vocab-tab p-4 border-b-4 border-transparent">جڳھون ۽ شيون</button>
+                <button data-tab="numbers" class="vocab-tab p-4 border-b-4 border-transparent">انگ اکر</button>
+            </div>
+            <div id="vocab-content" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <!-- Vocabulary cards will be inserted here -->
+            </div>
+            <!-- Removed Data Analysis Chart Section -->
+        </section>
+        
+        <!-- Grammar Section -->
+        <section id="grammar" class="py-12">
+            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">باب 3: گرامر جا اصول: حصا ڪلام ۽ زمانا</h2>
+            <p class="text-center text-lg text-gray-600 mb-8 text-justify">انگريزي گرامر جي بنيادي اصولن ۽ زمانن (Tenses) کي آسانيءَ سان سکو. وڌيڪ معلومات لاءِ ڪنھن بہ موضوع تي ڪلڪ ڪريو.</p>
+
+            <div id="grammar-accordions" class="max-w-4xl mx-auto space-y-4">
+                <!-- Noun, Pronoun, Verb (Existing) -->
+                <!-- Noun Accordion -->
+                <div class="accordion-item bg-white rounded-lg shadow-md border border-teal-200">
+                    <button class="accordion-header flex justify-between items-center w-full p-4 text-right font-bold text-lg bg-teal-50 hover:bg-teal-100 rounded-t-lg transition-colors" data-target="noun-content">
+                        <span>3.1 اسم (Noun) - نالو، جاءِ، شيءِ</span>
+                        <span class="latin text-teal-600 text-2xl">+</span>
+                    </button>
+                    <div id="noun-content" class="accordion-content">
+                        <p class="mb-3">**تعريف:** اسم اھو لفظ آھي جيڪو ڪنھن بہ جاندار، شيءِ، جڳھ يا احساس جو نالو ھجي.</p>
+                        <div class="border p-3 rounded-md bg-stone-50">
+                            <p><strong>مثال:</strong></p>
+                            <ul>
+                                <li>**شخص:** Boy (ڇوڪرو), Teacher (استاد)</li>
+                                <li>**جڳھ:** City (شھر), School (اسڪول)</li>
+                                <li>**شيءِ:** Book (ڪتاب), Pen (قلم)</li>
+                            </ul>
+                        </div>
+                        <p class="mt-3">**اھميت:** جملي ۾ اسم يا ته **فاعل (Subject)** بڻجي سگھي ٿو يا **مفعول (Object)**.</p>
+                    </div>
+                </div>
+
+                <!-- Pronoun Accordion -->
+                <div class="accordion-item bg-white rounded-lg shadow-md border border-teal-200">
+                    <button class="accordion-header flex justify-between items-center w-full p-4 text-right font-bold text-lg bg-teal-50 hover:bg-teal-100 transition-colors" data-target="pronoun-content">
+                        <span>3.2 ضمير (Pronoun) - اسم جي جاءِ تي</span>
+                        <span class="latin text-teal-600 text-2xl">+</span>
+                    </button>
+                    <div id="pronoun-content" class="accordion-content">
+                        <p class="mb-3">**تعريف:** ضمير اھو لفظ آھي جيڪو اسم جي جاءِ تي استعمال ٿئي ٿو ته جيئن اسان کي اسم کي بار بار ورجائڻو نہ پوي.</p>
+                        <div class="border p-3 rounded-md bg-stone-50">
+                            <p><strong>بنيادي ضمير:</strong> I (مان)، You (تون/اوھين)، He، She، It، We، They</p>
+                        </div>
+                        <p class="mt-3">**مثال:** وقاص ھڪ سٺو شاگرد آھي. **ھو** روز اسڪول ويندو آھي. 
+                        <span class="latin">He is a good student. </span><button class="speaker-icon text-base" onclick="window.speakText('He is a good student.')">🔊</button></p>
+                    </div>
+                </div>
+
+                <!-- Verb Accordion -->
+                <div class="accordion-item bg-white rounded-lg shadow-md border border-teal-200">
+                    <button class="accordion-header flex justify-between items-center w-full p-4 text-right font-bold text-lg bg-teal-50 hover:bg-teal-100 transition-colors" data-target="verb-content">
+                        <span>3.3 فعل (Verb) - عمل جو لفظ</span>
+                        <span class="latin text-teal-600 text-2xl">+</span>
+                    </button>
+                    <div id="verb-content" class="accordion-content">
+                        <p class="mb-3">**تعريف:** فعل اھو لفظ آھي جيڪو جملي ۾ فاعل پاران ڪيل **عمل (Action)** کي ظاھر ڪري. فعل کان بغير جملو اڌورو آھي.</p>
+                        <div class="border p-3 rounded-md bg-stone-50">
+                            <p><strong>مثال:</strong></p>
+                            <ul>
+                                <li>**To Go** (وڃڻ): <span class="latin">I go to the market.</span><button class="speaker-icon text-base" onclick="window.speakText('I go to the market.')">🔊</button></li>
+                                <li>**To Read** (پڙھڻ): <span class="latin">We read a book.</span><button class="speaker-icon text-base" onclick="window.speakText('We read a book.')">🔊</button></li>
+                            </ul>
+                        </div>
+                        <p class="mt-3">فعل کي جملي جو دل چئبو آھي. انگريزي ۾ فعل جا ٽي بنيادي صورتون (Forms) ٿينديون آھن (Present, Past, Past Participle) جيڪي اڳتي سکنداسين.</p>
+                    </div>
+                </div>
+                
+                <!-- Tenses Start Here -->
+                <h3 class="text-2xl font-bold text-center pt-8 text-amber-600">انگريزي زمانا (English Tenses)</h3>
+
+                <!-- Present Simple Tense -->
+                <div class="accordion-item bg-white rounded-lg shadow-md border border-teal-200">
+                    <button class="accordion-header flex justify-between items-center w-full p-4 text-right font-bold text-lg bg-teal-50 hover:bg-teal-100 transition-colors" data-target="present-simple-content">
+                        <span>3.4 حال سادو زمانو (Present Simple Tense) - روز جو ڪم</span>
+                        <span class="latin text-teal-600 text-2xl">+</span>
+                    </button>
+                    <div id="present-simple-content" class="accordion-content">
+                        <p class="mb-3">**استعمال:** اھو زمانو روزانو ٿيندڙ ڪمن، عادتن، يا دائمي سچائيءَ کي ظاھر ڪرڻ لاءِ استعمال ٿيندو آھي.</p>
+                        <p class="font-bold text-teal-700">جوڙجڪ (Structure):</p>
+                        <p class="latin mb-3">Subject + Base Verb (+ s/es for He/She/It) + Object</p>
+                        <div class="border p-3 rounded-md bg-stone-50">
+                            <p><strong>مثال (سادو جملو):</strong></p>
+                            <ul>
+                                <li><span class="latin">I drink water.</span> (مان پاڻي پيئندو آھيان.) <button class="speaker-icon text-base" onclick="window.speakText('I drink water.')">🔊</button></li>
+                                <li><span class="latin">He reads a book.</span> (ھو ڪتاب پڙھندو آھي.) <button class="speaker-icon text-base" onclick="window.speakText('He reads a book.')">🔊</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Past Simple Tense -->
+                <div class="accordion-item bg-white rounded-lg shadow-md border border-teal-200">
+                    <button class="accordion-header flex justify-between items-center w-full p-4 text-right font-bold text-lg bg-teal-50 hover:bg-teal-100 transition-colors" data-target="past-simple-content">
+                        <span>3.5 ماضي سادو زمانو (Past Simple Tense) - گذريل ڪم</span>
+                        <span class="latin text-teal-600 text-2xl">+</span>
+                    </button>
+                    <div id="past-simple-content" class="accordion-content">
+                        <p class="mb-3">**استعمال:** اھو زمانو اھڙن ڪمن کي ظاھر ڪرڻ لاءِ استعمال ٿيندو آھي جيڪي ماضي ۾ **مڪمل** ٿي چڪا ھجن.</p>
+                        <p class="font-bold text-teal-700">جوڙجڪ (Structure):</p>
+                        <p class="latin mb-3">Subject + Past Verb Form (V2) + Object</p>
+                        <div class="border p-3 rounded-md bg-stone-50">
+                            <p><strong>مثال:</strong></p>
+                            <ul>
+                                <li><span class="latin">I drank water.</span> (مون پاڻي پيتو.) <button class="speaker-icon text-base" onclick="window.speakText('I drank water.')">🔊</button></li>
+                                <li><span class="latin">He read a book.</span> (ھن ڪتاب پڙھيو.) <button class="speaker-icon text-base" onclick="window.speakText('He read a book.')">🔊</button></li>
+                            </ul>
+                        </div>
+                        <p class="mt-3">**نوٽ:** اڪثر فعلن ۾ ماضي ٺاهڻ لاءِ آخر ۾ "ed" لڳايو ويندو آھي، پر ڪجھ فعل غير ترتيبوار (irregular) ھوندا آھن جن جا روپ بدلجي ويندا آھن (مثال: Go → Went, Drink → Drank).</p>
+                    </div>
+                </div>
+
+                <!-- Future Simple Tense -->
+                <div class="accordion-item bg-white rounded-lg shadow-md border border-teal-200">
+                    <button class="accordion-header flex justify-between items-center w-full p-4 text-right font-bold text-lg bg-teal-50 hover:bg-teal-100 transition-colors" data-target="future-simple-content">
+                        <span>3.6 مستقبل سادو زمانو (Future Simple Tense) - ايندڙ ڪم</span>
+                        <span class="latin text-teal-600 text-2xl">+</span>
+                    </button>
+                    <div id="future-simple-content" class="accordion-content">
+                        <p class="mb-3">**استعمال:** اھو زمانو اھڙن ڪمن کي ظاھر ڪرڻ لاءِ استعمال ٿيندو آھي جيڪي مستقبل ۾ **ٿيندا**.</p>
+                        <p class="font-bold text-teal-700">جوڙجڪ (Structure):</p>
+                        <p class="latin mb-3">Subject + will + Base Verb (V1) + Object</p>
+                        <div class="border p-3 rounded-md bg-stone-50">
+                            <p><strong>مثال:</strong></p>
+                            <ul>
+                                <li><span class="latin">I will drink water.</span> (مان پاڻي پيئندس.) <button class="speaker-icon text-base" onclick="window.speakText('I will drink water.')">🔊</button></li>
+                                <li><span class="latin">He will read a book.</span> (ھو ڪتاب پڙھندو.) <button class="speaker-icon text-base" onclick="window.speakText('He will read a book.')">🔊</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Practice Section -->
+        <section id="practice" class="py-12 bg-stone-100 rounded-lg p-6">
+            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">مشق ۽ سکيا جي پرک</h2>
+            <p class="text-center text-lg text-gray-600 mb-8 text-justify">پنھنجي سکيا کي ھن مشق سان پرکيو. سڀني حصن کي حل ڪرڻ جي ڪوشش ڪريو.</p>
+            
+            <!-- Vowel Quiz -->
+            <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-amber-600">مشق 1: حرف عِلَّت (Vowels) ڳوليو</h3>
+                <p class="mb-4">ھيٺ ڏنل لفظن ۾ حرف علت تي ڪلڪ ڪريو. (Vowels: A, E, I, O, U)</p>
+                <div id="vowel-quiz" class="flex flex-wrap gap-4 text-2xl latin justify-center">
+                    <!-- Vowel quiz words will be inserted here -->
+                </div>
+                <div id="vowel-feedback" class="mt-4 font-semibold text-center"></div>
+            </div>
+
+            <!-- Vocab Quiz -->
+            <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-amber-600">مشق 2: لفظن جي معنيٰ جي پرک</h3>
+                <p id="vocab-quiz-question" class="mb-4 text-lg text-center">...</p>
+                <div id="vocab-quiz-options" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
+                    <!-- Vocab quiz options will be inserted here -->
+                </div>
+                <div id="vocab-feedback" class="mt-4 font-semibold text-center"></div>
+                <div class="flex justify-center">
+                    <button id="next-vocab-question" class="mt-4 bg-teal-700 text-white px-6 py-2 rounded-md hover:bg-teal-800 transition-colors">اڳيون سوال</button>
+                </div>
+            </div>
+            
+            <!-- Noun/Verb/Pronoun Quiz -->
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-amber-600">مشق 3: اسم، فعل يا ضمير ڳوليو</h3>
+                <p id="grammar-quiz-instruction" class="mb-4 text-lg text-center">ھيٺ ڏنل جملي ۾ ڏنل لفظ ڇا آھي؟</p>
+                <p id="grammar-quiz-sentence" class="text-3xl font-bold mb-6 text-center text-teal-700 latin">...</p>
+                <div id="grammar-quiz-options" class="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
+                    <button data-type="Noun" class="p-4 border-2 rounded-lg hover:bg-green-100 transition-colors">اسم (Noun)</button>
+                    <button data-type="Verb" class="p-4 border-2 rounded-lg hover:bg-green-100 transition-colors">فعل (Verb)</button>
+                    <button data-type="Pronoun" class="p-4 border-2 rounded-lg hover:bg-green-100 transition-colors">ضمير (Pronoun)</button>
+                </div>
+                <div id="grammar-feedback" class="mt-4 font-semibold text-center"></div>
+                <div class="flex justify-center">
+                    <button id="next-grammar-question" class="mt-4 bg-teal-700 text-white px-6 py-2 rounded-md hover:bg-teal-800 transition-colors">اڳيون سوال</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feedback Section (Firestore Integrated) -->
+        <section id="feedback" class="py-12">
+            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">عام تبصرو ۽ ريٽنگ (لائيو سسٽم)</h2>
+            <p class="text-center text-lg text-gray-600 mb-8 text-justify">ويب سائيٽ جي باري ۾ پنھنجو تبصرو ڏيو. توهان جي راءِ سڀني شاگردن کي نظر ايندي.</p>
+
+            <!-- Submission Form -->
+            <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 max-w-3xl mx-auto mb-10">
+                <h3 class="text-2xl font-semibold mb-4 text-center">پنھنجي درجه بندي ڏيو</h3>
+                
+                <label for="review-rating" class="block text-right mb-2 font-medium">ريٽنگ (1 کان 5 ستارا)</label>
+                <select id="review-rating" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50">
+                    <option value="5">5 ستارا (بهترين)</option>
+                    <option value="4">4 ستارا (سٺو)</option>
+                    <option value="3">3 ستارا (عام)</option>
+                    <option value="2">2 ستارا (ناقص)</option>
+                    <option value="1">1 ستارو (تمام خراب)</option>
+                </select>
+
+                <label for="review-text" class="block text-right mb-2 font-medium">توهان جو تبصرو</label>
+                <textarea id="review-text" rows="4" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="هتي لکو ته توهان کي ھي ويبسائيٽ ڪيئن لڳي..."></textarea>
+                
+                <div id="review-status" class="text-center mb-4 text-sm font-semibold"></div>
+
+                <button onclick="window.submitReview()" class="w-full bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition-colors">تبصرو موڪليو</button>
+            </div>
+
+            <!-- Live Reviews Display (Added Scroll and Max Height) -->
+            <div class="max-w-3xl mx-auto">
+                <h3 class="text-2xl font-semibold mb-4 text-center text-teal-700" id="average-rating">اوسط درجه بندي (لوڊ ٿي رهيو آهي...)</h3>
+                <div id="reviews-list" class="max-h-96 overflow-y-auto p-2 bg-stone-100 rounded-lg shadow-inner">
+                    <!-- Reviews will be loaded here by Firestore -->
+                    <p class="text-center text-gray-500">لوڊ ٿي رهيو آهي...</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Advanced Feedback Section (Firestore Integrated) -->
+        <section id="advanced-feedback" class="py-12 bg-teal-50 rounded-lg p-6">
+            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">اڳڀرائي ۽ سکيا جا نوان موضوع</h2>
+            <p class="text-center text-lg text-gray-600 mb-8 text-justify">جيڪڏهن توهان انگريزيءَ جي وڌيڪ سطح تي وڃڻ چاهيو ٿا يا نوان موضوع سکڻ چاهيو ٿا، ته هي فارم ڀريو. توهان جا رايا ويبسائيٽ جي مستقبل جي ترقيءَ لاءِ اهم آهن.</p>
+
+            <!-- Advanced Submission Form -->
+            <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 max-w-3xl mx-auto mb-10">
+                <h3 class="text-2xl font-semibold mb-4 text-center">آئنده لاءِ تجويزون</h3>
+                
+                <label for="advance-level" class="block text-right mb-2 font-medium">ڇا توهان ايندڙ سطح تي وڃڻ چاهيو ٿا؟</label>
+                <select id="advance-level" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50">
+                    <option value="Yes">ها، مان تيار آهيان!</option>
+                    <option value="No">نه، مون کي هن سطح تي وڌيڪ مشق گهرجي.</option>
+                </select>
+
+                <label for="learn-more-topic" class="block text-right mb-2 font-medium">توهان وڌيڪ ڪهڙو موضوع سکڻ چاهيو ٿا؟ (مثال: جملن جي جوڙجڪ، گفتگو)</label>
+                <textarea id="learn-more-topic" rows="2" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="جيئن: Prepositions يا Dialogue writing"></textarea>
+                
+                <label for="changes-wanted" class="block text-right mb-2 font-medium">هن ويبسائيٽ ۾ توهان ڪهڙيون تبديليون چاهيو ٿا؟</label>
+                <textarea id="changes-wanted" rows="3" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="جيئن: وڌيڪ مثال، وڊيوز، يا گهٽ مشق"></textarea>
+
+                
+                <div id="advanced-feedback-status" class="text-center mb-4 text-sm font-semibold"></div>
+
+                <button onclick="window.submitAdvancedFeedback()" class="w-full bg-teal-700 text-white font-bold py-3 rounded-md hover:bg-teal-800 transition-colors">تجويزون موڪليو</button>
+            </div>
+            
+            <!-- Live Advanced Feedback Display (Added Scroll and Max Height) -->
+            <div class="max-w-3xl mx-auto">
+                <h3 class="text-2xl font-semibold mb-4 text-center text-teal-700">شاگردن جون ترقيءَ جون تجويزون</h3>
+                <div id="advanced-feedback-list" class="max-h-96 overflow-y-auto p-2 bg-white rounded-lg shadow-inner">
+                    <!-- Advanced feedback will be loaded here by Firestore -->
+                    <p class="text-center text-gray-500">لوڊ ٿي رهيون آهن...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="py-12 bg-teal-800 text-white rounded-lg p-6">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold mb-4">اسان جي باري ۾</h2>
+                <div class="max-w-3xl mx-auto">
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-semibold text-amber-300">پيشڪش</h3>
+                        <p class="text-lg mt-2">نِرمل جيتواڻي لائبريري، **ٿرڙي محبت**</p>
+                        <p class="mt-4 text-justify">هي ويبسائيٽ، جيڪا سندھ جي شاگردن لاءِ بنيادي انگريزي سکڻ جي ڪوشش آهي، انھن شخصيتن جي ياد ۾ پيش ڪيو وڃي ٿو جن جي محنت سان هي لائبريري وجود ۾ آئي.</p>
+                        <div class="mt-4">
+                            <p class="font-semibold">جن جي ڪوششن سان ھي لائبريري قائم ٿي:</p>
+                            <p>**ڊاڪٽر علي گوهر آزاد منگي**</p>
+                            <p class="latin text-sm">(Dr. Ali Gohar Azad Mangi)</p>
+                        </div>
+                        <div class="mt-6 border-t border-teal-500 pt-4">
+                            <p class="font-semibold text-amber-300">پيش ڪندڙ ۽ مددگار:</p>
+                            <p>**جناب وقاص احمد منگي**</p>
+                            <p class="text-sm mt-3">**حوصله افزائي ۽ مدد:**</p>
+                            <p>**جناب گلاب گن** (Mr. Gulab Gunn)</p>
+                            <p>**چاچا حميد چنه** (Uncle Hameed Channa)</p>
+                        </div>
+                    </div>
+                    <div>
+                         <h3 class="text-2xl font-semibold text-amber-300">مهاڳ</h3>
+                         <p class="mt-4 text-justify leading-relaxed">پيارا شاگرد ۽ سکندڙ! ھي ويبسائيٽ خاص طور تي اوھان لاءِ تيار ڪيو ويو آھي. اڄ جي دور ۾، انگريزي زبان سکڻ اسان لاءِ رڳو ھڪ شوق نه پر ھڪ ضرورت بڻجي چڪي آھي. ڀلي اھا اعليٰ تعليم ھجي، يا ڪاروباري دنيا, يا ڊجيٽل ٽيڪنالاجي, ھر جاءِ تي انگريزيءَ جي اھميت وڌي رھي آھي. اسان جو مقصد ھي آھي ته اوھان کي انگريزيءَ جا بنيادي اصول تمام سادي ۽ آسان سندھی زبان ۾ سمجھا وڃن. ھر سبق کي ايئن تيار ڪيو ويو آھي جو اوھين آسانيءَ سان انگريزيءَ جا ننڍا جملا ٺاھڻ ۽ روزمره جي ڳالھ ٻولھ ڪرڻ سکي سگھو.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center p-4 bg-stone-200 text-gray-600">
+        <p>&copy; 2025 نِرمل جيتواڻي لائبريري. سڀ حق محفوظ آھن.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Data
+            const alphabetData = [
+                { letter: 'A a', sound: 'اي / اَ', example: 'Apple', meaning: 'سيب', type: 'vowel', detail: 'اھو انگريزيءَ جو پھريون اکر آھي ۽ اڪثر ٻن قسمن جا آواز ڏيندو آھي: ننڍو آواز جيئن "Cat" ۾، ۽ ڊگھو آواز جيئن "Cake" ۾.' },
+                { letter: 'B b', sound: 'ب', example: 'Ball', meaning: 'گيڙو', type: 'consonant', detail: 'ھي اکر سندھيءَ جي "ب" وانگر آواز ڏيندو آھي.' },
+                { letter: 'C c', sound: 'ڪ / س', example: 'Cat', meaning: 'ٻلي', type: 'consonant', detail: 'C اڪثر "ڪ" آواز ڏيندو آھي، پر جڏھن I, E, يا Y کان اڳيان اچي تہ "س" آواز ڏيندو آھي (جيئن City ۾).' },
+                { letter: 'D d', sound: 'ڊ', example: 'Dog', meaning: 'ڪتو', type: 'consonant', detail: 'سندھيءَ جي "ڊ" وانگر آواز.' },
+                { letter: 'E e', sound: 'اي / اِي', example: 'Egg', meaning: 'بيضو', type: 'vowel', detail: 'ھن جا بہ ٻہ آواز ٿيندا آھن. ننڍو آواز جيئن "Bed" ۾ ۽ ڊگھو آواز جيئن "He" ۾.' },
+                { letter: 'F f', sound: 'ف', example: 'Fish', meaning: 'مڇي', type: 'consonant', detail: 'سندھيءَ جي "ف" وانگر آواز.' },
+                { letter: 'G g', sound: 'گ / ج', example: 'Goat', meaning: 'ٻڪري', type: 'consonant', detail: 'اڪثر "گ" آواز ڏيندو، پر I, E, يا Y کان اڳيان اچي تہ "ج" آواز ڏيندو (جيئن General ۾).' },
+                { letter: 'H h', sound: 'ھ', example: 'House', meaning: 'گھر', type: 'consonant', detail: 'سندھيءَ جي "ھ" وانگر آواز.' },
+                { letter: 'I i', sound: 'اِ / آءِ', example: 'Ink', meaning: 'مس', type: 'vowel', detail: 'ننڍو آواز جيئن "Pin" ۾ ۽ ڊگھو آواز جيئن "Fine" ۾.' },
+                { letter: 'J j', sound: 'ج', example: 'Jug', meaning: 'لوٽو', type: 'consonant', detail: 'سندھيءَ جي "ج" وانگر سخت آواز.' },
+                { letter: 'K k', sound: 'ڪ', example: 'Key', meaning: 'چاٻي', type: 'consonant', detail: 'سندھيءَ جي "ڪ" وانگر آواز.' },
+                { letter: 'L l', sound: 'ل', example: 'Lion', meaning: 'شينهن', type: 'consonant', detail: 'سندھيءَ جي "ل" وانگر آواز.' },
+                { letter: 'M m', sound: 'م', example: 'Man', type: 'consonant', detail: 'سندھيءَ جي "م" وانگر آواز.' },
+                { letter: 'N n', sound: 'ن', example: 'Nose', type: 'consonant', detail: 'سندھيءَ جي "ن" وانگر آواز.' },
+                { letter: 'O o', sound: 'او / آ', example: 'Owl', meaning: 'اُلو', type: 'vowel', detail: 'ننڍو آواز جيئن "Dog" ۾ ۽ ڊگھو آواز جيئن "Go" ۾.' },
+                { letter: 'P p', sound: 'پ', example: 'Pen', type: 'consonant', detail: 'سندھيءَ جي "پ" وانگر آواز.' },
+                { letter: 'Q q', sound: 'ق', example: 'Queen', type: 'consonant', detail: 'ھي اڪثر "u" سان گڏجي "ڪو" آواز ڏيندو آھي (جيئن Question ۾).' },
+                { letter: 'R r', sound: 'ر', example: 'Rat', type: 'consonant', detail: 'سندھيءَ جي "ر" وانگر آواز.' },
+                { letter: 'S s', sound: 'س', example: 'Sun', type: 'consonant', detail: 'سندھيءَ جي "س" وانگر آواز.' },
+                { letter: 'T t', sound: 'ٽ', example: 'Tree', type: 'consonant', detail: 'سندھيءَ جي "ٽ" وانگر آواز.' },
+                { letter: 'U u', sound: 'اَ / يو', example: 'Umbrella', type: 'vowel', detail: 'ننڍو آواز جيئن "Cup" ۾ ۽ ڊگھو آواز جيئن "Use" ۾.' },
+                { letter: 'V v', sound: 'و', example: 'Van', type: 'consonant', detail: 'سندھيءَ جي "و" جھڙو آواز پر ھلڪو سخت.' },
+                { letter: 'W w', sound: 'و', example: 'Watch', type: 'consonant', detail: 'سندھيءَ جي "و" جھڙو نرم آواز.' },
+                { letter: 'X x', sound: 'ڪس / ز', example: 'Box', type: 'consonant', detail: 'ھي عام طور تي ٻن اکرن جو آواز ڏيندو آھي (ڪس).' },
+                { letter: 'Y y', sound: 'ي', example: 'Yes', type: 'consonant', detail: 'لفظ جي شروعات ۾ ھي "ي" جو آواز ڏيندو آھي، پر آخر ۾ حرف علت جھڙو ٿي ويندو آھي (جيئن Happy ۾).' },
+                { letter: 'Z z', sound: 'ز', example: 'Zoo', type: 'consonant', detail: 'سندھيءَ جي "ز" وانگر آواز.' }
+            ];
+            
+            // New, richer vocabulary data including numbers
+            const vocabularyData = {
+                family: [
+                    { en: 'I', sd: 'مان', pr: 'آءِ', type: 'Pronoun' }, { en: 'You', sd: 'تون / اوھين', pr: 'يو', type: 'Pronoun' },
+                    { en: 'He', sd: 'ھو (مرد لاءِ)', pr: 'ھِي', type: 'Pronoun' }, { en: 'She', sd: 'ھوءَ (عورت لاءِ)', pr: 'شِي', type: 'Pronoun' },
+                    { en: 'It', sd: 'ھي / اُھو', pr: 'اِٽ', type: 'Pronoun' }, { en: 'We', sd: 'اسان', pr: 'وي', type: 'Pronoun' },
+                    { en: 'They', sd: 'اُھي', pr: 'دي', type: 'Pronoun' }, { en: 'Father', sd: 'پيءُ / ابا', pr: 'فاڌر', type: 'Noun' },
+                    { en: 'Mother', sd: 'ماءُ / امڙ', pr: 'مڌر', type: 'Noun' }, { en: 'Brother', sd: 'ڀاءُ', pr: 'برادر', type: 'Noun' },
+                    { en: 'Sister', sd: 'ڀيڻ', pr: 'سسٽر', type: 'Noun' }, { en: 'Friend', sd: 'دوست / يار', pr: 'فرينڊ', type: 'Noun' }
+                ],
+                verbs: [
+                    { en: 'Come', sd: 'اچڻ', pr: 'ڪم', type: 'Verb' }, { en: 'Go', sd: 'وڃڻ', pr: 'گو', type: 'Verb' },
+                    { en: 'Eat', sd: 'کائڻ', pr: 'ايٽ', type: 'Verb' }, { en: 'Drink', sd: 'پيئڻ', pr: 'ڊرِنڪ', type: 'Verb' },
+                    { en: 'Read', sd: 'پڙھڻ', pr: 'ريڊ', type: 'Verb' }, { en: 'Write', sd: 'لکڻ', pr: 'رائيٽ', type: 'Verb' },
+                    { en: 'Sleep', sd: 'سمهڻ', pr: 'سليپ', type: 'Verb' }, { en: 'Run', sd: 'ڊوڙڻ', pr: 'رن', type: 'Verb' },
+                    { en: 'Walk', sd: 'ھلڻ', pr: 'واڪ', type: 'Verb' }, { en: 'Speak', sd: 'ڳالهائڻ', pr: 'اسپيڪ', type: 'Verb' }
+                ],
+                things: [
+                    { en: 'School', sd: 'اسڪول', pr: 'اسڪول', type: 'Noun' }, { en: 'House', sd: 'گھر', pr: 'ھائوس', type: 'Noun' },
+                    { en: 'Market', sd: 'بازار', pr: 'مارڪيٽ', type: 'Noun' }, { en: 'Book', sd: 'ڪتاب', pr: 'بُڪ', type: 'Noun' },
+                    { en: 'Pen', sd: 'قلم', pr: 'پين', type: 'Noun' }, { en: 'Chair', sd: 'ڪرسي', pr: 'چيئر', type: 'Noun' },
+                    { en: 'Table', sd: 'ميز', pr: 'ٽيبل', type: 'Noun' }, { en: 'Water', sd: 'پاڻي', pr: 'واٽر', type: 'Noun' },
+                    { en: 'Food', sd: 'کاڌو', pr: 'فوڊ', type: 'Noun' }, { en: 'City', sd: 'شھر', pr: 'سٽي', type: 'Noun' }
+                ],
+                numbers: [
+                    { en: 'One', sd: 'ھڪ', pr: 'ون', type: 'Noun' }, { en: 'Two', sd: 'ٻہ', pr: 'ٽو', type: 'Noun' },
+                    { en: 'Three', sd: 'ٽي', pr: 'ٿري', type: 'Noun' }, { en: 'Four', sd: 'چار', pr: 'فور', type: 'Noun' },
+                    { en: 'Five', sd: 'پنج', pr: 'فائيو', type: 'Noun' }, { en: 'Ten', sd: 'ڏھ', pr: 'ٽين', type: 'Noun' },
+                    { en: 'Twenty', sd: 'ويھ', pr: 'ٽوِينٽي', type: 'Noun' }, { en: 'Hundred', sd: 'سَو', pr: 'ھنڊريڊ', type: 'Noun' }
+                ]
+            };
+            
+            const grammarQuizData = [
+                { sentence: 'The **teacher** is happy.', correct: 'Noun', word: 'teacher' },
+                { sentence: 'We **read** books.', correct: 'Verb', word: 'read' },
+                { sentence: '**She** drinks water.', correct: 'Pronoun', word: 'She' },
+                { sentence: 'Ali **runs** fast.', correct: 'Verb', word: 'runs' },
+                { sentence: 'I love my **city**.', correct: 'Noun', word: 'city' },
+                { sentence: '**They** play cricket.', correct: 'Pronoun', word: 'They' },
+                { sentence: 'The **cat** is sleeping.', correct: 'Noun', word: 'cat' },
+                { sentence: 'He **walks** slowly.', correct: 'Verb', word: 'walks' },
+            ];
+            
+            let grammarCurrentQuestionIndex = 0;
+
+            // Global Helper Function for Shuffle
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            // Mobile Menu
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+
+            // Smooth Scrolling
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                    if (!mobileMenu.classList.contains('hidden')) {
+                         mobileMenu.classList.add('hidden');
+                    }
+                });
+            });
+
+            // Alphabet Grid and Detail Display
+            const alphabetGrid = document.getElementById('alphabet-grid');
+            const alphabetDetail = document.getElementById('alphabet-detail');
+            alphabetData.forEach(item => {
+                const div = document.createElement('div');
+                div.className = `latin p-4 border-2 rounded-lg cursor-pointer hover:bg-amber-100 hover:border-amber-400 transition-colors text-2xl font-bold ${item.type === 'vowel' ? 'bg-teal-50 border-teal-400' : 'bg-white'}`;
+                div.textContent = item.letter.split(' ')[0];
+                
+                div.addEventListener('click', () => {
+                    document.getElementById('detail-letter').textContent = item.letter;
+                    document.getElementById('detail-sound').textContent = item.sound;
+                    document.getElementById('detail-example').textContent = item.example;
+                    document.getElementById('detail-meaning').textContent = item.meaning;
+                    document.getElementById('detail-type').textContent = item.detail;
+                    alphabetDetail.classList.remove('hidden');
+                    alphabetDetail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+                alphabetGrid.appendChild(div);
+            });
+
+            // Vowel Toggle
+            const toggleVowelsBtn = document.getElementById('toggle-vowels');
+            let vowelsOnly = false;
+            toggleVowelsBtn.addEventListener('click', () => {
+                vowelsOnly = !vowelsOnly;
+                document.querySelectorAll('#alphabet-grid > div').forEach(div => {
+                    const item = alphabetData.find(a => a.letter.startsWith(div.textContent));
+                    if (vowelsOnly && item && item.type !== 'vowel') {
+                        div.classList.add('hidden');
+                    } else {
+                        div.classList.remove('hidden');
+                    }
+                });
+                toggleVowelsBtn.textContent = vowelsOnly ? 'سڀ اکر ڏيکاريو' : 'صرف حرف علت (Vowels) ڏيکاريو';
+            });
+            
+            // Vocabulary Section: Tabs and Flashcards
+            const vocabContent = document.getElementById('vocab-content');
+            const vocabTabs = document.querySelectorAll('.vocab-tab');
+
+            function renderVocab(category) {
+                vocabContent.innerHTML = '';
+                const data = vocabularyData[category] || [];
+                data.forEach(word => {
+                    const card = document.createElement('div');
+                    card.className = 'card-flip h-32 bg-white rounded-lg shadow-md cursor-pointer';
+                    card.innerHTML = `
+                        <div class="card-inner">
+                            <div class="card-front bg-white rounded-lg border-2 border-teal-200">
+                                <div class="flex items-center">
+                                    <p class="text-3xl font-bold latin">${word.en}</p>
+                                    <button class="speaker-icon text-2xl" onclick="event.stopPropagation(); window.speakText('${word.en}')">🔊</button>
+                                </div>
+                                <p class="text-xs mt-1 text-gray-500 latin">(${word.type})</p>
+                            </div>
+                            <div class="card-back bg-teal-600 text-white rounded-lg">
+                                <p class="text-2xl font-bold">${word.sd}</p>
+                                <p class="latin text-lg text-amber-300">(${word.pr})</p>
+                            </div>
+                        </div>
+                    `;
+                    // Add click event for mobile flipping
+                    card.addEventListener('click', function() {
+                        // Toggle transform state for click flip on mobile/desktop
+                        const inner = this.querySelector('.card-inner');
+                        inner.style.transform = inner.style.transform === 'rotateY(180deg)' ? 'rotateY(0deg)' : 'rotateY(180deg)';
+                    });
+                    vocabContent.appendChild(card);
+                });
+            }
+
+            vocabTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    vocabTabs.forEach(t => {
+                        t.classList.remove('border-amber-500', 'text-amber-600', 'font-semibold');
+                        t.classList.add('border-transparent');
+                    });
+                    tab.classList.add('border-amber-500', 'text-amber-600', 'font-semibold');
+                    tab.classList.remove('border-transparent');
+                    renderVocab(tab.dataset.tab);
+                });
+            });
+
+            renderVocab('family');
+
+            // Removed Vocab Chart initialization code.
+
+            // Vowel Quiz
+            const vowelQuizContainer = document.getElementById('vowel-quiz');
+            const vowelFeedback = document.getElementById('vowel-feedback');
+            const vowelQuizWords = ['Computer', 'Book', 'Sindh', 'Pen', 'Mango', 'Chair', 'Table', 'Water'];
+
+            vowelQuizWords.forEach(word => {
+                const wordDiv = document.createElement('div');
+                wordDiv.className = 'flex flex-row p-2 bg-stone-100 rounded-md shadow-inner';
+                word.split('').forEach(char => {
+                    const span = document.createElement('span');
+                    span.textContent = char;
+                    span.className = 'cursor-pointer p-1 hover:bg-amber-200 rounded text-teal-700 font-semibold';
+                    span.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if ('aeiouAEIOU'.includes(char)) {
+                            span.classList.add('bg-green-300', 'text-white');
+                            span.classList.remove('bg-red-300', 'text-teal-700');
+                            vowelFeedback.textContent = 'صحيح!';
+                            vowelFeedback.className = 'mt-4 font-semibold text-center text-green-600';
+                        } else {
+                            span.classList.add('bg-red-300', 'text-white');
+                            vowelFeedback.textContent = 'وري ڪوشش ڪريو! (حرف علت A, E, I, O, U آهن)';
+                             vowelFeedback.className = 'mt-4 font-semibold text-center text-red-600';
+                        }
+                    });
+                    wordDiv.appendChild(span);
+                });
+                vowelQuizContainer.appendChild(wordDiv);
+            });
+
+            // Vocab Quiz (Multiple Choice)
+            const vocabQuizQuestion = document.getElementById('vocab-quiz-question');
+            const vocabQuizOptions = document.getElementById('vocab-quiz-options');
+            const vocabFeedback = document.getElementById('vocab-feedback');
+            const nextVocabBtn = document.getElementById('next-vocab-question');
+            const allVocab = [...vocabularyData.family, ...vocabularyData.verbs, ...vocabularyData.things, ...vocabularyData.numbers];
+            let vocabCurrentQuestionIndex = 0;
+            
+            shuffleArray(allVocab);
+
+            function loadVocabQuestion() {
+                if(vocabCurrentQuestionIndex >= allVocab.length) {
+                    vocabQuizQuestion.textContent = "مشق مڪمل ٿي وئي! وڌيڪ مشق لاءِ صفحي کي ريفريش ڪريو.";
+                    vocabQuizOptions.innerHTML = "";
+                    vocabFeedback.textContent = "";
+                    nextVocabBtn.style.display = 'none';
+                    return;
+                }
+
+                vocabFeedback.textContent = '';
+                const question = allVocab[vocabCurrentQuestionIndex];
+                vocabQuizQuestion.textContent = `لفظ "**${question.sd}**" جي انگريزي معنيٰ ڇا آھي؟`;
+                
+                const options = [question.en];
+                while(options.length < 4) {
+                    const randomWord = allVocab[Math.floor(Math.random() * allVocab.length)].en;
+                    if(!options.includes(randomWord)) {
+                        options.push(randomWord);
+                    }
+                }
+                shuffleArray(options);
+
+                vocabQuizOptions.innerHTML = '';
+                options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.textContent = option;
+                    button.className = 'latin p-4 border-2 rounded-lg hover:bg-amber-100 transition-colors bg-white shadow-sm font-semibold';
+                    button.addEventListener('click', (e) => {
+                        e.target.parentNode.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                        if (option === question.en) {
+                            e.target.classList.add('bg-green-200', 'border-green-500');
+                            vocabFeedback.textContent = 'بلڪل صحيح!';
+                            vocabFeedback.className = 'mt-4 font-semibold text-center text-green-600';
+                        } else {
+                            e.target.classList.add('bg-red-200', 'border-red-500');
+                            // Highlight correct answer
+                            e.target.parentNode.querySelectorAll('button').forEach(btn => {
+                                if (btn.textContent === question.en) {
+                                    btn.classList.add('bg-green-300', 'border-green-500');
+                                }
+                            });
+                            vocabFeedback.textContent = `غلط. صحيح جواب آھي: ${question.en}`;
+                            vocabFeedback.className = 'mt-4 font-semibold text-center text-red-600';
+                        }
+                    });
+                    vocabQuizOptions.appendChild(button);
+                });
+            }
+
+            nextVocabBtn.addEventListener('click', () => {
+                vocabCurrentQuestionIndex++;
+                loadVocabQuestion();
+            });
+
+            loadVocabQuestion();
+            
+            // Grammar Quiz (Noun/Verb/Pronoun Identification)
+            const grammarQuizSentence = document.getElementById('grammar-quiz-sentence');
+            const grammarQuizOptions = document.getElementById('grammar-quiz-options');
+            const grammarFeedback = document.getElementById('grammar-feedback');
+            const nextGrammarBtn = document.getElementById('next-grammar-question');
+            
+            shuffleArray(grammarQuizData);
+
+            function loadGrammarQuestion() {
+                if(grammarCurrentQuestionIndex >= grammarQuizData.length) {
+                    grammarQuizSentence.innerHTML = "مشق مڪمل ٿي وئي! وڌيڪ مشق لاءِ صفحي کي ريفريش ڪريو.";
+                    grammarQuizOptions.innerHTML = "";
+                    grammarFeedback.textContent = "";
+                    nextGrammarBtn.style.display = 'none';
+                    return;
+                }
+
+                grammarFeedback.textContent = '';
+                const question = grammarQuizData[grammarCurrentQuestionIndex];
+                grammarQuizSentence.innerHTML = question.sentence;
+                
+                grammarQuizOptions.querySelectorAll('button').forEach(button => {
+                    button.disabled = false;
+                    button.classList.remove('bg-green-200', 'bg-red-200', 'border-green-500', 'border-red-500');
+                    button.addEventListener('click', (e) => {
+                        grammarQuizOptions.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                        if (e.target.dataset.type === question.correct) {
+                            e.target.classList.add('bg-green-200', 'border-green-500');
+                            grammarFeedback.textContent = 'صحيح جواب!';
+                            grammarFeedback.className = 'mt-4 font-semibold text-center text-green-600';
+                        } else {
+                            e.target.classList.add('bg-red-200', 'border-red-500');
+                            // Highlight correct answer
+                            const correctAnswerButton = grammarQuizOptions.querySelector(`[data-type="${question.correct}"]`);
+                            if (correctAnswerButton) {
+                                correctAnswerButton.classList.add('bg-green-200', 'border-green-500');
+                            }
+                            grammarFeedback.textContent = `غلط. صحيح جواب آھي: ${question.correct}`;
+                            grammarFeedback.className = 'mt-4 font-semibold text-center text-red-600';
+                        }
+                    });
+                });
+            }
+            
+            nextGrammarBtn.addEventListener('click', () => {
+                grammarCurrentQuestionIndex++;
+                loadGrammarQuestion();
+            });
+
+            loadGrammarQuestion();
+            
+            // Accordion Logic
+            document.querySelectorAll('.accordion-header').forEach(button => {
+                button.addEventListener('click', () => {
+                    const item = button.closest('.accordion-item');
+                    const content = document.getElementById(button.dataset.target);
+                    const isActive = item.classList.toggle('accordion-active');
+                    
+                    button.querySelector('span:last-child').textContent = isActive ? '−' : '+';
+                    
+                    // Dynamic height calculation
+                    if (isActive) {
+                        content.style.maxHeight = content.scrollHeight + 50 + "px"; // +50px buffer
+                    } else {
+                        content.style.maxHeight = "0";
+                    }
+                });
+            });
+
+        });
+    </script>
+</body>
+</html>
