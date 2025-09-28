@@ -1,12 +1,15 @@
+<!-- Chosen Palette: Teal, Amber, Stone (Minimal and Educational) -->
+<!-- Application Structure Plan: Dashboard/Portal approach. Chosen structure: Top-level Navigation linking to English Learning (separate page) and Admin Panel (separate page). Main page content is organized vertically (Inventory -> Reviews -> About) for optimal mobile scrolling and centralized information access. This structure simplifies user flow: The main page acts as a hub, and content is dynamically updated via Firestore. -->
+<!-- Visualization & Content Choices: Inventory (Report Info -> Organize -> HTML Table + JS Filter -> Search function for usability -> Vanilla JS/HTML). Reviews (Report Info -> Inform -> HTML/CSS Display + JS Firestore Listener -> Clickable Star Rating & Like button for engagement -> Firestore/Vanilla JS). TTS on load (Goal: Engagement/Accessibility -> TTS Welcome Message -> TTS API). CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 <!DOCTYPE html>
 <html lang="sd" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نِرمل جيتواڻي لائبريري، ٿرڙي محبت</title>
+    <title>نرمل جيوتاڻي لائبريري، ٿرڙي محبت</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Custom Font: MB Lateefi.ttf -->
+    <!-- Custom Font: MB Lateefi.otf -->
     <style>
         @font-face {
             font-family: 'MBLateefi';
@@ -16,9 +19,14 @@
         }
         body {
             font-family: 'MBLateefi', 'Noto Nastaliq Urdu', serif;
+            text-align: center;
         }
         .latin {
             font-family: Inter, sans-serif;
+            text-align: left; /* Keep Latin text aligned left */
+        }
+        .text-right-aligned {
+             text-align: right; /* Specific class for right alignment in rtl context */
         }
         .speaker-icon {
             cursor: pointer;
@@ -58,6 +66,23 @@
         let auth;
         let bookInventoryData = []; 
         
+        // --- TTS Helper Function ---
+        window.speakText = function(text) {
+            if ('speechSynthesis' in window) {
+                const voices = speechSynthesis.getVoices();
+                const utterance = new SpeechSynthesisUtterance(text);
+                const enVoice = voices.find(voice => voice.lang === 'en-US' || voice.lang.startsWith('en'));
+                if (enVoice) {
+                    utterance.voice = enVoice;
+                } else {
+                    utterance.lang = 'en-US'; 
+                }
+                speechSynthesis.speak(utterance);
+            } else {
+                console.error("TTS not supported.");
+            }
+        };
+
         window.changeUserName = function() {
             let newName = null;
             let currentName = sessionStorage.getItem('userName') || '';
@@ -76,6 +101,8 @@
             userName = newName;
             sessionStorage.setItem('userName', userName);
             document.getElementById('user-name-display').textContent = userName;
+            // Re-initialize to ensure the new user name is ready for submissions
+            if (db) initFirebaseAndAuth(); 
         };
         
         window.toggleLike = async function(docId, currentLikes) {
@@ -97,7 +124,7 @@
         };
         
         window.shareOnWhatsApp = function(message) {
-            const websiteLink = window.location.href.split('?')[0]; // Use current hosted URL
+            const websiteLink = window.location.href.split('?')[0]; 
             const fullMessage = encodeURIComponent(`${message}\n\n[نِرمل لائبريري ويبسائيٽ]\n${websiteLink}`);
             window.open(`whatsapp://send?text=${fullMessage}`, '_blank');
         };
@@ -162,7 +189,7 @@
                     id: doc.id,
                     ...doc.data()
                 }));
-                filterInventory(); 
+                window.filterInventory(); 
             }, (error) => {
                  console.error("Error listening to book inventory: ", error);
                  document.getElementById('inventory-list-body').innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-600">فهرست لوڊ نه ٿي سگھي.</td></tr>`;
@@ -190,7 +217,7 @@
                 
                 row.innerHTML = `
                     <td class="p-4">${index + 1}</td>
-                    <td class="p-4 font-semibold">${data.title}</td>
+                    <td class="p-4 font-semibold text-right-aligned">${data.title}</td>
                     <td class="p-4 text-sm text-teal-600">${data.category}</td>
                 `;
                 list.appendChild(row);
@@ -326,7 +353,7 @@
                     const userNameDisplay = data.userName || "اڻڄاتل";
                     const likesCount = data.likes || 0;
 
-                    reviewElement.className = 'bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-3';
+                    reviewElement.className = 'bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-3 text-right-aligned';
                     reviewElement.innerHTML = `
                         <div class="flex justify-between items-center mb-2">
                             <p class="text-amber-500 text-xl">${stars}</p>
@@ -377,7 +404,7 @@
                     const userNameDisplay = data.userName || "اڻڄاتل";
                     const advanceText = data.advanceLevel === 'Yes' ? 'تيار آهي' : 'وڌيڪ مشق گهرجي';
 
-                    itemElement.className = 'bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-400 mb-3';
+                    itemElement.className = 'bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-400 mb-3 text-right-aligned';
                     itemElement.innerHTML = `
                         <div class="mb-2">
                             <p class="text-lg font-bold text-teal-700">${userNameDisplay} (رايا ڏيندڙ)</p>
@@ -396,6 +423,9 @@
         
         // --- Structural Logic Refactor ---
         function startAppLogic() {
+            // TTS Welcome Message
+            window.speakText("Welcome to Nirmal Jevtani Library Thariri Muhabat");
+
             const mobileMenuButton = document.getElementById('mobile-menu-button');
             const mobileMenu = document.getElementById('mobile-menu');
             mobileMenuButton.addEventListener('click', () => {
@@ -428,8 +458,8 @@
     <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
             <div class="text-center md:text-right mb-2 md:mb-0">
-                <h1 class="text-3xl md:text-4xl font-bold">نِرمل جيتواڻي لائبريري، ٿرڙي محبت</h1>
-                <p class="text-sm text-amber-300 mt-1">By: ڊاڪٽر علي گوهر آزاد منگي</p>
+                <h1 class="text-3xl md:text-4xl font-bold">نرمل جيوتاڻي لائبريري، ٿرڙي محبت</h1>
+                <p class="text-sm text-amber-300 mt-1">پاران؛ ڊاڪٽر علي گوهر آزاد منگي</p>
             </div>
             <nav class="hidden md:flex space-x-reverse space-x-6">
                 <a href="#inventory" class="hover:text-amber-300">ڪتابن جي فهرست</a>
@@ -452,52 +482,33 @@
     <main class="container mx-auto p-4 md:p-8">
         
         <!-- User Display -->
-        <p class="text-sm text-right text-gray-500 mb-8 p-2 bg-amber-50 rounded-md shadow-inner flex justify-end items-center">
+        <p class="text-sm text-center text-gray-500 mb-8 p-2 bg-amber-50 rounded-md shadow-inner flex justify-center items-center">
             شاگرد جو نالو: <span id="user-name-display" class="font-bold text-teal-700">لوڊ ٿي رهيو آهي...</span> 
             <button id="change-name-btn" class="text-xs text-blue-600 font-normal underline mr-2" onclick="window.changeUserName()">نالو تبديل ڪريو</button>
         </p>
         
         <!-- Banner Image/Illustration -->
         <div class="mb-10 rounded-lg overflow-hidden shadow-2xl border-b-8 border-teal-500">
-             <img src="data:image/png;base64, " alt="نِرمل لائبريري جو ڊجيٽل پورٽل، ٿرڙي محبت" class="w-full h-auto object-cover">
-             <!-- Placeholder for image generation (nano-banana model) -->
-             <script>
-                 (async () => {
-                     const prompt = "A vibrant, modern digital library portal illustration set in Thariri Muhabat, showing a laptop open to an English lesson with books stacked neatly, emphasizing light, learning, and community. High-quality, modern, digital art style.";
-                     const apiKey = ""
-                     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
-                     const payload = {
-                         contents: [{ parts: [{ text: prompt }] }],
-                         generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-                     };
-                     const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                     const result = await response.json();
-                     const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
-                     if (base64Data) {
-                         document.querySelector('#banner-image').src = `data:image/png;base64,${base64Data}`;
-                     }
-                 })();
-             </script>
-             <img id="banner-image" src="https://placehold.co/1200x300/e0f2f1/115e59?text=Nirmal+Library+Digital+Portal" alt="لائبريري بينر" class="w-full h-auto object-cover">
+             <img id="banner-image" src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/gh-pages/library-portal.jpg" alt="لائبريري بينر" class="w-full h-auto object-cover">
         </div>
 
 
         <!-- Library Inventory Section (TOP PRIORITY) -->
         <section id="inventory" class="py-12 bg-stone-100 rounded-lg p-6 mb-12">
             <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">لائبريري ڪتابن جي فهرست (Book Inventory)</h2>
-            <p class="text-center text-lg text-gray-600 mb-8 text-justify">ھي لائبريريءَ ۾ موجود ڪتابن جي لائيو فهرست آھي، جنھن کي لائبريرين طرفان شامل ڪيو ويو آھي. ھتي سرچ ڪريو ته ڪھڙا ڪتاب اسان وٽ موجود آھن.</p>
+            <p class="text-center text-lg text-gray-600 mb-8">ھي لائبريريءَ ۾ موجود ڪتابن جي لائيو فهرست آھي، جنھن کي لائبريرين طرفان شامل ڪيو ويو آھي. ھتي سرچ ڪريو ته ڪھڙا ڪتاب اسان وٽ موجود آھن.</p>
             
             <div class="max-w-4xl mx-auto mb-4">
-                 <input type="text" id="inventory-search" onkeyup="window.filterInventory()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب جو نالو يا ڪيٽيگري ڳوليو (Search by Title or Category)...">
+                 <input type="text" id="inventory-search" onkeyup="window.filterInventory()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors text-right-aligned" placeholder="ڪتاب جو نالو يا ڪيٽيگري ڳوليو (Search by Title or Category)...">
             </div>
 
             <div class="overflow-x-auto max-w-4xl mx-auto bg-white rounded-lg shadow-xl border-t-4 border-amber-500 max-h-96 overflow-y-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead>
                         <tr>
-                            <th class="p-4 bg-amber-50 text-right text-sm font-medium text-gray-500 uppercase tracking-wider w-1/12">شمار</th>
-                            <th class="p-4 bg-amber-50 text-right text-sm font-medium text-gray-500 uppercase tracking-wider w-7/12">ڪتاب جو نالو</th>
-                            <th class="p-4 bg-amber-50 text-right text-sm font-medium text-gray-500 uppercase tracking-wider w-4/12">ڪيٽيگري</th>
+                            <th class="p-4 bg-amber-50 text-right-aligned text-sm font-medium text-gray-500 uppercase tracking-wider w-1/12">شمار</th>
+                            <th class="p-4 bg-amber-50 text-right-aligned text-sm font-medium text-gray-500 uppercase tracking-wider w-7/12">ڪتاب جو نالو</th>
+                            <th class="p-4 bg-amber-50 text-right-aligned text-sm font-medium text-gray-500 uppercase tracking-wider w-4/12">ڪيٽيگري</th>
                         </tr>
                     </thead>
                     <tbody id="inventory-list-body" class="bg-white divide-y divide-gray-200">
@@ -511,10 +522,10 @@
         <!-- Feedback Section (Firestore Integrated) -->
         <section id="feedback" class="py-12 bg-teal-50 rounded-lg p-6 mb-12">
             <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">عام تبصرو ۽ ريٽنگ (لائيو سسٽم)</h2>
-            <p class="text-center text-lg text-gray-600 mb-8 text-justify">ويب سائيٽ جي باري ۾ پنھنجو تبصرو ڏيو. توهان جي راءِ سڀني شاگردن کي نظر ايندي.</p>
+            <p class="text-center text-lg text-gray-600 mb-8">ويب سائيٽ جي باري ۾ پنھنجو تبصرو ڏيو. توهان جي راءِ سڀني شاگردن کي نظر ايندي.</p>
 
             <!-- Submission Form -->
-            <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 max-w-3xl mx-auto mb-10">
+            <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 max-w-3xl mx-auto mb-10 text-right-aligned">
                 <h3 class="text-2xl font-semibold mb-4 text-center">پنھنجي درجه بندي ڏيو</h3>
                 
                 <form id="review-form" action="https://formspree.io/f/f/waqasmangi.uk@gmail.com" method="POST" style="display: none;">
@@ -532,7 +543,7 @@
                 </select>
 
                 <label for="review-text" class="block text-right mb-2 font-medium">توهان جو تبصرو</label>
-                <textarea id="review-text" rows="4" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="هتي لکو ته توهان کي ھي ويبسائيٽ ڪيئن لڳي..."></textarea>
+                <textarea id="review-text" rows="4" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned" placeholder="هتي لکو ته توهان کي ھي ويبسائيٽ ڪيئن لڳي..."></textarea>
                 
                 <div id="review-status" class="text-center mb-4 font-semibold text-sm"></div>
 
@@ -552,10 +563,10 @@
         <!-- Advanced Feedback Section (Firestore Integrated) -->
         <section id="advanced-feedback" class="py-12 mb-12">
             <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">اڳڀرائي ۽ سکيا جا نوان موضوع</h2>
-            <p class="text-center text-lg text-gray-600 mb-8 text-justify">جيڪڏهن توهان انگريزيءَ جي وڌيڪ سطح تي وڃڻ چاهيو ٿا يا نوان موضوع سکڻ چاهيو ٿا، ته هي فارم ڀريو. توهان جا رايا ويبسائيٽ جي مستقبل جي ترقيءَ لاءِ اهم آهن.</p>
+            <p class="text-center text-lg text-gray-600 mb-8">جيڪڏهن توهان انگريزيءَ جي وڌيڪ سطح تي وڃڻ چاهيو ٿا يا نوان موضوع سکڻ چاهيو ٿا، ته هي فارم ڀريو. توهان جا رايا ويبسائيٽ جي مستقبل جي ترقيءَ لاءِ اهم آهن.</p>
 
             <!-- Advanced Submission Form -->
-            <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 max-w-3xl mx-auto mb-10">
+            <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 max-w-3xl mx-auto mb-10 text-right-aligned">
                 <h3 class="text-2xl font-semibold mb-4 text-center">آئنده لاءِ تجويزون</h3>
                 
                 <form id="advanced-feedback-form" action="https://formspree.io/f/f/waqasmangi.uk@gmail.com" method="POST" style="display: none;">
@@ -570,10 +581,10 @@
                 </select>
 
                 <label for="learn-more-topic" class="block text-right mb-2 font-medium">توهان وڌيڪ ڪهڙو موضوع سکڻ چاهيو ٿا؟ (مثال: جملن جي جوڙجڪ، گفتگو)</label>
-                <textarea id="learn-more-topic" rows="2" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="جيئن: Prepositions يا Dialogue writing"></textarea>
+                <textarea id="learn-more-topic" rows="2" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned" placeholder="جيئن: Prepositions يا Dialogue writing"></textarea>
                 
                 <label for="changes-wanted" class="block text-right mb-2 font-medium">هن ويبسائيٽ ۾ توهان ڪهڙيون تبديليون چاهيو ٿا؟</label>
-                <textarea id="changes-wanted" rows="3" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="جيئن: وڌيڪ مثال، وڊيوز، يا گهٽ مشق"></textarea>
+                <textarea id="changes-wanted" rows="3" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned" placeholder="جيئن: وڌيڪ مثال، وڊيوز، يا گهٽ مشق"></textarea>
 
                 
                 <div id="advanced-feedback-status" class="text-center mb-4 font-semibold text-sm"></div>
@@ -596,10 +607,10 @@
             <div class="text-center">
                 <h2 class="text-3xl font-bold mb-4">اسان جي باري ۾</h2>
                 <div class="max-w-3xl mx-auto">
-                    <div class="mb-8">
+                    <div class="mb-8 text-right-aligned">
                         <h3 class="text-2xl font-semibold text-amber-300">پيشڪش</h3>
-                        <p class="text-lg mt-2">نِرمل جيتواڻي لائبريري، **ٿرڙي محبت**</p>
-                        <p class="mt-4 text-justify">هي ويبسائيٽ، جيڪا سندھ جي شاگردن لاءِ بنيادي انگريزي سکڻ جي ڪوشش آهي، انھن شخصيتن جي ياد ۾ پيش ڪيو وڃي ٿو جن جي محنت سان هي لائبريري وجود ۾ آئي.</p>
+                        <p class="text-lg mt-2">نرمل جيوتاڻي لائبريري، **ٿرڙي محبت**</p>
+                        <p class="mt-4 text-justify leading-relaxed">هي ويبسائيٽ، جيڪا سندھ جي شاگردن لاءِ بنيادي انگريزي سکڻ جي ڪوشش آهي، انھن شخصيتن جي ياد ۾ پيش ڪيو وڃي ٿو جن جي محنت سان هي لائبريري وجود ۾ آئي.</p>
                         <div class="mt-4">
                             <p class="font-semibold">جن جي ڪوششن سان ھي لائبريري قائم ٿي:</p>
                             <p>**ڊاڪٽر علي گوهر آزاد منگي**</p>
@@ -613,7 +624,7 @@
                             <p>**چاچا حميد چنه** (Uncle Hameed Channa)</p>
                         </div>
                     </div>
-                    <div>
+                    <div class="text-right-aligned">
                          <h3 class="text-2xl font-semibold text-amber-300">مهاڳ</h3>
                          <p class="mt-4 text-justify leading-relaxed">پيارا شاگرد ۽ سکندڙ! ھي ويبسائيٽ خاص طور تي اوھان لاءِ تيار ڪيو ويو آھي. اڄ جي دور ۾، انگريزي زبان سکڻ اسان لاءِ رڳو ھڪ شوق نه پر ھڪ ضرورت بڻجي چڪي آھي. ڀلي اھا اعليٰ تعليم ھجي، يا ڪاروباري دنيا, يا ڊجيٽل ٽيڪنالاجي, ھر جاءِ تي انگريزيءَ جي اھميت وڌي رھي آھي. اسان جو مقصد ھي آھي ته اوھان کي انگريزيءَ جا بنيادي اصول تمام سادي ۽ آسان سندھی زبان ۾ سمجھا وڃن. ھر سبق کي ايئن تيار ڪيو ويو آھي جو اوھين آسانيءَ سان انگريزيءَ جا ننڍا جملا ٺاھڻ ۽ روزمره جي ڳالھ ٻولھ ڪرڻ سکي سگھو.</p>
                     </div>
@@ -624,12 +635,8 @@
     </main>
 
     <footer class="text-center p-4 bg-stone-200 text-gray-600">
-        <p>&copy; 2025 نِرمل جيتواڻي لائبريري. سڀ حق محفوظ آھن.</p>
+        <p>&copy; 2025 نرمل جيوتاڻي لائبريري. سڀ حق محفوظ آھن.</p>
         <p class="text-sm mt-1 latin">Website Version 1.0</p>
     </footer>
-
-    <script>
-        // No need for a separate DOMContentLoaded listener here as startAppLogic handles it
-    </script>
 </body>
 </html>
