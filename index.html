@@ -146,6 +146,7 @@
                 // Start listeners
                 listenForReviews(db, appId);
                 listenForAdvancedFeedback(db, appId);
+                listenForBookInventory(db, appId); // NEW: Start book inventory listener
             } catch (error) {
                 console.error("Firebase Auth Error:", error);
                 userId = crypto.randomUUID();
@@ -170,6 +171,70 @@
         
         function getAdvancedFeedbackCollectionRef(db, appId) {
             return collection(db, `artifacts/${appId}/public/data/advancedFeedback`);
+        }
+        
+        function getBookInventoryCollectionRef(db, appId) {
+             return collection(db, `artifacts/${appId}/public/data/book_inventory`);
+        }
+        
+        // NEW: Function to listen and render book inventory
+        function listenForBookInventory(db, appId) {
+            const booksRef = getBookInventoryCollectionRef(db, appId);
+            const q = query(booksRef, orderBy('timestamp', 'desc')); 
+            
+            onSnapshot(q, (snapshot) => {
+                const list = document.getElementById('inventory-list-body');
+                list.innerHTML = '';
+                
+                if (snapshot.docs.length === 0) {
+                    list.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">لائبريريءَ ۾ في الحال ڪي بہ ڪتاب موجود ناهن.</td></tr>';
+                    return;
+                }
+
+                snapshot.docs.forEach((doc, index) => {
+                    const data = doc.data();
+                    const row = document.createElement('tr');
+                    row.className = index % 2 === 0 ? 'bg-white' : 'bg-stone-50';
+                    
+                    row.innerHTML = `
+                        <td class="p-4">${index + 1}</td>
+                        <td class="p-4 font-semibold">${data.title}</td>
+                        <td class="p-4 text-sm text-teal-600">${data.category}</td>
+                    `;
+                    list.appendChild(row);
+                });
+            }, (error) => {
+                 console.error("Error listening to book inventory: ", error);
+                 document.getElementById('inventory-list-body').innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-600">فهرست لوڊ نه ٿي سگھي.</td></tr>`;
+            });
+        }
+        
+        // --- Formspree Submission Functions ---
+        async function sendFormspreeEmail(formId, formData) {
+            const formElement = document.getElementById(formId);
+            if (!formElement) return;
+
+            // Simple client-side fetch submission to Formspree endpoint
+            try {
+                const response = await fetch(formElement.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    // console.log("Email sent successfully via Formspree.");
+                    return true;
+                } else {
+                    console.error("Formspree email sending failed:", response.statusText);
+                    return false;
+                }
+            } catch (error) {
+                console.error("Error during Formspree submission:", error);
+                return false;
+            }
         }
 
         window.submitReview = async function() {
@@ -197,6 +262,7 @@
                 reviewStatus.classList.remove('text-red-600', 'text-green-600');
                 reviewStatus.classList.add('text-amber-600');
                 
+                // 1. Save to Firestore (for persistent display)
                 await addDoc(getReviewsCollectionRef(db, appId), {
                     userName: userName,
                     rating: parseInt(rating, 10),
@@ -204,6 +270,15 @@
                     likes: 0, // Initialize likes
                     timestamp: serverTimestamp()
                 });
+                
+                // 2. Send Email via Formspree (for notification)
+                const formData = new FormData();
+                formData.append('Name', userName);
+                formData.append('Rating', `${rating} Stars`);
+                formData.append('Review_Text', text);
+                formData.append('_subject', `New Student Review: ${userName}`); // Set email subject
+                
+                await sendFormspreeEmail('review-form', formData);
 
                 // Success: Display success message and WhatsApp button (VISUALLY DISTINGUISHED)
                 const safeText = text.replace(/'/g, "\\'").replace(/"/g, '\\"');
@@ -220,7 +295,7 @@
             } catch (e) {
                 console.error("Error adding document: ", e);
                 // The most common error here is 'permission-denied' due to security rules
-                reviewStatus.textContent = `تبصرو موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied). مھرباني ڪري Firebase رول (Security Rules) درست ڪريو.`;
+                reviewStatus.textContent = `تبصرو موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied يا Firebase ڪنيڪشن). مھرباني ڪري چيڪ ڪريو.`;
                 reviewStatus.classList.remove('text-green-600', 'text-amber-600');
                 reviewStatus.classList.add('text-red-600');
             }
@@ -252,6 +327,7 @@
                 status.classList.remove('text-red-600', 'text-green-600');
                 status.classList.add('text-amber-600');
                 
+                // 1. Save to Firestore (for persistent display)
                 await addDoc(getAdvancedFeedbackCollectionRef(db, appId), {
                     userName: userName,
                     advanceLevel: advanceLevel,
@@ -260,6 +336,16 @@
                     timestamp: serverTimestamp()
                 });
                 
+                // 2. Send Email via Formspree (for notification)
+                const formData = new FormData();
+                formData.append('Name', userName);
+                formData.append('Level_Readiness', advanceLevel);
+                formData.append('Changes_Requested', changes);
+                formData.append('Topic_Requested', learnMore);
+                formData.append('_subject', `New Advanced Suggestion: ${userName}`); // Set email subject
+                
+                await sendFormspreeEmail('advanced-feedback-form', formData);
+
                 // Success: Display success message and WhatsApp button (VISUALLY DISTINGUISHED)
                 const safeChanges = changes.replace(/'/g, "\\'").replace(/"/g, '\\"');
                 const safeTopic = learnMore.replace(/'/g, "\\'").replace(/"/g, '\\"');
@@ -275,7 +361,7 @@
                 document.getElementById('learn-more-topic').value = '';
             } catch (e) {
                 console.error("Error adding advanced feedback: ", e);
-                status.textContent = `رايا موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied). مھرباني ڪري Firebase رول (Security Rules) درست ڪريو.`;
+                status.textContent = `رايا موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied يا Firebase ڪنيڪشن). مھرباني ڪري چيڪ ڪريو.`;
                 status.classList.remove('text-green-600', 'text-amber-600');
                 status.classList.add('text-red-600');
             }
@@ -470,6 +556,7 @@
                 <a href="#alphabet" class="hover:text-amber-300">اکر شناسي</a>
                 <a href="#vocabulary" class="hover:text-amber-300">بنيادي لفظ</a>
                 <a href="#grammar" class="hover:text-amber-300">گرامر جا اصول</a>
+                <a href="#inventory" class="hover:text-amber-300">ڪتابن جي فهرست</a>
                 <a href="#practice" class="hover:text-amber-300">مشق</a>
                 <a href="#feedback" class="hover:text-amber-300">عام تبصرو</a>
                 <a href="#advanced-feedback" class="hover:text-amber-300">اڳڀرائي جا رايا</a>
@@ -481,6 +568,7 @@
             <a href="#alphabet" class="block py-2 hover:bg-teal-600">اکر شناسي</a>
             <a href="#vocabulary" class="block py-2 hover:bg-teal-600">بنيادي لفظ</a>
             <a href="#grammar" class="block py-2 hover:bg-teal-600">گرامر جا اصول</a>
+            <a href="#inventory" class="block py-2 hover:bg-teal-600">ڪتابن جي فهرست</a>
             <a href="#practice" class="block py-2 hover:bg-teal-600">مشق</a>
             <a href="#feedback" class="block py-2 hover:bg-teal-600">عام تبصرو</a>
             <a href="#advanced-feedback" class="block py-2 hover:bg-teal-600">اڳڀرائي جا رايا</a>
@@ -657,9 +745,31 @@
                 </div>
             </div>
         </section>
+        
+        <!-- NEW: Library Inventory Section -->
+        <section id="inventory" class="py-12 bg-stone-100 rounded-lg p-6">
+            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">لائبريري ڪتابن جي فهرست (Book Inventory)</h2>
+            <p class="text-center text-lg text-gray-600 mb-8 text-justify">ھي لائبريريءَ ۾ موجود ڪتابن جي لائيو فهرست آھي، جنھن کي لائبريرين طرفان شامل ڪيو ويو آھي. توھان جي انگريزي سکڻ کان علاوه، توھان ڏسي سگھو ٿا تہ ڪھڙا ڪتاب اسان وٽ موجود آھن.</p>
+            
+            <div class="overflow-x-auto max-w-4xl mx-auto bg-white rounded-lg shadow-xl border-t-4 border-amber-500 max-h-96 overflow-y-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="p-4 bg-amber-50 text-right text-sm font-medium text-gray-500 uppercase tracking-wider w-1/12">شمار</th>
+                            <th class="p-4 bg-amber-50 text-right text-sm font-medium text-gray-500 uppercase tracking-wider w-7/12">ڪتاب جو نالو</th>
+                            <th class="p-4 bg-amber-50 text-right text-sm font-medium text-gray-500 uppercase tracking-wider w-4/12">ڪيٽيگري</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-list-body" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="3" class="p-4 text-center text-gray-500">لائيو فهرست لوڊ ٿي رهي آهي...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        <!-- END NEW: Library Inventory Section -->
 
         <!-- Practice Section -->
-        <section id="practice" class="py-12 bg-stone-100 rounded-lg p-6">
+        <section id="practice" class="py-12">
             <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">مشق ۽ سکيا جي پرک</h2>
             <p class="text-center text-lg text-gray-600 mb-8 text-justify">پنھنجي سکيا کي ھن مشق سان پرکيو. سڀني حصن کي حل ڪرڻ جي ڪوشش ڪريو.</p>
             
@@ -704,7 +814,7 @@
         </section>
 
         <!-- Feedback Section (Firestore Integrated) -->
-        <section id="feedback" class="py-12">
+        <section id="feedback" class="py-12 bg-teal-50 rounded-lg p-6">
             <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">عام تبصرو ۽ ريٽنگ (لائيو سسٽم)</h2>
             <p class="text-center text-lg text-gray-600 mb-8 text-justify">ويب سائيٽ جي باري ۾ پنھنجو تبصرو ڏيو. توهان جي راءِ سڀني شاگردن کي نظر ايندي.</p>
 
@@ -712,6 +822,11 @@
             <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 max-w-3xl mx-auto mb-10">
                 <h3 class="text-2xl font-semibold mb-4 text-center">پنھنجي درجه بندي ڏيو</h3>
                 
+                <form id="review-form" action="https://formspree.io/f/f/waqasmangi.uk@gmail.com" method="POST" style="display: none;">
+                    <input type="hidden" name="_replyto" value="waqasmangi.uk@gmail.com">
+                    <input type="hidden" name="Feedback_Type" value="Review">
+                </form>
+
                 <label for="review-rating" class="block text-right mb-2 font-medium">ريٽنگ (1 کان 5 ستارا)</label>
                 <select id="review-rating" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50">
                     <option value="5">5 ستارا (بهترين)</option>
@@ -724,7 +839,7 @@
                 <label for="review-text" class="block text-right mb-2 font-medium">توهان جو تبصرو</label>
                 <textarea id="review-text" rows="4" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="هتي لکو ته توهان کي ھي ويبسائيٽ ڪيئن لڳي..."></textarea>
                 
-                <div id="review-status" class="text-center mb-4 text-sm font-semibold"></div>
+                <div id="review-status" class="text-center mb-4 font-semibold text-sm"></div>
 
                 <button onclick="window.submitReview()" class="w-full bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition-colors">تبصرو موڪليو</button>
             </div>
@@ -732,7 +847,7 @@
             <!-- Live Reviews Display (Added Scroll and Max Height) -->
             <div class="max-w-3xl mx-auto">
                 <h3 class="text-2xl font-semibold mb-4 text-center text-teal-700" id="average-rating">اوسط درجه بندي (لوڊ ٿي رهيو آهي...)</h3>
-                <div id="reviews-list" class="max-h-96 overflow-y-auto p-2 bg-stone-100 rounded-lg shadow-inner">
+                <div id="reviews-list" class="max-h-96 overflow-y-auto p-2 bg-white rounded-lg shadow-inner">
                     <!-- Reviews will be loaded here by Firestore -->
                     <p class="text-center text-gray-500">لوڊ ٿي رهيو آهي...</p>
                 </div>
@@ -740,7 +855,7 @@
         </section>
         
         <!-- Advanced Feedback Section (Firestore Integrated) -->
-        <section id="advanced-feedback" class="py-12 bg-teal-50 rounded-lg p-6">
+        <section id="advanced-feedback" class="py-12">
             <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">اڳڀرائي ۽ سکيا جا نوان موضوع</h2>
             <p class="text-center text-lg text-gray-600 mb-8 text-justify">جيڪڏهن توهان انگريزيءَ جي وڌيڪ سطح تي وڃڻ چاهيو ٿا يا نوان موضوع سکڻ چاهيو ٿا، ته هي فارم ڀريو. توهان جا رايا ويبسائيٽ جي مستقبل جي ترقيءَ لاءِ اهم آهن.</p>
 
@@ -748,6 +863,11 @@
             <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 max-w-3xl mx-auto mb-10">
                 <h3 class="text-2xl font-semibold mb-4 text-center">آئنده لاءِ تجويزون</h3>
                 
+                <form id="advanced-feedback-form" action="https://formspree.io/f/f/waqasmangi.uk@gmail.com" method="POST" style="display: none;">
+                    <input type="hidden" name="_replyto" value="waqasmangi.uk@gmail.com">
+                    <input type="hidden" name="Feedback_Type" value="Advanced_Suggestion">
+                </form>
+
                 <label for="advance-level" class="block text-right mb-2 font-medium">ڇا توهان ايندڙ سطح تي وڃڻ چاهيو ٿا؟</label>
                 <select id="advance-level" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50">
                     <option value="Yes">ها، مان تيار آهيان!</option>
@@ -761,7 +881,7 @@
                 <textarea id="changes-wanted" rows="3" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="جيئن: وڌيڪ مثال، وڊيوز، يا گهٽ مشق"></textarea>
 
                 
-                <div id="advanced-feedback-status" class="text-center mb-4 text-sm font-semibold"></div>
+                <div id="advanced-feedback-status" class="text-center mb-4 font-semibold text-sm"></div>
 
                 <button onclick="window.submitAdvancedFeedback()" class="w-full bg-teal-700 text-white font-bold py-3 rounded-md hover:bg-teal-800 transition-colors">تجويزون موڪليو</button>
             </div>
