@@ -39,6 +39,7 @@
         let userId = ''; 
         let db;
         let auth;
+        let bookInventoryData = []; // Store book data globally for filtering
         
         // --- TTS Helper Function ---
         window.speakText = function(text) {
@@ -106,8 +107,8 @@
         
         // --- WhatsApp Share Function ---
         window.shareOnWhatsApp = function(message) {
-            // Using the user's confirmed hosted link for the backlink
-            // NOTE: Using HTTPS is highly recommended for WhatsApp functionality
+            // NOTE: Since the site is hosted on GitHub, using a relative path here is safer, 
+            // but keeping the provided absolute link for now.
             const websiteLink = "http://nirmallibrary.atwebpages.com/index.html";
             const fullMessage = encodeURIComponent(`${message}\n\n[نِرمل لائبريري ويبسائيٽ]\n${websiteLink}`);
             
@@ -183,31 +184,46 @@
             const q = query(booksRef, orderBy('timestamp', 'desc')); 
             
             onSnapshot(q, (snapshot) => {
-                const list = document.getElementById('inventory-list-body');
-                list.innerHTML = '';
-                
-                if (snapshot.docs.length === 0) {
-                    list.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">لائبريريءَ ۾ في الحال ڪي بہ ڪتاب موجود ناهن.</td></tr>';
-                    return;
-                }
-
-                snapshot.docs.forEach((doc, index) => {
-                    const data = doc.data();
-                    const row = document.createElement('tr');
-                    row.className = index % 2 === 0 ? 'bg-white' : 'bg-stone-50';
-                    
-                    row.innerHTML = `
-                        <td class="p-4">${index + 1}</td>
-                        <td class="p-4 font-semibold">${data.title}</td>
-                        <td class="p-4 text-sm text-teal-600">${data.category}</td>
-                    `;
-                    list.appendChild(row);
-                });
+                // Store fetched data for local filtering
+                bookInventoryData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                // Render the initial list
+                filterInventory(); 
             }, (error) => {
                  console.error("Error listening to book inventory: ", error);
                  document.getElementById('inventory-list-body').innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-600">فهرست لوڊ نه ٿي سگھي.</td></tr>`;
             });
         }
+        
+        window.filterInventory = function() {
+            const searchTerm = document.getElementById('inventory-search').value.toLowerCase().trim();
+            const list = document.getElementById('inventory-list-body');
+            list.innerHTML = '';
+            
+            const filteredData = bookInventoryData.filter(book => 
+                book.title.toLowerCase().includes(searchTerm) || 
+                book.category.toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredData.length === 0) {
+                 list.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">ڪابه ڪتاب نه ملي سگهي.</td></tr>';
+                 return;
+            }
+
+            filteredData.forEach((data, index) => {
+                const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'bg-white' : 'bg-stone-50';
+                
+                row.innerHTML = `
+                    <td class="p-4">${index + 1}</td>
+                    <td class="p-4 font-semibold">${data.title}</td>
+                    <td class="p-4 text-sm text-teal-600">${data.category}</td>
+                `;
+                list.appendChild(row);
+            });
+        };
         
         // --- Formspree Submission Functions ---
         async function sendFormspreeEmail(formId, formData) {
@@ -561,6 +577,7 @@
                 <a href="#feedback" class="hover:text-amber-300">عام تبصرو</a>
                 <a href="#advanced-feedback" class="hover:text-amber-300">اڳڀرائي جا رايا</a>
                 <a href="#about" class="hover:text-amber-300">اسان جي باري ۾</a>
+                <a href="librarian_admin.html" class="hover:text-red-300 text-red-300 font-bold">لائبريرين جي رسائي</a>
             </nav>
             <button id="mobile-menu-button" class="md:hidden text-2xl">☰</button>
         </div>
@@ -573,6 +590,7 @@
             <a href="#feedback" class="block py-2 hover:bg-teal-600">عام تبصرو</a>
             <a href="#advanced-feedback" class="block py-2 hover:bg-teal-600">اڳڀرائي جا رايا</a>
             <a href="#about" class="block py-2 hover:bg-teal-600">اسان جي باري ۾</a>
+            <a href="librarian_admin.html" class="block py-2 text-red-300 font-bold hover:bg-teal-600">لائبريرين جي رسائي</a>
         </nav>
     </header>
 
@@ -751,6 +769,10 @@
             <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">لائبريري ڪتابن جي فهرست (Book Inventory)</h2>
             <p class="text-center text-lg text-gray-600 mb-8 text-justify">ھي لائبريريءَ ۾ موجود ڪتابن جي لائيو فهرست آھي، جنھن کي لائبريرين طرفان شامل ڪيو ويو آھي. توھان جي انگريزي سکڻ کان علاوه، توھان ڏسي سگھو ٿا تہ ڪھڙا ڪتاب اسان وٽ موجود آھن.</p>
             
+            <div class="max-w-4xl mx-auto mb-4">
+                 <input type="text" id="inventory-search" onkeyup="window.filterInventory()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب جو نالو يا ڪيٽيگري ڳوليو (Search by Title or Category)...">
+            </div>
+
             <div class="overflow-x-auto max-w-4xl mx-auto bg-white rounded-lg shadow-xl border-t-4 border-amber-500 max-h-96 overflow-y-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead>
