@@ -26,6 +26,15 @@
         .text-right-aligned {
              text-align: right;
         }
+        /* Hide default number input arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
     </style>
 
     <!-- Firebase SDK Imports for Database Management -->
@@ -48,6 +57,11 @@
         const appId = firebaseConfig.projectId;
         const ADMIN_PASSWORD = "Nirmal2025"; // !!! CRITICAL: Simple client-side password - DO NOT USE FOR SENSITIVE DATA !!!
         // --- End Shared Firebase Config ---
+        
+        const BOOK_CATEGORIES = [
+            "تعليم (Education)", "تاريخ (History)", "شاعري (Poetry)", "سائنس (Science)", "افسانه/ناول (Fiction/Novel)",
+            "مذهب (Religion)", "ٻولي (Language)", "ٻيا (Other)"
+        ];
         
         let db;
         let auth;
@@ -77,6 +91,15 @@
                 
                 await signInAnonymously(auth);
                 
+                // Populate category dropdown
+                const categorySelect = document.getElementById('book-category');
+                BOOK_CATEGORIES.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    categorySelect.appendChild(option);
+                });
+
                 listenForBooks(db, appId);
 
             } catch (error) {
@@ -87,11 +110,19 @@
 
         window.submitBook = async function() {
             const title = document.getElementById('book-title').value.trim();
-            const category = document.getElementById('book-category').value.trim();
+            const author = document.getElementById('book-author').value.trim() || 'نامعلوم'; // New author field
+            const categoryElement = document.getElementById('book-category');
+            let category = categoryElement.value;
+            
+            // If category is not selected or empty, default to 'Other'
+            if (!category || category === "category-placeholder") {
+                category = "ٻيا (Other)";
+            }
+            
             const status = document.getElementById('status');
             
-            if (!title || !category) {
-                status.textContent = 'ڪتاب جو نالو ۽ ڪيٽيگري لازمي آھن.';
+            if (!title) {
+                status.textContent = 'ڪتاب جو نالو لازمي آھي.';
                 status.classList.remove('text-green-600', 'text-amber-500');
                 status.classList.add('text-red-600');
                 return;
@@ -106,6 +137,7 @@
                     // EDIT MODE: Update existing document
                     await updateDoc(doc(db, `artifacts/${appId}/public/data/book_inventory`, currentBookIdToEdit), {
                         title: title,
+                        author: author,
                         category: category,
                     });
                     status.textContent = `ڪتاب "${title}" جون تبديليون ڪاميابي سان محفوظ ٿي ويون!`;
@@ -113,6 +145,7 @@
                     // ADD MODE: Add new document
                     await addDoc(collection(db, `artifacts/${appId}/public/data/book_inventory`), {
                         title: title,
+                        author: author,
                         category: category,
                         timestamp: serverTimestamp()
                     });
@@ -124,7 +157,8 @@
                 
                 // Reset form state
                 document.getElementById('book-title').value = '';
-                document.getElementById('book-category').value = '';
+                document.getElementById('book-author').value = '';
+                document.getElementById('book-category').value = 'ٻيا (Other)';
                 window.cancelEdit(); // Reset to Add Mode
 
             } catch (e) {
@@ -156,7 +190,9 @@
             }
             
             document.getElementById('book-title').value = bookToEdit.title;
-            document.getElementById('book-category').value = bookToEdit.category;
+            document.getElementById('book-author').value = bookToEdit.author;
+            // Ensure the category value exists in the dropdown before setting it, otherwise set to 'Other'
+            document.getElementById('book-category').value = bookToEdit.category || 'ٻيا (Other)'; 
             
             currentBookIdToEdit = bookId; // Set global state
             
@@ -177,7 +213,8 @@
         window.cancelEdit = function() {
             currentBookIdToEdit = null;
             document.getElementById('book-title').value = '';
-            document.getElementById('book-category').value = '';
+            document.getElementById('book-author').value = '';
+            document.getElementById('book-category').value = 'ٻيا (Other)';
             
             // Reset button appearance
             document.getElementById('submit-book-btn').textContent = 'ڪتاب شامل ڪريو';
@@ -201,7 +238,7 @@
                 filterBookList(); 
             }, (error) => {
                  console.error("Error listening to books: ", error);
-                 document.getElementById('book-list').innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-600">لوڊ ڪرڻ ۾ غلطي: ${error.message}</td></tr>`;
+                 document.getElementById('book-list').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">لوڊ ڪرڻ ۾ غلطي: ${error.message}</td></tr>`;
             });
         }
         
@@ -211,12 +248,13 @@
             list.innerHTML = '';
             
             const filteredData = inventoryData.filter(book => 
-                book.title.toLowerCase().includes(searchTerm) || 
-                book.category.toLowerCase().includes(searchTerm)
+                (book.title || '').toLowerCase().includes(searchTerm) || 
+                (book.author || '').toLowerCase().includes(searchTerm) ||
+                (book.category || '').toLowerCase().includes(searchTerm)
             );
 
             if (filteredData.length === 0) {
-                 list.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">ڪابه ڪتاب نه ملي سگهي.</td></tr>';
+                 list.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">ڪابه ڪتاب نه ملي سگهي.</td></tr>';
                  return;
             }
 
@@ -227,7 +265,8 @@
                 row.innerHTML = `
                     <td class="p-4">${index + 1}</td>
                     <td class="p-4 font-semibold">${data.title}</td>
-                    <td class="p-4">${data.category}</td>
+                    <td class="p-4 text-sm">${data.author || 'نامعلوم'}</td>
+                    <td class="p-4">${data.category || 'ٻيا'}</td>
                     <td class="p-4 text-sm text-gray-500">${data.time}</td>
                     <td class="p-4 space-x-2 space-x-reverse flex justify-end">
                         <button onclick="window.editBook('${data.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors text-sm">ايڊٽ ڪريو</button>
@@ -257,7 +296,7 @@
     <!-- Login Screen -->
     <div id="login-screen" class="min-h-screen flex items-center justify-center p-4 bg-teal-800">
         <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md text-center">
-            <h1 class="text-3xl font-bold mb-4 text-teal-700">لائبريري انتظاميا پينل</h1>
+            <h1 class="text-3xl font-bold mb-4 text-teal-700">نِرمل لائبريري ڪتابن جو انتظاميا پينل</h1>
             <p class="text-gray-600 mb-6">رسائي لاءِ پاسورڊ داخل ڪريو:</p>
             <input type="password" id="password-input" class="w-full p-3 border border-gray-300 rounded-md mb-4 text-center" placeholder="پاسورڊ">
             <button onclick="window.checkPassword()" class="w-full bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition-colors">رسائي</button>
@@ -280,13 +319,23 @@
         <!-- Add/Edit Book Form -->
         <div id="add-book-form-card" class="bg-white p-6 rounded-lg shadow-xl max-w-2xl mx-auto mb-10 border-t-4 border-amber-500">
             <h2 class="text-2xl font-bold mb-4 text-center">نئون ڪتاب شامل ڪريو</h2>
+            
             <div class="mb-4">
-                <label for="book-title" class="block text-right mb-2 font-medium">ڪتاب جو نالو (مثال: Basic English Grammar)</label>
-                <input type="text" id="book-title" class="w-full p-2 border border-gray-300 rounded-md" placeholder="ڪتاب جو نالو">
+                <label for="book-title" class="block text-right mb-2 font-medium">ڪتاب جو نالو</label>
+                <input type="text" id="book-title" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: انگريزي گرامر جا بنيادي اصول">
             </div>
+            
+            <div class="mb-4">
+                <label for="book-author" class="block text-right mb-2 font-medium">ليکڪ جو نالو</label>
+                <input type="text" id="book-author" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: ڊاڪٽر علي گوهر آزاد منگي">
+            </div>
+
             <div class="mb-6">
-                <label for="book-category" class="block text-right mb-2 font-medium">ڪيٽيگري (مثال: انگريزي، تاريخ، ناول)</label>
-                <input type="text" id="book-category" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: تعليم، تاريخ، ناول، سائنس">
+                <label for="book-category" class="block text-right mb-2 font-medium">ڪيٽيگري</label>
+                <select id="book-category" class="w-full p-2 border border-gray-300 rounded-md bg-white">
+                    <option value="category-placeholder" disabled selected>ڪيٽيگري چونڊيو</option>
+                    <!-- Options populated by JS: BOOK_CATEGORIES -->
+                </select>
             </div>
             
             <div id="status" class="text-center mb-4 font-semibold text-sm"></div>
@@ -301,7 +350,7 @@
         <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">موجوده ڪتابن جي فهرست</h2>
         
         <div class="max-w-4xl mx-auto mb-4">
-            <input type="text" id="admin-search" onkeyup="window.filterBookList()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب ڳوليو (نالو يا ڪيٽيگري)">
+            <input type="text" id="admin-search" onkeyup="window.filterBookList()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب، ليکڪ، يا ڪيٽيگري ڳوليو">
         </div>
         
         <div class="overflow-x-auto bg-white rounded-lg shadow-xl">
@@ -310,16 +359,19 @@
                     <tr>
                         <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شمار</th>
                         <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪتاب جو نالو</th>
+                        <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ليکڪ</th>
                         <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪيٽيگري</th>
                         <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شامل ٿيڻ جي تاريخ</th>
                         <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عمل</th>
                     </tr>
                 </thead>
                 <tbody id="book-list" class="bg-white divide-y divide-gray-200">
-                    <tr><td colspan="5" class="p-4 text-center text-gray-500">لوڊ ٿي رهيو آهي...</td></tr>
+                    <tr><td colspan="6" class="p-4 text-center text-gray-500">لوڊ ٿي رهيو آهي...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 </body>
 </html>
+
+                
