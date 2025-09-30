@@ -39,6 +39,27 @@
             object-fit: cover;
             border-radius: 4px;
         }
+        /* Modal Backdrop */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            max-width: 90%;
+            width: 400px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
     </style>
 
     <!-- Firebase SDK Imports for Database Management -->
@@ -127,7 +148,7 @@
                 // Set initial view and start listeners
                 window.switchView('book-inventory');
                 listenForBooks(db, appId);
-                listenForPendingMembers(db, appId); // Start listening for pending requests immediately
+                listenForPendingMembers(db, appId); // Start listening for members immediately
 
             } catch (error) {
                 document.getElementById('status').textContent = `Firebase غلطي: ${error.code}. مهرباني ڪري چيڪ ڪريو ته Anonymous Auth چالو آهي.`;
@@ -193,7 +214,8 @@
                 await deleteDoc(doc(db, `artifacts/${appId}/public/data/book_inventory`, bookId));
                 console.log("Book deleted:", bookId);
             } catch (e) {
-                alert(`ڪتاب حذف ڪرڻ ۾ غلطي: ${e.message}`);
+                /* Using custom message box instead of alert() */
+                window.showCustomMessage(`ڪتاب حذف ڪرڻ ۾ غلطي: ${e.message}`, 'error');
                 console.error("Error deleting book: ", e);
             }
         };
@@ -201,7 +223,8 @@
         window.editBook = function(bookId) {
             const bookToEdit = inventoryData.find(book => book.id === bookId);
             if (!bookToEdit) {
-                alert("ڪتاب نه ملي سگھيو!");
+                /* Using custom message box instead of alert() */
+                window.showCustomMessage("ڪتاب نه ملي سگھيو!", 'error');
                 return;
             }
             
@@ -286,7 +309,7 @@
         // --- End Book Inventory Logic ---
 
 
-        // --- Membership Management Logic (NEW CODE) ---
+        // --- Membership Management Logic ---
         
         // Helper function to format date
         const formatDate = (timestamp) => {
@@ -327,27 +350,41 @@
                 const row = document.createElement('tr');
                 row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
                 
-                const statusColor = member.status === 'Pending' ? 'text-amber-600' : 
-                                    (member.status === 'Approved' ? 'text-green-600' : 'text-red-600');
-                const statusText = member.status === 'Pending' ? 'التوا ۾' : 
-                                   (member.status === 'Approved' ? 'منظور' : 'رد ٿيل');
+                // Set status text and color
+                let statusColor = 'text-gray-500';
+                let statusText = member.status === 'Pending' ? 'التوا ۾' : 
+                                   (member.status === 'Approved' ? 'منظور' : 'منسوخ'); // Renamed 'Rejected' to 'منسوخ' (Cancelled)
+                
+                if (member.status === 'Pending') {
+                    statusColor = 'text-amber-600';
+                } else if (member.status === 'Approved') {
+                    statusColor = 'text-green-600';
+                } else if (member.status === 'Cancelled' || member.status === 'Rejected') {
+                    statusColor = 'text-red-600';
+                }
+
                 const photo = member.photoBase64 ? `<img src="${member.photoBase64}" class="member-photo-admin" alt="Member Photo">` : 'تصوير ناهي';
                 
-                let buttons = '';
+                let actionButtons = '';
                 if (member.status === 'Pending') {
-                    buttons = `
-                        <button onclick="window.approveMember('${member.id}', '${member.name}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm">منظور ڪريو</button>
-                        <button onclick="window.rejectMember('${member.id}', '${member.name}')" class="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 transition-colors text-sm">رد ڪريو</button>
+                    actionButtons = `
+                        <button onclick="window.approveMember('${member.id}', '${member.name}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منظور ڪريو</button>
+                        <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منسوخ ڪريو (Reason)</button>
                     `;
                 } else if (member.status === 'Approved') {
-                    // NEW: Print Card Button (Redirects to tracker page with ID)
-                    buttons = `
+                    actionButtons = `
                         <span class="${statusColor} font-semibold text-sm">${statusText}</span>
-                        <a href="membership_track.html?id=${member.cardId}" target="_blank" class="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition-colors text-sm whitespace-nowrap">ڪارڊ پرنٽ ڪريو</a>
+                        <a href="membership_track.html?id=${member.cardId}" target="_blank" class="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ڪارڊ پرنٽ ڪريو</a>
+                        <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ممبرشپ رد ڪريو</button>
                     `;
                 } else {
-                     buttons = `<span class="${statusColor} font-semibold text-sm">${statusText}</span>`;
+                     actionButtons = `<span class="${statusColor} font-semibold text-sm">${statusText}</span>`;
                 }
+
+                // Add the Delete button to all rows
+                actionButtons += `
+                    <button onclick="window.deleteMemberRecord('${member.id}', '${member.name}')" class="bg-gray-400 text-white px-3 py-1 rounded-md hover:bg-gray-500 transition-colors text-sm whitespace-nowrap mt-1 md:mt-0">حذف ڪريو</button>
+                `;
 
 
                 row.innerHTML = `
@@ -356,8 +393,8 @@
                     <td class="p-4 font-semibold">${member.name} (${member.cardId})</td>
                     <td class="p-4 text-sm">${member.occupation}</td>
                     <td class="p-4 text-sm text-gray-500">${member.submissionTime}</td>
-                    <td class="p-4 space-x-2 space-x-reverse flex justify-end items-center">
-                        ${buttons}
+                    <td class="p-4 space-y-1 space-x-2 space-x-reverse flex flex-col md:flex-row md:justify-end items-end md:items-center">
+                        ${actionButtons}
                     </td>
                 `;
                 list.appendChild(row);
@@ -377,6 +414,7 @@
                     status: 'Approved',
                     approvedDate: approvedDate,
                     expiryDate: expiryDate,
+                    cancellationReason: null // Clear any existing reason
                 });
                 document.getElementById('membership-requests-status').textContent = `${memberName} جي ممبرشپ ڪاميابي سان منظور ٿي وئي.`;
                 document.getElementById('membership-requests-status').classList.remove('text-red-600', 'text-amber-500');
@@ -389,22 +427,75 @@
             }
         };
 
-        window.rejectMember = async function(memberId, memberName) {
-             if (!confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ رد ڪرڻ چاهيو ٿا؟`)) return;
+        // --- NEW: Function to open the Cancel Modal ---
+        window.openCancelModal = function(memberId, memberName) {
+            document.getElementById('cancel-member-name').textContent = memberName;
+            document.getElementById('cancel-member-id').value = memberId;
+            document.getElementById('cancel-modal').classList.remove('hidden');
+        };
+
+        window.closeCancelModal = function() {
+            document.getElementById('cancellation-reason').value = ''; // Clear reason input
+            document.getElementById('cancel-modal').classList.add('hidden');
+        };
+
+        // --- NEW: Function to process cancellation with reason ---
+        window.processCancellation = async function() {
+            const memberId = document.getElementById('cancel-member-id').value;
+            const memberName = document.getElementById('cancel-member-name').textContent;
+            const reason = document.getElementById('cancellation-reason').value.trim();
+            const statusElement = document.getElementById('membership-requests-status');
+
+            if (!reason) {
+                alert("ممبرشپ رد ڪرڻ لاءِ مھرباني ڪري ڪو سبب لکو.");
+                return;
+            }
+
+            window.closeCancelModal();
+            statusElement.textContent = `ممبرشپ ${memberName} رد ڪري رهيو آهي...`;
+            statusElement.classList.remove('text-red-600', 'text-green-600');
+            statusElement.classList.add('text-amber-500');
+
             try {
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
-                    status: 'Rejected',
+                    status: 'Cancelled', // Use 'Cancelled' status
+                    cancellationReason: reason, // Save the reason for the student to see
+                    approvedDate: null,
+                    expiryDate: null,
                 });
-                document.getElementById('membership-requests-status').textContent = `${memberName} جي درخواست رد ڪئي وئي.`;
-                document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
-                document.getElementById('membership-requests-status').classList.add('text-red-600');
+                statusElement.textContent = `${memberName} جي ممبرشپ ڪاميابي سان رد ٿي وئي. سبب: ${reason}`;
+                statusElement.classList.remove('text-amber-500');
+                statusElement.classList.add('text-red-600');
             } catch (e) {
-                console.error("Error rejecting member: ", e);
-                document.getElementById('membership-requests-status').textContent = `رد ڪرڻ ۾ غلطي ٿي: ${e.message}`;
-                document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
-                document.getElementById('membership-requests-status').classList.add('text-red-600');
+                console.error("Error cancelling member: ", e);
+                statusElement.textContent = `ممبرشپ رد ڪرڻ ۾ غلطي ٿي: ${e.message}`;
+                statusElement.classList.remove('text-amber-500', 'text-green-600');
+                statusElement.classList.add('text-red-600');
             }
         };
+        
+        // --- NEW: Function to delete a member record ---
+        window.deleteMemberRecord = async function(memberId, memberName) {
+            if (!confirm(`ڇا توهان واقعي ${memberName} جو سڄو رڪارڊ ڊيٽابيس مان حذف ڪرڻ چاهيو ٿا؟ اهو مستقل طور ختم ٿي ويندو!`)) return;
+            
+            const statusElement = document.getElementById('membership-requests-status');
+            statusElement.textContent = ` ${memberName} جو رڪارڊ حذف ڪري رهيو آهي...`;
+            statusElement.classList.remove('text-red-600', 'text-green-600');
+            statusElement.classList.add('text-amber-500');
+
+            try {
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId));
+                statusElement.textContent = `${memberName} جو رڪارڊ ڪاميابي سان حذف ٿي ويو.`;
+                statusElement.classList.remove('text-amber-500', 'text-red-600');
+                statusElement.classList.add('text-green-600');
+            } catch (e) {
+                console.error("Error deleting member record: ", e);
+                statusElement.textContent = `رڪارڊ حذف ڪرڻ ۾ غلطي ٿي: ${e.message}`;
+                statusElement.classList.remove('text-amber-500', 'text-green-600');
+                statusElement.classList.add('text-red-600');
+            }
+        };
+
 
         window.manualAdd = function() {
             window.location.href = 'membership_apply.html';
@@ -523,12 +614,12 @@
             </div>
         </div>
 
-        <!-- View 2: Membership Requests Management (NEW) -->
+        <!-- View 2: Membership Requests Management (UPDATED) -->
         <div id="membership-requests" class="admin-view max-w-4xl mx-auto hidden">
              <h2 class="text-3xl font-bold text-center mb-6 text-amber-700">ممبرشپ درخواستون (Moderation)</h2>
              
              <div class="bg-white p-4 rounded-lg shadow-md mb-6">
-                 <p id="membership-requests-status" class="text-center font-semibold text-sm text-gray-600">سڀئي درخواستون ڏيکاريون وينديون (التوا، منظور ٿيل، رد ٿيل).</p>
+                 <p id="membership-requests-status" class="text-center font-semibold text-sm text-gray-600">سڀئي درخواستون ڏيکاريون وينديون (التوا، منظور ٿيل، منسوخ).</p>
              </div>
 
              <div class="overflow-x-auto bg-white rounded-lg shadow-xl">
@@ -549,7 +640,23 @@
                 </table>
             </div>
         </div>
-
+    </div>
+    
+    <!-- Cancellation Modal (NEW) -->
+    <div id="cancel-modal" class="modal-backdrop hidden">
+        <div class="modal-content text-right">
+            <h3 class="text-xl font-bold mb-4 text-red-700">ممبرشپ رد ڪرڻ جو سبب</h3>
+            <p class="mb-3 text-sm text-gray-600">ڇا توھان <strong id="cancel-member-name" class="font-bold">...</strong> جي ممبرشپ رد ڪري رھيا آھيو؟ مھرباني ڪري سبب لکو جيڪو شاگرد کي اسٽيٽس ٽريڪنگ دوران ڏيکاريو ويندو.</p>
+            
+            <input type="hidden" id="cancel-member-id">
+            
+            <textarea id="cancellation-reason" rows="3" class="w-full p-2 border border-red-300 rounded-md focus:ring-red-500 focus:border-red-500 mb-4 text-right-aligned" placeholder="ممبرشپ رد ڪرڻ جو سبب... مثال: نا مڪمل دستاويز يا جعلي معلومات."></textarea>
+            
+            <div class="flex justify-end space-x-2 space-x-reverse">
+                <button onclick="window.closeCancelModal()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">منسوخ ڪريو</button>
+                <button onclick="window.processCancellation()" class="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-colors">رد ڪريو ۽ سبب محفوظ ڪريو</button>
+            </div>
+        </div>
     </div>
 </body>
 </html>
