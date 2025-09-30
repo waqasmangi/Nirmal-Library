@@ -76,7 +76,7 @@
             projectId: "nirmal-library", 
             storageBucket: "nirmal-library.firebasestorage.app",
             messagingSenderId: "157338670869",
-            appId: "1:157338670869:web:f44c9b0a09e9ebedcfb1c" // Updated App ID from index.html
+            appId: "1:157338670869:web:f44c9b0a3d9e9ebedcfb1c"
         };
         const appId = firebaseConfig.projectId;
         // --- End Shared Firebase Config ---
@@ -226,7 +226,7 @@
             }
         }
         
-        // --- Form Submission Logic (UPDATED with Duplicate Check) ---
+        // --- Form Submission Logic ---
         window.submitMembership = async function() {
             const name = document.getElementById('name').value.trim();
             const fatherName = document.getElementById('fatherName').value.trim();
@@ -245,39 +245,36 @@
                 return;
             }
             
-            statusElement.textContent = 'ڊپلڪيٽ انٽري چيڪ ڪري رهيو آهي...';
+            statusElement.textContent = 'ڊپلڪيٽ انٽري چيڪ ڪئي پئي وڃي...';
             statusElement.classList.remove('text-red-600', 'text-green-600');
             statusElement.classList.add('text-amber-500');
-            
+
+            // --- CRITICAL: DUPLICATE CHECK (By Contact Number) ---
             try {
-                // --- STEP 1: Check for Duplicates by Contact Number ---
                 const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
                 const q = query(membersRef, where('contact', '==', contact));
                 const querySnapshot = await getDocs(q);
                 
                 if (!querySnapshot.empty) {
-                    // Check if there is an Approved entry with this contact
-                    const approvedMember = querySnapshot.docs.find(doc => doc.data().status === 'Approved');
-                    if (approvedMember) {
-                        statusElement.textContent = `ڊپلڪيٽ انٽري ملي. هي نمبر اڳ ۾ ئي ID ${approvedMember.data().cardId} سان منظور ٿيل آهي.`;
-                        statusElement.classList.remove('text-amber-500', 'text-green-600');
-                        statusElement.classList.add('text-red-600');
-                        return;
-                    }
-                    // If no approved member, check if there is a pending one.
-                    const pendingMember = querySnapshot.docs.find(doc => doc.data().status === 'Pending');
-                     if (pendingMember) {
-                        statusElement.textContent = `ڊپلڪيٽ انٽري ملي. هن نمبر سان درخواست ID ${pendingMember.data().cardId} اڳ ۾ ئي التوا ۾ آهي.`;
-                        statusElement.classList.remove('text-amber-500', 'text-green-600');
-                        statusElement.classList.add('text-red-600');
-                        return;
-                    }
-                    // Allow submission if the existing entry is cancelled/rejected.
+                    statusElement.textContent = 'هي رابطو نمبر اڳ ۾ ئي رجسٽر ٿيل آهي. هڪ کان وڌيڪ درخواستون جمع نه ٿيون ٿي سگهن.';
+                    statusElement.classList.remove('text-amber-500', 'text-green-600');
+                    statusElement.classList.add('text-red-600');
+                    return;
                 }
-                
-                statusElement.textContent = 'درخواست جمع ڪري رهيو آهي...';
-                
-                // --- STEP 2: Generate ID and Submit ---
+            } catch (error) {
+                console.error("Duplicate check error:", error);
+                statusElement.textContent = `ڊيٽابيس چيڪ ڪرڻ ۾ غلطي ٿي. (${error.message})`;
+                statusElement.classList.remove('text-amber-500', 'text-green-600');
+                statusElement.classList.add('text-red-600');
+                return;
+            }
+            // --- END DUPLICATE CHECK ---
+
+            statusElement.textContent = 'درخواست جمع ڪري رهيو آهي...';
+            statusElement.classList.remove('text-red-600', 'text-green-600');
+            statusElement.classList.add('text-amber-500');
+
+            try {
                 // Generate Unique Card ID (Simple UUID prefix)
                 cardId = 'NJL-' + crypto.randomUUID().substring(0, 8).toUpperCase();
 
@@ -291,7 +288,7 @@
                     userId: auth.currentUser?.uid || 'anonymous-user'
                 };
 
-                await addDoc(membersRef, applicationData);
+                await addDoc(collection(db, `artifacts/${appId}/public/data/members`), applicationData);
 
                 // Show success message and hide form
                 document.getElementById('application-form').classList.add('hidden');
@@ -363,12 +360,14 @@
             
             <!-- Photo/Selfie Section -->
             <div class="mb-6 border p-4 rounded-lg text-center bg-teal-50">
-                <h3 class="font-semibold mb-3 text-lg">پاسپورٽ سائيز تصوير / سيلفي (Passport Size Photo)</h3>
+                <h3 class="font-semibold mb-3 text-lg">پاسپورٽ سائيز تصوير (Passport Size Photo)</h3>
                 <img id="photo-preview" src="https://placehold.co/150x150/e0f2f1/115e59?text=Photo" alt="Photo Preview" class="mx-auto mb-4">
                 
-                <input type="file" accept="image/*" capture="user" id="photo-upload" onchange="window.handlePhotoChange(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
+                <!-- CAPTURE ATTRIBUTE REMOVED -->
+                <input type="file" accept="image/*" id="photo-upload" onchange="window.handlePhotoChange(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
                 
-                <p class="text-xs mt-2 text-gray-500">مھرباني ڪري سيلفي يا گيلري مان تصوير چونڊيو. سائيز حد: 3MB (تصوير فائر اسٽور ۾ محفوظ ڪرڻ لاءِ خودڪار طريقي سان گھٽائي ويندي.)</p>
+                <!-- INSTRUCTION UPDATED -->
+                <p class="text-xs mt-2 text-gray-500">مھرباني ڪري گيلري مان تصوير چونڊيو. (ڪئميرا بند آھي). سائيز حد: 3MB (تصوير فائر اسٽور ۾ محفوظ ڪرڻ لاءِ خودڪار طريقي سان گھٽائي ويندي.)</p>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
