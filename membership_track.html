@@ -29,7 +29,7 @@
         /* --- START: UPDATED CARD STYLES FOR OPTIMIZATION --- */
         .card-container {
             width: 330px; 
-            height: 220px; /* Increased height for more space */
+            height: 220px; 
             margin: 20px auto;
             border: 3px solid #115e59; /* Teal-700 */
             border-radius: 12px;
@@ -52,7 +52,7 @@
         .card-body {
             display: flex; 
             background-color: #f0fdf4; /* Teal-50 */
-            padding: 8px 5px; /* Increased vertical padding */
+            padding: 8px 5px; 
             flex-grow: 1;
             align-items: flex-start;
         }
@@ -65,7 +65,6 @@
             align-items: center;
             padding-top: 5px;
             text-align: center;
-            /* Added margin-bottom to push signature down */
             margin-bottom: 25px; 
         }
         .card-photo {
@@ -117,7 +116,7 @@
         /* Signature Areas */
         .signature-area {
             position: absolute;
-            bottom: 30px; /* Moved up from 8px to give space for footer */
+            bottom: 30px; 
             font-size: 8px;
             line-height: 1.1;
         }
@@ -125,11 +124,15 @@
             right: 15px; 
             width: 80px;
             text-align: center;
+            /* **INCREASED SPACE HERE** - Pushed down 15px from the default 35px bottom */
+            bottom: 15px !important; 
         }
         .sig-box-issuer {
             left: 15px; 
             width: 90px;
             text-align: left; 
+            /* **INCREASED SPACE HERE** - Pushed down 15px from the default 35px bottom */
+            bottom: 15px !important; 
         }
         .signature-line {
             border-top: 1px dashed #4b5563;
@@ -140,12 +143,12 @@
 
 
         .card-footer {
-             background-color: #115e59; /* Teal-700 */
-             color: #a7f3d0; /* **Lightened text color (Teal-200) for visibility** */
-             font-size: 10px; /* Slightly larger font */
+             background-color: #115e59; 
+             color: #a7f3d0; 
+             font-size: 10px; 
              text-align: center;
-             padding: 3px 4px; /* Slightly larger padding */
-             position: absolute; /* Fixed position at the bottom */
+             padding: 3px 4px; 
+             position: absolute; 
              bottom: 0;
              width: 100%;
         }
@@ -345,7 +348,7 @@
                         
                         <!-- Student Signature (Absolute position: Right side, bottom) -->
                         <!-- Position is now relative to the increased card height and higher footer -->
-                        <div class="signature-area sig-box-student" style="bottom: 35px;">
+                        <div class="signature-area sig-box-student" style="bottom: 45px;">
                             <div class="signature-line mx-auto"></div>
                             <p>شاگرد جا دستخط</p>
                             <p class="latin text-gray-700">(Student Signature)</p>
@@ -353,7 +356,7 @@
 
                         <!-- Issuer Signature (Absolute position: Left side, bottom) -->
                          <!-- Position is now relative to the increased card height and higher footer -->
-                        <div class="signature-area sig-box-issuer" style="bottom: 35px;">
+                        <div class="signature-area sig-box-issuer" style="bottom: 45px;">
                             <div class="signature-line mr-auto"></div>
                             <p>لائبريرين جا دستخط</p>
                             <p class="latin text-gray-700">(Issuer/Librarian)</p>
