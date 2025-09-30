@@ -28,7 +28,7 @@
         
         /* --- START: FINAL ONE-PAGE CARD STYLES --- */
         .card-container {
-            width: 340px; /* Adjusted width for tight fit */
+            width: 340px; 
             height: 250px; 
             margin: 20px auto;
             border: 3px solid #115e59; /* Teal-700 */
@@ -133,7 +133,7 @@
         }
         .signature-line {
             border-top: 1px dashed #4b5563;
-            width: 70%; /* Adjusted width */
+            width: 70%; 
             margin: 5px auto 1px auto;
         }
 
@@ -385,17 +385,31 @@
 
             const cardClone = cardElement.cloneNode(true);
             
-            // The fix: Use a tight custom format and avoid page breaks
+            // The fix: Use Portrait (swapped dimensions) + Scale
             const opt = {
                 margin: 1,
                 filename: `Nirmal_Jevtani_Library_Card_${currentMemberData.cardId}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 3 },
-                jsPDF: { unit: 'mm', format: [115, 75], orientation: 'landscape' }, /* Custom small size: ~115mm x 75mm */
-                pagebreak: { mode: 'avoid-all' } 
+                // SCALING IS THE KEY FIX HERE
+                html2canvas: { scale: 3, width: 340, height: 250 }, 
+                jsPDF: { 
+                    unit: 'mm', 
+                    format: [75, 115], /* PORTRAIT: Width (75mm) x Height (115mm) */
+                    orientation: 'portrait', 
+                    hotfixes: ['px_scaling'], /* Ensure px scaling is handled */
+                },
+                pagebreak: { mode: 'avoid-all' } ,
             };
+            
+            // Apply scale transformation before saving
+            cardClone.style.transform = 'scale(0.9)'; 
+            cardClone.style.transformOrigin = 'top left';
 
-            html2pdf().from(cardClone).set(opt).save();
+            html2pdf().from(cardClone).set(opt).save(() => {
+                // Remove scaling after PDF generation is done
+                cardClone.style.transform = ''; 
+                cardClone.style.transformOrigin = '';
+            });
         };
 
 
