@@ -47,6 +47,7 @@
             flex-direction: row-reverse;
             justify-content: space-between;
             height: 140px;
+            position: relative; /* For signature positioning */
         }
         .card-photo {
             width: 80px;
@@ -55,12 +56,14 @@
             object-fit: cover;
             border: 2px solid #fbbf24; /* Amber-400 */
             margin-top: 5px;
+            z-index: 10;
         }
         .card-details {
             text-align: right;
             line-height: 1.2;
             font-size: 11px;
             width: calc(100% - 90px);
+            z-index: 10;
         }
         .card-footer {
              background-color: #115e59; /* Teal-700 */
@@ -68,6 +71,29 @@
              font-size: 10px;
              text-align: center;
              padding: 4px;
+        }
+        
+        /* Signature Area Styling (NEW) */
+        .signature-area {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            width: 95%;
+            font-size: 8px;
+            z-index: 5;
+        }
+        .signature-line {
+            border-top: 1px dashed #4b5563; /* Gray-600 */
+            width: 70px;
+            margin-top: 2px;
+            margin-bottom: 2px;
+        }
+        .sig-box {
+            text-align: center;
+            line-height: 1.1;
         }
 
         /* Styling for PDF Print Button */
@@ -131,8 +157,9 @@
                     window.checkStatus();
                 }
             } catch (error) {
-                document.getElementById('status-message').textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
-                document.getElementById('status-message').className = 'text-center mb-4 font-semibold text-sm text-red-600';
+                const statusElement = document.getElementById('status-message');
+                if (statusElement) statusElement.textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
+                if (statusElement) statusElement.className = 'text-center mb-4 font-semibold text-sm text-red-600';
                 console.error("Firebase Auth Error:", error);
             }
         }
@@ -143,16 +170,17 @@
             const statusElement = document.getElementById('status-message');
             const resultArea = document.getElementById('result-area');
             const cardArea = document.getElementById('card-area');
+            const printButton = document.getElementById('print-card-button');
             
-            // CRITICAL FIX: Ensure innerHTML is set to an existing element
             if (statusElement) {
                  statusElement.textContent = '';
                  statusElement.className = 'text-center mb-4 font-semibold text-sm text-gray-600';
             }
             if (resultArea) resultArea.classList.add('hidden');
             if (cardArea) cardArea.innerHTML = '';
+            if (printButton) printButton.classList.add('hidden');
+            
             currentMemberData = null;
-
 
             if (!cardId) {
                 if (statusElement) statusElement.textContent = 'مھرباني ڪري ممبرشپ ID داخل ڪريو.';
@@ -181,15 +209,13 @@
 
                 if (data.status === 'Pending') {
                     if (statusElement) statusElement.innerHTML = `<span class="text-amber-600">توهان جي درخواست جائزي هيٺ آهي. مهرباني ڪري صبر ڪيو.</span>`;
-                    document.getElementById('print-card-button').classList.add('hidden');
                 
                 } else if (data.status === 'Rejected') {
                     if (statusElement) statusElement.innerHTML = `<span class="text-red-600">توهان جي ممبرشپ درخواست رد ڪئي وئي آهي. وڌيڪ معلومات لاءِ لائبريرين سان رابطو ڪريو.</span>`;
-                    document.getElementById('print-card-button').classList.add('hidden');
 
                 } else if (data.status === 'Approved') {
                     if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ممبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ پرنٽ ڪريو.</span>`;
-                    document.getElementById('print-card-button').classList.remove('hidden');
+                    if (printButton) printButton.classList.remove('hidden');
                     window.renderCard(data); // Render the card immediately
                 }
 
@@ -199,7 +225,7 @@
             }
         };
 
-        // --- Card Rendering Logic ---
+        // --- Card Rendering Logic (UPDATED) ---
         window.renderCard = function(data) {
             const cardArea = document.getElementById('card-area');
             if (!cardArea) return;
@@ -224,6 +250,21 @@
                             <p class="text-xs text-red-600">مدت ختم ٿيڻ: <span class="latin">${expiryDateStr}</span></p>
                         </div>
                         <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
+                        
+                        <!-- Signature Area (NEW) -->
+                        <div class="signature-area">
+                            <div class="sig-box text-right">
+                                <div class="signature-line"></div>
+                                <p>لائبريرين جا دستخط</p>
+                                <p class="latin text-xs">(Issuer/Librarian)</p>
+                            </div>
+                            <div class="sig-box text-left">
+                                <div class="signature-line"></div>
+                                <p>شاگرد جا دستخط</p>
+                                <p class="latin text-xs">(Student Signature)</p>
+                            </div>
+                        </div>
+                        
                     </div>
                     <div class="card-footer">
                         نِرمل جيوتاڻي لائبريري ٿرڙي محبت، آزاد منگي فائونڊيشن جي طرفان
@@ -240,10 +281,8 @@
                 return;
             }
 
-            // Temporarily clone and show the card in a standardized size for PDF generation
             const cardClone = cardElement.cloneNode(true);
             
-            // Configuration for A4 size, landscape, and specific width/height for a card
             const opt = {
                 margin: 5,
                 filename: `Nirmal_Jevtani_Library_Card_${currentMemberData.cardId}.pdf`,
