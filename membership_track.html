@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ممبرشپ اسٽيٽس ٽريڪر</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Use html2canvas only, as we are generating JPG instead of PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <!-- Custom Font: MB Lateefi.otf -->
     <style>
@@ -26,10 +27,10 @@
              text-align: right;
         }
         
-        /* --- START: FINAL ONE-PAGE CARD STYLES --- */
+        /* --- CARD STYLES --- */
         .card-container {
-            width: 340px; 
-            height: 250px; 
+            width: 350px; /* Fixed width for standard card size */
+            height: 250px; /* Fixed height to keep it on one page/image */
             margin: 20px auto;
             border: 3px solid #115e59; /* Teal-700 */
             border-radius: 12px;
@@ -38,7 +39,7 @@
             background-color: white;
             display: flex;
             flex-direction: column;
-            position: relative; /* Base for absolute footer */
+            position: relative; 
         }
         
         .card-header {
@@ -52,7 +53,7 @@
         .card-body {
             display: flex; 
             background-color: #f0fdf4; /* Teal-50 */
-            padding: 8px 5px 30px 5px; /* Added padding at bottom for footer clearance */
+            padding: 8px 5px 35px 5px; /* Added bottom padding for footer space */
             flex-grow: 1;
             align-items: flex-start;
         }
@@ -65,7 +66,7 @@
             align-items: center;
             padding-top: 5px;
             text-align: center;
-            margin-bottom: 5px; 
+            flex-shrink: 0;
         }
         .card-photo {
             width: 80px;
@@ -75,22 +76,25 @@
             border: 2px solid #fbbf24; /* Amber-400 */
         }
         .card-id-display {
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 800;
             color: #b91c1c; /* Red-700 */
             margin-top: 3px;
             letter-spacing: 0.5px;
         }
 
-        /* 2. Details Section (Left Side in RTL, Flexible width) */
-        .card-details-section {
+        /* 2. Details and Signature Section (Left Side in RTL, Flexible width) */
+        .card-details-wrapper {
             flex-grow: 1;
-            padding-right: 5px;
-            padding-top: 0px; 
-            font-size: 10px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between; 
+            justify-content: space-between;
+            padding-right: 5px;
+            font-size: 10px;
+        }
+
+        .card-details-section {
+            padding-top: 0px; 
         }
         
         /* Clean Details Grid */
@@ -115,28 +119,28 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        
-        /* Signature Areas */
+
+        /* Signature Row */
         .signature-row {
             display: flex;
             justify-content: space-between;
             width: 100%;
-            margin-top: 10px; 
-            padding-top: 5px;
-            border-top: 1px solid #ccc;
-        }
-        .sig-box {
+            margin-top: 10px;
             font-size: 8px;
             line-height: 1.1;
-            text-align: center;
-            width: 48%;
         }
-        .signature-line {
-            border-top: 1px dashed #4b5563;
-            width: 70%; 
-            margin: 5px auto 1px auto;
+        
+        .signature-box {
+            text-align: center;
+            width: 48%; /* Ensure two columns */
         }
 
+        .signature-line {
+            border-top: 1px dashed #4b5563;
+            width: 100%;
+            margin-top: 20px; 
+            margin-bottom: 1px;
+        }
 
         .card-footer {
              background-color: #115e59; 
@@ -148,26 +152,11 @@
              bottom: 0;
              width: 100%;
         }
-        /* --- END: FINAL ONE-PAGE CARD STYLES --- */
+        /* --- END: CARD STYLES --- */
 
 
-        /* Styling for PDF Print Button */
-        @media print {
-            body * { visibility: hidden; }
-            #membership-card-to-print, #membership-card-to-print * { visibility: visible; }
-            #membership-card-to-print {
-                box-shadow: none;
-                /* Set fixed dimensions for print page (e.g., Credit Card size) */
-                width: 3.375in; 
-                height: 2.125in;
-                margin: 0;
-                position: absolute;
-                top: 0;
-                left: 0;
-                border: 1px solid #000;
-            }
-            .no-print { display: none; }
-        }
+        /* Hide controls for printing/saving (though not strictly needed for canvas save) */
+        .no-print { display: block; }
         
     </style>
 
@@ -279,7 +268,7 @@
                     `;
 
                 } else if (data.status === 'Approved') {
-                    if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ممبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ پرنٽ ڪريو.</span>`;
+                    if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ممبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ محفوظ ڪريو.</span>`;
                     if (printButton) printButton.classList.remove('hidden');
                     window.renderCard(data); // Render the card immediately
                 }
@@ -290,7 +279,7 @@
             }
         };
 
-        // --- Card Rendering Logic (FINAL ORGANIZED LAYOUT) ---
+        // --- Card Rendering Logic ---
         window.renderCard = function(data) {
             const cardArea = document.getElementById('card-area');
             if (!cardArea) return;
@@ -300,7 +289,7 @@
             const dobStr = formatDate(data.dob);
 
             cardArea.innerHTML = `
-                <div class="card-container" id="membership-card-to-print">
+                <div class="card-container" id="membership-card-to-save">
                     
                     <!-- Card Header -->
                     <div class="card-header">
@@ -308,66 +297,67 @@
                         <p class="text-sm">ممبرشپ ڪارڊ</p>
                     </div>
                     
-                    <!-- Card Body (Photo/ID Left, Details Right - in RTL) -->
+                    <!-- Card Body (Photo/ID Right, Details/Signatures Left - in RTL) -->
                     <div class="card-body">
                         
-                        <!-- Photo/ID Section (Right Side in RTL) -->
-                        <div class="card-photo-section">
-                            <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
-                            
-                            <!-- ID Number moved right after photo -->
-                            <p class="card-id-display latin">${data.cardId}</p>
-                            <p class="text-[8px] text-gray-500 mt-0.5">ممبرشپ ID نمبر</p>
-                        </div>
-                        
-                        <!-- Details Section (Left Side in RTL) -->
-                        <div class="card-details-section">
-                            <h3 class="text-sm font-bold text-teal-800 mb-1">شاگرد جي تفصيل</h3>
-                            <div class="card-details-grid mb-2">
-                                
-                                <div class="detail-label">نالو:</div>
-                                <div class="detail-value text-teal-800 font-extrabold">${data.name}</div>
-                                
-                                <div class="detail-label">پيءُ جو نالو:</div>
-                                <div class="detail-value">${data.fatherName}</div>
-                                
-                                <div class="detail-label">پيشو:</div>
-                                <div class="detail-value">${data.occupation}</div>
-                                
-                                <div class="detail-label">موبايل:</div>
-                                <div class="detail-value latin">${data.contact}</div>
-                                
-                                <div class="detail-label">پيدائش جي تاريخ:</div>
-                                <div class="detail-value latin">${dobStr}</div>
-                                
-                                <div class="detail-label">جاري ٿيڻ جي تاريخ:</div>
-                                <div class="detail-value latin">${approvedDateStr}</div>
-                                
-                                <div class="detail-label text-red-600">مدت ختم:</div>
-                                <div class="detail-value latin text-red-600 font-extrabold">${expiryDateStr}</div>
-                                
-                            </div>
-
-                            <!-- Signature Row (Moved inside card-details-section for Flex control) -->
-                            <div class="signature-row">
-                                <!-- Student Signature -->
-                                <div class="sig-box text-right">
-                                    <div class="signature-line mr-0 ml-auto"></div>
-                                    <p>شاگرد جا دستخط</p>
-                                    <p class="latin text-gray-700">(Student Signature)</p>
+                        <!-- Details and Signature Wrapper (Left side, takes most space) -->
+                        <div class="card-details-wrapper">
+                            <div class="card-details-section">
+                                <h3 class="text-sm font-bold text-teal-800 mb-1">شاگرد جي تفصيل</h3>
+                                <div class="card-details-grid">
+                                    
+                                    <div class="detail-label">نالو:</div>
+                                    <div class="detail-value text-teal-800 font-extrabold">${data.name}</div>
+                                    
+                                    <div class="detail-label">پيءُ جو نالو:</div>
+                                    <div class="detail-value">${data.fatherName}</div>
+                                    
+                                    <div class="detail-label">پيشو:</div>
+                                    <div class="detail-value">${data.occupation}</div>
+                                    
+                                    <div class="detail-label">موبايل:</div>
+                                    <div class="detail-value latin">${data.contact}</div>
+                                    
+                                    <div class="detail-label">پيدائش جي تاريخ:</div>
+                                    <div class="detail-value latin">${dobStr}</div>
+                                    
+                                    <div class="detail-label">جاري ٿيڻ جي تاريخ:</div>
+                                    <div class="detail-value latin">${approvedDateStr}</div>
+                                    
+                                    <div class="detail-label text-red-600">مدت ختم:</div>
+                                    <div class="detail-value latin text-red-600 font-extrabold">${expiryDateStr}</div>
+                                    
                                 </div>
+                            </div>
+                            
+                            <!-- Signature Row (Bottom of the left section) -->
+                            <div class="signature-row">
                                 <!-- Issuer Signature -->
-                                <div class="sig-box text-left">
-                                    <div class="signature-line ml-0 mr-auto"></div>
+                                <div class="signature-box">
+                                    <div class="signature-line mr-auto"></div>
                                     <p>لائبريرين جا دستخط</p>
                                     <p class="latin text-gray-700">(Issuer/Librarian)</p>
                                 </div>
+                                <!-- Student Signature -->
+                                <div class="signature-box">
+                                    <div class="signature-line ml-auto"></div>
+                                    <p>شاگرد جا دستخط</p>
+                                    <p class="latin text-gray-700">(Student Signature)</p>
+                                </div>
                             </div>
-
                         </div>
+
+                        <!-- Photo/ID Section (Right Side) -->
+                        <div class="card-photo-section">
+                            <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
+                            
+                            <p class="card-id-display latin">${data.cardId}</p>
+                            <p class="text-[8px] text-gray-500 mt-0.5">ممبرشپ ID نمبر</p>
+                        </div>
+
                     </div>
                     
-                    <!-- Card Footer (Positioned absolutely at the bottom) -->
+                    <!-- Card Footer (Positioned absolutely at the bottom for visibility) -->
                     <div class="card-footer">
                         آزاد منگي فائونڊيشن جي طرفان
                     </div>
@@ -375,40 +365,37 @@
             `;
         };
 
-        // --- PDF Generation Logic (using html2pdf) ---
+        // --- JPG/Image Generation Logic (The new fix) ---
         window.printCard = function() {
-            const cardElement = document.getElementById('membership-card-to-print');
+            const cardElement = document.getElementById('membership-card-to-save');
             if (!cardElement) {
-                document.getElementById('status-message').textContent = 'ڪارڊ پرنٽ ڪرڻ لاءِ دستياب ناهي.';
+                document.getElementById('status-message').textContent = 'ڪارڊ محفوظ ڪرڻ لاءِ دستياب ناهي.';
                 return;
             }
 
-            const cardClone = cardElement.cloneNode(true);
-            
-            // The fix: Use Portrait (swapped dimensions) + Scale
-            const opt = {
-                margin: 1,
-                filename: `Nirmal_Jevtani_Library_Card_${currentMemberData.cardId}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                // SCALING IS THE KEY FIX HERE
-                html2canvas: { scale: 3, width: 340, height: 250 }, 
-                jsPDF: { 
-                    unit: 'mm', 
-                    format: [75, 115], /* PORTRAIT: Width (75mm) x Height (115mm) */
-                    orientation: 'portrait', 
-                    hotfixes: ['px_scaling'], /* Ensure px scaling is handled */
-                },
-                pagebreak: { mode: 'avoid-all' } ,
-            };
-            
-            // Apply scale transformation before saving
-            cardClone.style.transform = 'scale(0.9)'; 
-            cardClone.style.transformOrigin = 'top left';
+            // 1. Convert HTML element to Canvas
+            html2canvas(cardElement, {
+                scale: 3, // Increase scale for higher resolution image (3x resolution)
+                useCORS: true, // Needed for base64 images to render correctly
+                logging: false,
+            }).then(canvas => {
+                // 2. Convert Canvas to JPG data URL
+                const imgData = canvas.toDataURL('image/jpeg', 0.9); // 90% quality JPG
 
-            html2pdf().from(cardClone).set(opt).save(() => {
-                // Remove scaling after PDF generation is done
-                cardClone.style.transform = ''; 
-                cardClone.style.transformOrigin = '';
+                // 3. Create a temporary anchor element to trigger download
+                const link = document.createElement('a');
+                link.href = imgData;
+                link.download = `Nirmal_Library_Card_${currentMemberData.cardId}.jpg`;
+                
+                // 4. Trigger the download and remove the link
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                document.getElementById('status-message').innerHTML = `<span class="text-green-600 font-bold">ڪارڊ ڪاميابي سان محفوظ ٿي ويو! گيلري چيڪ ڪريو.</span>`;
+            }).catch(error => {
+                console.error("Error generating JPG:", error);
+                document.getElementById('status-message').innerHTML = `<span class="text-red-600 font-bold">تصوير ٺاهڻ ۾ غلطي: ${error.message}</span>`;
             });
         };
 
@@ -446,8 +433,8 @@
             
             <!-- Print Button (Visible only if Approved) -->
             <button id="print-card-button" onclick="window.printCard()" class="hidden mt-6 bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-amber-700 transition-colors no-print">
-                <span class="mr-2">ڊائونلوڊ / پرنٽ ڪارڊ (PDF)</span>
-                <span class="latin">🖨️</span>
+                <span class="mr-2">ڊائونلوڊ ڪارڊ (JPG)</span>
+                <span class="latin">🖼️</span>
             </button>
         </div>
         
