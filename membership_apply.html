@@ -23,6 +23,7 @@
         .text-right-aligned {
              text-align: right;
         }
+        /* --- Photo/Preview Styling --- */
         #photo-preview {
             width: 150px;
             height: 150px;
@@ -57,6 +58,9 @@
         let auth;
         let photoBase64 = null;
         let cardId = null;
+        
+        // **NEW SIZE LIMIT: 3MB**
+        const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; 
 
         // --- Firebase Initialization and Auth ---
         async function initFirebaseAndAuth() {
@@ -79,9 +83,10 @@
             const reader = new FileReader();
 
             if (file) {
-                // Limit file size to 1MB (Firestore document limit is 1MB)
-                if (file.size > 1024 * 1024) {
-                    document.getElementById('status').textContent = 'تصوير جي سائيز 1MB کان وڌيڪ آھي. مھرباني ڪري ننڍي تصوير استعمال ڪريو.';
+                // Check against NEW file size limit (3MB)
+                if (file.size > MAX_FILE_SIZE_BYTES) {
+                    document.getElementById('status').textContent = 'تصوير جي سائيز 3MB کان وڌيڪ آھي. مھرباني ڪري ننڍي تصوير استعمال ڪريو.';
+                    document.getElementById('status').classList.remove('text-amber-500', 'text-green-600');
                     document.getElementById('status').classList.add('text-red-600');
                     event.target.value = ''; // Clear the input
                     preview.src = 'https://placehold.co/150x150/e0f2f1/115e59?text=Photo';
@@ -92,7 +97,9 @@
                 reader.onload = function(e) {
                     preview.src = e.target.result;
                     photoBase64 = e.target.result; // Store Base64 string
-                    document.getElementById('status').textContent = '';
+                    document.getElementById('status').textContent = 'تصوير ڪاميابي سان لوڊ ٿي وئي. فارم جمع ڪريو.';
+                    document.getElementById('status').classList.remove('text-red-600', 'text-amber-500');
+                    document.getElementById('status').classList.add('text-green-600');
                 };
                 reader.readAsDataURL(file);
             } else {
@@ -193,8 +200,10 @@
                 <h3 class="font-semibold mb-3 text-lg">پاسپورٽ سائيز تصوير / سيلفي (Passport Size Photo)</h3>
                 <img id="photo-preview" src="https://placehold.co/150x150/e0f2f1/115e59?text=Photo" alt="Photo Preview" class="mx-auto mb-4">
                 
+                <!-- UPDATED: Added accept="image/*" and capture="user" -->
                 <input type="file" accept="image/*" capture="user" id="photo-upload" onchange="window.handlePhotoChange(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
-                <p class="text-xs mt-2 text-gray-500">سائيز حد: 1MB</p>
+                <!-- UPDATED: Text reflects new 3MB limit -->
+                <p class="text-xs mt-2 text-gray-500">مھرباني ڪري سيلفي يا گيلري مان تصوير چونڊيو. سائيز حد: 3MB</p>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
