@@ -19,6 +19,7 @@
         }
         .latin {
             font-family: Inter, sans-serif;
+            direction: ltr; /* Ensure DOB and Contact appear left-to-right */
         }
         .text-right-aligned {
              text-align: right;
@@ -31,6 +32,20 @@
             border-radius: 8px;
             margin: 0 auto 1rem;
             border: 2px solid #38bdf8; /* Sky-400 */
+        }
+        /* Ensure input fields have enough space and DOB is readable */
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            box-sizing: border-box;
+            line-height: 1.5; /* Increased line-height for better visibility */
+        }
+        /* Fix for date input alignment and visibility */
+        input[type="date"] {
+            text-align: right;
+            direction: ltr; /* Force LTR direction for date formatting */
         }
     </style>
 
@@ -59,8 +74,10 @@
         let photoBase64 = null;
         let cardId = null;
         
-        // **NEW SIZE LIMIT: 3MB**
-        const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; 
+        // Max limit is 3MB for the raw file, but Firestore document limit is ~1MB (1048487 bytes)
+        // We will compress the image to ensure the final Base64 string is under this limit.
+        const MAX_RAW_FILE_SIZE_BYTES = 3 * 1024 * 1024; 
+        const MAX_FIRESTORE_PAYLOAD_SIZE = 1000 * 1024; // Target compressed size slightly under 1MB
 
         // --- Firebase Initialization and Auth ---
         async function initFirebaseAndAuth() {
@@ -69,6 +86,9 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 await signInAnonymously(auth);
+                document.getElementById('status').textContent = 'درخواست فارم لوڊ ٿي چڪو آهي. مھرباني ڪري ڀريو.';
+                document.getElementById('status').classList.remove('text-amber-500');
+                document.getElementById('status').classList.add('text-green-600');
             } catch (error) {
                 document.getElementById('status').textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
                 document.getElementById('status').classList.add('text-red-600');
@@ -76,30 +96,88 @@
             }
         }
 
+        // --- Image Compression/Resizing Logic (NEW) ---
+        function compressImage(base64Image, maxWidth, maxHeight, quality, callback) {
+            const img = new Image();
+            img.onload = function() {
+                let width = img.width;
+                let height = img.height;
+
+                // Calculate new dimensions to fit constraints (optional, but good for large photos)
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+                
+                // Create a canvas element
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Export the canvas content as a JPEG with lower quality (compression)
+                const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                callback(compressedBase64);
+            };
+            img.src = base64Image;
+        }
+
         // --- Photo Handling Logic ---
         window.handlePhotoChange = function(event) {
             const file = event.target.files[0];
             const preview = document.getElementById('photo-preview');
             const reader = new FileReader();
+            const statusElement = document.getElementById('status');
+            
+            statusElement.textContent = 'تصوير لوڊ ڪري رهيو آهي...';
+            statusElement.className = 'text-center mb-4 font-semibold text-sm text-amber-500';
+
 
             if (file) {
-                // Check against NEW file size limit (3MB)
-                if (file.size > MAX_FILE_SIZE_BYTES) {
-                    document.getElementById('status').textContent = 'تصوير جي سائيز 3MB کان وڌيڪ آھي. مھرباني ڪري ننڍي تصوير استعمال ڪريو.';
-                    document.getElementById('status').classList.remove('text-amber-500', 'text-green-600');
-                    document.getElementById('status').classList.add('text-red-600');
-                    event.target.value = ''; // Clear the input
+                // Check against MAX_RAW_FILE_SIZE (3MB)
+                if (file.size > MAX_RAW_FILE_SIZE_BYTES) {
+                    statusElement.textContent = 'تصوير جي سائيز 3MB کان وڌيڪ آھي. مھرباني ڪري ننڍي تصوير استعمال ڪريو.';
+                    statusElement.classList.remove('text-amber-500', 'text-green-600');
+                    statusElement.classList.add('text-red-600');
+                    event.target.value = ''; 
                     preview.src = 'https://placehold.co/150x150/e0f2f1/115e59?text=Photo';
                     photoBase64 = null;
                     return;
                 }
 
                 reader.onload = function(e) {
-                    preview.src = e.target.result;
-                    photoBase64 = e.target.result; // Store Base64 string
-                    document.getElementById('status').textContent = 'تصوير ڪاميابي سان لوڊ ٿي وئي. فارم جمع ڪريو.';
-                    document.getElementById('status').classList.remove('text-red-600', 'text-amber-500');
-                    document.getElementById('status').classList.add('text-green-600');
+                    const rawBase64 = e.target.result;
+                    
+                    // 1. Show raw preview immediately
+                    preview.src = rawBase64; 
+
+                    // 2. Compress the image before storing it in photoBase64
+                    // Target quality 70% and max dimensions 400px (standard passport size photo needs)
+                    compressImage(rawBase64, 400, 400, 0.7, (compressedBase64) => {
+                        photoBase64 = compressedBase64; 
+                        
+                        // Check final compressed size (approximate byte length of Base64 string)
+                        const compressedSize = (compressedBase64.length * 0.75) - 2; // Rough Base64 size conversion
+                        if (compressedSize > MAX_FIRESTORE_PAYLOAD_SIZE) {
+                            statusElement.textContent = 'تصوير جي سائيز گھٽائڻ کان پوءِ بہ $1MB$ جي حد کان وڌيڪ آھي. (مھرباني ڪري گھٽ تفصيل واري تصوير استعمال ڪريو)';
+                            statusElement.classList.remove('text-amber-500', 'text-green-600');
+                            statusElement.classList.add('text-red-600');
+                            photoBase64 = null;
+                            return;
+                        }
+
+                        statusElement.textContent = 'تصوير ڪاميابي سان لوڊ ۽ گھٽائي وئي! هاڻي درخواست جمع ڪريو.';
+                        statusElement.classList.remove('text-red-600', 'text-amber-500');
+                        statusElement.classList.add('text-green-600');
+                    });
                 };
                 reader.readAsDataURL(file);
             } else {
@@ -107,7 +185,7 @@
                 photoBase64 = null;
             }
         };
-
+        
         // --- Form Submission Logic ---
         window.submitMembership = async function() {
             const name = document.getElementById('name').value.trim();
@@ -137,7 +215,7 @@
 
                 const applicationData = {
                     name, fatherName, gender, dob, occupation, address, contact,
-                    photoBase64,
+                    photoBase64, // COMPRESSED Base64 string
                     cardId,
                     status: 'Pending', // Initial status
                     memberSince: serverTimestamp(), // Submission Date
@@ -152,9 +230,10 @@
                 document.getElementById('success-message').classList.remove('hidden');
                 document.getElementById('display-card-id').textContent = cardId;
                 
-                statusElement.textContent = 'درخواست ڪاميابي سان جمع ٿي وئي!';
+                // FINAL SUCCESS MESSAGE
+                statusElement.textContent = 'درخواست ڪاميابي سان جمع ٿي وئي ۽ جائزي هيٺ آهي.';
                 statusElement.classList.remove('text-amber-500', 'text-red-600');
-                statusElement.classList.add('text-green-600');
+                statusElement.classList.add('text-green-700');
 
             } catch (e) {
                 console.error("Error submitting membership: ", e);
@@ -179,14 +258,18 @@
 
         <!-- Success Message (Initially Hidden) -->
         <div id="success-message" class="hidden bg-green-100 p-6 rounded-lg shadow-xl border-t-4 border-green-500 text-center">
-            <p class="text-2xl font-bold text-green-700 mb-4">توهان جي درخواست ڪاميابي سان جمع ٿي وئي!</p>
-            <p class="text-lg text-gray-700 mb-6">توهان جو منفرد ID ڪارڊ نمبر هيٺ ڏنل آهي. مهرباني ڪري ان کي محفوظ ڪريو ته جيئن توهان پنهنجي درخواست جي حيثيت کي ٽريڪ ڪري سگهو.</p>
+            <!-- UPDATED SUCCESS MESSAGE -->
+            <p class="text-2xl font-bold text-green-700 mb-4">توهان جي درخواست ڪاميابي سان موصول ٿي چڪي آهي!</p>
+            <p class="text-lg text-gray-700 mb-6">توهان جي درخواست جائزي هيٺ آهي. هيٺ ڏنل ID محفوظ ڪريو ته جيئن توهان ان جو اسٽيٽس ٽريڪ ڪري سگهو.</p>
+            
             <div class="bg-white p-4 rounded-md inline-block border-2 border-green-400">
-                <p class="text-xl font-mono text-teal-800">ID نمبر: <strong id="display-card-id" class="latin">...</strong></p>
+                <p class="text-xl font-mono text-teal-800">ممبرشپ ID نمبر: <strong id="display-card-id" class="latin">...</strong></p>
             </div>
+            
             <div class="mt-6">
+                <p class="text-sm text-gray-500 mb-3">اسٽيٽس چيڪ ڪرڻ لاءِ هن لنک تي ڪلڪ ڪريو:</p>
                 <a href="membership_track.html" class="bg-amber-600 text-white font-bold py-3 px-6 rounded-md hover:bg-amber-700 transition-colors">
-                    درخواست جي حيثيت چيڪ ڪريو
+                    درخواست جي حيثيت ٽريڪ ڪريو
                 </a>
             </div>
         </div>
@@ -200,27 +283,26 @@
                 <h3 class="font-semibold mb-3 text-lg">پاسپورٽ سائيز تصوير / سيلفي (Passport Size Photo)</h3>
                 <img id="photo-preview" src="https://placehold.co/150x150/e0f2f1/115e59?text=Photo" alt="Photo Preview" class="mx-auto mb-4">
                 
-                <!-- UPDATED: Added accept="image/*" and capture="user" -->
                 <input type="file" accept="image/*" capture="user" id="photo-upload" onchange="window.handlePhotoChange(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
-                <!-- UPDATED: Text reflects new 3MB limit -->
-                <p class="text-xs mt-2 text-gray-500">مھرباني ڪري سيلفي يا گيلري مان تصوير چونڊيو. سائيز حد: 3MB</p>
+                
+                <p class="text-xs mt-2 text-gray-500">مھرباني ڪري سيلفي يا گيلري مان تصوير چونڊيو. سائيز حد: 3MB (تصوير فائر اسٽور ۾ محفوظ ڪرڻ لاءِ خودڪار طريقي سان گھٽائي ويندي.)</p>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="mb-4">
                     <label for="name" class="block text-right mb-2 font-medium">پورو نالو (Name)</label>
-                    <input type="text" id="name" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned" placeholder="شاگرد جو پورو نالو">
+                    <input type="text" id="name" class="input-field text-right-aligned" placeholder="شاگرد جو پورو نالو">
                 </div>
                 <div class="mb-4">
                     <label for="fatherName" class="block text-right mb-2 font-medium">پيءُ جو نالو (Father Name)</label>
-                    <input type="text" id="fatherName" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned" placeholder="پيءُ جو نالو">
+                    <input type="text" id="fatherName" class="input-field text-right-aligned" placeholder="پيءُ جو نالو">
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div class="mb-4">
                     <label for="gender" class="block text-right mb-2 font-medium">جنس (Gender)</label>
-                    <select id="gender" class="w-full p-3 border border-gray-300 rounded-md bg-white">
+                    <select id="gender" class="input-field bg-white">
                         <option value="placeholder" disabled selected>جنس چونڊيو</option>
                         <option value="مرد">مرد (Male)</option>
                         <option value="عورت">عورت (Female)</option>
@@ -229,23 +311,25 @@
                 </div>
                 <div class="mb-4">
                     <label for="dob" class="block text-right mb-2 font-medium">پيدائش جي تاريخ (Date of Birth)</label>
-                    <input type="date" id="dob" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned">
+                    <!-- Apply LTR and adequate size for date picker -->
+                    <input type="date" id="dob" class="input-field latin">
                 </div>
             </div>
 
             <div class="mb-4">
                 <label for="occupation" class="block text-right mb-2 font-medium">پيشو / تعليم (Occupation)</label>
-                <input type="text" id="occupation" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned" placeholder="مثال: شاگرد، ڪاليج شاگرد، استاد، وغيره">
+                <input type="text" id="occupation" class="input-field text-right-aligned" placeholder="مثال: شاگرد، ڪاليج شاگرد، استاد، وغيره">
             </div>
 
             <div class="mb-4">
                 <label for="address" class="block text-right mb-2 font-medium">مڪمل ايڊريس (Address)</label>
-                <textarea id="address" rows="2" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned" placeholder="گھر جو پتو ۽ شھر/ڳوٺ"></textarea>
+                <textarea id="address" rows="2" class="input-field text-right-aligned" placeholder="گھر جو پتو ۽ شھر/ڳوٺ"></textarea>
             </div>
             
              <div class="mb-6">
                 <label for="contact" class="block text-right mb-2 font-medium">رابطو نمبر (Contact Number)</label>
-                <input type="text" id="contact" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned latin" placeholder="مثال: 03001234567">
+                <!-- Apply LTR for contact number -->
+                <input type="text" id="contact" class="input-field latin" placeholder="مثال: 03001234567">
             </div>
             
             <div id="status" class="text-center mb-4 font-semibold text-sm text-amber-500">ڊيٽابيس لوڊ ٿي رهيو آهي...</div>
