@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ممبرشپ اسٽيٽس ٽريڪر</title>
+    <title>ميمبرشپ اسٽيٽس ٽريڪر</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Use html2canvas only, as we are generating JPG instead of PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Reverting to html2pdf for stable formatting/font rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Custom Font: MB Lateefi.otf -->
     <style>
@@ -155,8 +155,18 @@
         /* --- END: CARD STYLES --- */
 
 
-        /* Hide controls for printing/saving (though not strictly needed for canvas save) */
-        .no-print { display: block; }
+        /* Styling for PDF Print Button */
+        @media print {
+            body * { visibility: hidden; }
+            #card-area, #card-area * { visibility: visible; }
+            #card-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                margin: 0;
+            }
+            .no-print { display: none; }
+        }
         
     </style>
 
@@ -232,7 +242,7 @@
             currentMemberData = null;
 
             if (!cardId) {
-                if (statusElement) statusElement.textContent = 'مھرباني ڪري ممبرشپ ID داخل ڪريو.';
+                if (statusElement) statusElement.textContent = 'مھرباني ڪري ميمبرشپ ID داخل ڪريو.';
                 return;
             }
 
@@ -245,7 +255,7 @@
                 const querySnapshot = await getDocs(q);
                 
                 if (querySnapshot.empty) {
-                    if (statusElement) statusElement.textContent = 'ڪابه درخواست يا ممبرشپ ID نه ملي.';
+                    if (statusElement) statusElement.textContent = 'ڪابه درخواست يا ميمبرشپ ID نه ملي.';
                     return;
                 }
                 
@@ -263,12 +273,12 @@
                     // Check for cancellation reason added by librarian
                     const reason = data.cancellationReason || 'سبب نامعلوم آهي. وڌيڪ معلومات لاءِ لائبريرين سان رابطو ڪريو.';
                     if (statusElement) statusElement.innerHTML = `
-                        <span class="text-red-600 font-bold">توهان جي ممبرشپ درخواست رد ڪئي وئي آهي.</span><br>
+                        <span class="text-red-600 font-bold">توهان جي ميمبرشپ درخواست رد ڪئي وئي آهي.</span><br>
                         <span class="text-gray-700 text-sm mt-1 block">سبب: ${reason}</span>
                     `;
 
                 } else if (data.status === 'Approved') {
-                    if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ممبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ محفوظ ڪريو.</span>`;
+                    if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ميمبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ پرنٽ ڪريو.</span>`;
                     if (printButton) printButton.classList.remove('hidden');
                     window.renderCard(data); // Render the card immediately
                 }
@@ -289,12 +299,12 @@
             const dobStr = formatDate(data.dob);
 
             cardArea.innerHTML = `
-                <div class="card-container" id="membership-card-to-save">
+                <div class="card-container" id="membership-card-to-print">
                     
                     <!-- Card Header -->
                     <div class="card-header">
                         <h2 class="text-lg font-extrabold leading-none">نِرمل جيوتاڻي لائبريري ٿرڙي محبت</h2>
-                        <p class="text-sm">ممبرشپ ڪارڊ</p>
+                        <p class="text-sm">ميمبرشپ ڪارڊ</p>
                     </div>
                     
                     <!-- Card Body (Photo/ID Right, Details/Signatures Left - in RTL) -->
@@ -352,7 +362,7 @@
                             <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
                             
                             <p class="card-id-display latin">${data.cardId}</p>
-                            <p class="text-[8px] text-gray-500 mt-0.5">ممبرشپ ID نمبر</p>
+                            <p class="text-[8px] text-gray-500 mt-0.5">ميمبرشپ ID نمبر</p>
                         </div>
 
                     </div>
@@ -365,37 +375,33 @@
             `;
         };
 
-        // --- JPG/Image Generation Logic (The new fix) ---
+        // --- PDF Generation Logic (The Final Fix for One Page) ---
         window.printCard = function() {
-            const cardElement = document.getElementById('membership-card-to-save');
+            const cardElement = document.getElementById('membership-card-to-print');
             if (!cardElement) {
-                document.getElementById('status-message').textContent = 'ڪارڊ محفوظ ڪرڻ لاءِ دستياب ناهي.';
+                document.getElementById('status-message').textContent = 'ڪارڊ پرنٽ ڪرڻ لاءِ دستياب ناهي.';
                 return;
             }
 
-            // 1. Convert HTML element to Canvas
-            html2canvas(cardElement, {
-                scale: 3, // Increase scale for higher resolution image (3x resolution)
-                useCORS: true, // Needed for base64 images to render correctly
-                logging: false,
-            }).then(canvas => {
-                // 2. Convert Canvas to JPG data URL
-                const imgData = canvas.toDataURL('image/jpeg', 0.9); // 90% quality JPG
+            // 1. Temporarily scale down the element for safe rendering
+            // This is the most crucial step to prevent overflow.
+            cardElement.style.transform = 'scale(0.95)'; 
+            cardElement.style.transformOrigin = 'top right'; 
 
-                // 3. Create a temporary anchor element to trigger download
-                const link = document.createElement('a');
-                link.href = imgData;
-                link.download = `Nirmal_Library_Card_${currentMemberData.cardId}.jpg`;
-                
-                // 4. Trigger the download and remove the link
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                document.getElementById('status-message').innerHTML = `<span class="text-green-600 font-bold">ڪارڊ ڪاميابي سان محفوظ ٿي ويو! گيلري چيڪ ڪريو.</span>`;
-            }).catch(error => {
-                console.error("Error generating JPG:", error);
-                document.getElementById('status-message').innerHTML = `<span class="text-red-600 font-bold">تصوير ٺاهڻ ۾ غلطي: ${error.message}</span>`;
+            const opt = {
+                margin: 5,
+                filename: `Nirmal_Jevtani_Library_Card_${currentMemberData.cardId}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 3 },
+                // Use A4 Landscape, the largest standard format, combined with the scale fix.
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+                pagebreak: { mode: 'avoid-all' }
+            };
+
+            html2pdf().from(cardElement).set(opt).save().then(() => {
+                // 2. IMPORTANT: Remove the scaling transformation after saving
+                cardElement.style.transform = ''; 
+                cardElement.style.transformOrigin = ''; 
             });
         };
 
@@ -408,13 +414,13 @@
     <div class="container mx-auto max-w-2xl">
         <header class="text-center mb-8 pb-4 border-b-2 border-teal-500 no-print">
             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
-            <h1 class="text-3xl font-bold text-teal-700">ممبرشپ اسٽيٽس چيڪر</h1>
+            <h1 class="text-3xl font-bold text-teal-700">ميمبرشپ اسٽيٽس چيڪر</h1>
             <p class="mt-1 text-gray-600">پنھنجو ID داخل ڪريو ته جيئن درخواست جي حيثيت معلوم ڪري سگھجي.</p>
         </header>
 
         <!-- Status Check Form -->
         <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 mb-8 no-print">
-            <label for="card-id-input" class="block text-right mb-2 font-medium">پنهنجو منفرد ممبرشپ ID نمبر داخل ڪريو</label>
+            <label for="card-id-input" class="block text-right mb-2 font-medium">پنهنجو منفرد ميمبرشپ ID نمبر داخل ڪريو</label>
             <div class="flex space-x-2 space-x-reverse">
                 <button onclick="window.checkStatus()" class="bg-teal-600 text-white font-bold py-3 px-6 rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap">چيڪ اسٽيٽس</button>
                 <input type="text" id="card-id-input" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned latin" placeholder="مثال: NJL-F4A5B6C7">
@@ -433,8 +439,8 @@
             
             <!-- Print Button (Visible only if Approved) -->
             <button id="print-card-button" onclick="window.printCard()" class="hidden mt-6 bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-amber-700 transition-colors no-print">
-                <span class="mr-2">ڊائونلوڊ ڪارڊ (JPG)</span>
-                <span class="latin">🖼️</span>
+                <span class="mr-2">ڊائونلوڊ / پرنٽ ڪارڊ (PDF)</span>
+                <span class="latin">🖨️</span>
             </button>
         </div>
         
