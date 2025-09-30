@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لائبريري ممبرز جي ڊائريڪٽري</title>
+    <title>لائبريري ميمبرز جي ڊائريڪٽري</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Custom Font: MB Lateefi.otf -->
@@ -36,11 +36,12 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, query, onSnapshot, orderBy, where, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // REMOVED orderBy from imports
+        import { getFirestore, collection, query, onSnapshot, where, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         setLogLevel('Debug');
         
-        // --- Shared Firebase Config (Must Match index.html) ---
+        // --- Shared Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyBxgOhd3y5L7Xl_IzWkuJ02PBlswR9lt5k",
             authDomain: "nirmal-library.firebaseapp.com",
@@ -62,6 +63,17 @@
             return date.toLocaleDateString('sd-PK');
         };
 
+        // Function to sort members by approvedDate (newest first)
+        function sortMembers(members) {
+             return members.sort((a, b) => {
+                 const dateA = a.approvedDate ? a.approvedDate.toDate().getTime() : 0;
+                 const dateB = b.approvedDate ? b.approvedDate.toDate().getTime() : 0;
+                 // Sort descending (newest member first)
+                 return dateB - dateA; 
+             });
+        }
+
+
         // --- Firebase Initialization and Auth ---
         async function initFirebaseAndAuth() {
             try {
@@ -78,8 +90,8 @@
 
         function listenForApprovedMembers(db, appId) {
             const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
-            // Only fetch members with status 'Approved'
-            const q = query(membersRef, where('status', '==', 'Approved'), orderBy('approvedDate', 'desc')); 
+            // CRITICAL FIX: Only include the WHERE clause. Removed the problematic ORDER BY clause.
+            const q = query(membersRef, where('status', '==', 'Approved')); 
             
             onSnapshot(q, (snapshot) => {
                 const directoryList = document.getElementById('directory-list');
@@ -90,8 +102,14 @@
                      return;
                 }
 
-                snapshot.docs.forEach(doc => {
-                    const data = doc.data();
+                // 1. Map data
+                let approvedMembers = snapshot.docs.map(doc => doc.data());
+
+                // 2. Sort data in JavaScript
+                approvedMembers = sortMembers(approvedMembers);
+
+                // 3. Render sorted data
+                approvedMembers.forEach(data => {
                     const approvedDate = formatDate(data.approvedDate || data.memberSince);
 
                     const memberCard = document.createElement('div');
@@ -101,14 +119,14 @@
                         <img src="${data.photoBase64 || 'https://placehold.co/80x80/0d3b38/fff?text=N/A'}" alt="${data.name} Photo" class="member-photo mb-3">
                         <h3 class="text-xl font-bold text-teal-700">${data.name}</h3>
                         <p class="text-sm text-gray-600 mb-2">${data.occupation}</p>
-                        <p class="text-xs text-amber-600 font-semibold">ممبر بڻجڻ جي تاريخ:</p>
+                        <p class="text-xs text-amber-600 font-semibold">ميمبر بڻجڻ جي تاريخ:</p>
                         <p class="text-sm text-gray-500">${approvedDate}</p>
                     `;
                     directoryList.appendChild(memberCard);
                 });
             }, (error) => {
                  console.error("Error listening to approved members: ", error);
-                 document.getElementById('directory-list').innerHTML = `<p class="text-center text-red-600 mt-4">ممبرز جي ڊيٽا لوڊ نه ٿي سگھي. (${error.message})</p>`;
+                 document.getElementById('directory-list').innerHTML = `<p class="text-center text-red-600 mt-4">ميمبرز جي ڊيٽا لوڊ نه ٿي سگھي. (${error.message})</p>`;
             });
         }
 
@@ -120,8 +138,8 @@
     <div class="container mx-auto max-w-4xl">
         <header class="text-center mb-10 pb-4 border-b-2 border-teal-500">
             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
-            <h1 class="text-4xl font-bold text-teal-700">نِرمل جيوتاڻي لائبريري ممبرز جي ڊائريڪٽري</h1>
-            <p class="mt-2 text-gray-600">آزاد منگي فائونڊيشن | منظور ٿيل لائبريري ممبرز جي فهرست.</p>
+            <h1 class="text-4xl font-bold text-teal-700">نِرمل جيوتاڻي لائبريري ميمبرز جي ڊائريڪٽري</h1>
+            <p class="mt-2 text-gray-600">آزاد منگي فائونڊيشن | منظور ٿيل لائبريري ميمبرز جي فهرست.</p>
         </header>
 
         <div id="directory-list" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
