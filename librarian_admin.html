@@ -1,6 +1,3 @@
-<!-- Chosen Palette: Teal, Amber, Stone (Minimal and Educational) -->
-<!-- Application Structure Plan: Dedicated Admin Dashboard with client-side password protection. Structure includes a persistent Form for CRUD operations (Add/Edit) and a Live Table (Book Inventory) with Delete/Edit buttons. Search function added for usability. Focus is on quick data management. -->
-<!-- Visualization & Content Choices: Login Screen (Report Info -> Security -> Simple Form + JS Validation -> Password input for access control -> Vanilla JS/HTML). Book Inventory (Report Info -> Organize -> Live Table + Search -> CRUD actions for management -> Firestore/Vanilla JS). CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 <!DOCTYPE html>
 <html lang="sd" dir="rtl">
 <head>
@@ -191,14 +188,13 @@
         };
 
         window.deleteBook = async function(bookId) {
-            if (confirm("ڇا توهان واقعي هن ڪتاب کي حذف ڪرڻ چاهيو ٿا؟")) {
-                try {
-                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/book_inventory`, bookId));
-                    console.log("Book deleted:", bookId);
-                } catch (e) {
-                    alert(`ڪتاب حذف ڪرڻ ۾ غلطي: ${e.message}`);
-                    console.error("Error deleting book: ", e);
-                }
+            if (!confirm("ڇا توهان واقعي هن ڪتاب کي حذف ڪرڻ چاهيو ٿا؟")) return;
+            try {
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/book_inventory`, bookId));
+                console.log("Book deleted:", bookId);
+            } catch (e) {
+                alert(`ڪتاب حذف ڪرڻ ۾ غلطي: ${e.message}`);
+                console.error("Error deleting book: ", e);
             }
         };
 
@@ -302,9 +298,8 @@
         function listenForPendingMembers(db, appId) {
             const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
             
-            // FIX: Removed orderBy('memberSince', 'asc') to avoid missing index error.
-            // If the user wants to re-enable sorting by submission time, they must create the composite index in Firebase.
-            const q = query(membersRef, where('status', '==', 'Pending')); 
+            // Query for all members to show status and print option
+            const q = query(membersRef);
             
             onSnapshot(q, (snapshot) => {
                 pendingMembersData = snapshot.docs.map(doc => ({
@@ -338,10 +333,22 @@
                                    (member.status === 'Approved' ? 'منظور' : 'رد ٿيل');
                 const photo = member.photoBase64 ? `<img src="${member.photoBase64}" class="member-photo-admin" alt="Member Photo">` : 'تصوير ناهي';
                 
-                const buttons = member.status === 'Pending' ? `
-                    <button onclick="window.approveMember('${member.id}', '${member.name}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm">منظور ڪريو</button>
-                    <button onclick="window.rejectMember('${member.id}', '${member.name}')" class="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 transition-colors text-sm">رد ڪريو</button>
-                ` : `<span class="${statusColor} font-semibold">${statusText}</span>`;
+                let buttons = '';
+                if (member.status === 'Pending') {
+                    buttons = `
+                        <button onclick="window.approveMember('${member.id}', '${member.name}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm">منظور ڪريو</button>
+                        <button onclick="window.rejectMember('${member.id}', '${member.name}')" class="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 transition-colors text-sm">رد ڪريو</button>
+                    `;
+                } else if (member.status === 'Approved') {
+                    // NEW: Print Card Button (Redirects to tracker page with ID)
+                    buttons = `
+                        <span class="${statusColor} font-semibold text-sm">${statusText}</span>
+                        <a href="membership_track.html?id=${member.cardId}" target="_blank" class="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition-colors text-sm whitespace-nowrap">ڪارڊ پرنٽ ڪريو</a>
+                    `;
+                } else {
+                     buttons = `<span class="${statusColor} font-semibold text-sm">${statusText}</span>`;
+                }
+
 
                 row.innerHTML = `
                     <td class="p-4">${index + 1}</td>
@@ -349,7 +356,7 @@
                     <td class="p-4 font-semibold">${member.name} (${member.cardId})</td>
                     <td class="p-4 text-sm">${member.occupation}</td>
                     <td class="p-4 text-sm text-gray-500">${member.submissionTime}</td>
-                    <td class="p-4 space-x-2 space-x-reverse flex justify-end">
+                    <td class="p-4 space-x-2 space-x-reverse flex justify-end items-center">
                         ${buttons}
                     </td>
                 `;
@@ -358,14 +365,13 @@
         };
 
         window.approveMember = async function(memberId, memberName) {
-            // Replaced alert/confirm with custom modal logic
             if (!confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ منظور ڪرڻ چاهيو ٿا؟ اهو ممبرشپ ڪارڊ ڇھن مھينن لاءِ صحيح ٿي ويندو.`)) {
                 return;
             }
             try {
                 const approvedDate = new Date();
                 const expiryDate = new Date(approvedDate);
-                expiryDate.setMonth(expiryDate.getMonth() + 6); // Set expiry 6 months later
+                expiryDate.setMonth(expiryDate.getMonth() + 6); 
                 
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
                     status: 'Approved',
@@ -376,7 +382,6 @@
                 document.getElementById('membership-requests-status').classList.remove('text-red-600', 'text-amber-500');
                 document.getElementById('membership-requests-status').classList.add('text-green-600');
             } catch (e) {
-                 // Replaced alert with console error/status message
                 console.error("Error approving member: ", e);
                 document.getElementById('membership-requests-status').textContent = `منظوري ۾ غلطي ٿي: ${e.message}`;
                 document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
@@ -385,10 +390,7 @@
         };
 
         window.rejectMember = async function(memberId, memberName) {
-             // Replaced alert/confirm with custom modal logic
-             if (!confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ رد ڪرڻ چاهيو ٿا؟`)) {
-                return;
-            }
+             if (!confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ رد ڪرڻ چاهيو ٿا؟`)) return;
             try {
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
                     status: 'Rejected',
@@ -397,7 +399,6 @@
                 document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
                 document.getElementById('membership-requests-status').classList.add('text-red-600');
             } catch (e) {
-                // Replaced alert with console error/status message
                 console.error("Error rejecting member: ", e);
                 document.getElementById('membership-requests-status').textContent = `رد ڪرڻ ۾ غلطي ٿي: ${e.message}`;
                 document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
@@ -406,13 +407,11 @@
         };
 
         window.manualAdd = function() {
-            // Redirect to the student application page, as manual entry requires all the same info (including photo)
             window.location.href = 'membership_apply.html';
         };
 
         // --- Admin Access Gate ---
         document.addEventListener('DOMContentLoaded', function() {
-            // Set initial status message for book inventory
             document.getElementById('book-inventory-status').id = 'book-inventory-status'; 
 
             const accessKey = prompt("مهرباني ڪري انتظاميا پاسورڊ داخل ڪريو:");
@@ -529,7 +528,7 @@
              <h2 class="text-3xl font-bold text-center mb-6 text-amber-700">ممبرشپ درخواستون (Moderation)</h2>
              
              <div class="bg-white p-4 rounded-lg shadow-md mb-6">
-                 <p id="membership-requests-status" class="text-center font-semibold text-sm text-gray-600">صرف التوا ۾ پيل درخواستون ڏيکاريون وينديون.</p>
+                 <p id="membership-requests-status" class="text-center font-semibold text-sm text-gray-600">سڀئي درخواستون ڏيکاريون وينديون (التوا، منظور ٿيل، رد ٿيل).</p>
              </div>
 
              <div class="overflow-x-auto bg-white rounded-lg shadow-xl">

@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ممبرشپ سٹیٽس ٽريڪر</title>
+    <title>ممبرشپ اسٽيٽس ٽريڪر</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Custom Font: MB Lateefi.otf -->
     <style>
@@ -19,79 +20,72 @@
         }
         .latin {
             font-family: Inter, sans-serif;
+            direction: ltr; 
         }
         .text-right-aligned {
              text-align: right;
         }
-        /* --- Card Styling for Print --- */
-        #member-card {
-            width: 320px; /* Standard ID card width */
-            height: 200px; /* Standard ID card height */
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            background: linear-gradient(135deg, #115e59 0%, #134e4a 100%); /* Teal gradient */
-            color: white;
-            padding: 1rem;
+        .card-container {
+            width: 320px;
+            height: 200px;
+            margin: 20px auto;
+            border: 1px solid #047857; /* Teal-700 */
             border-radius: 12px;
-            margin: 2rem auto;
-            position: relative;
             overflow: hidden;
-            border: 5px solid #fcd34d; /* Amber border */
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
         }
-        #card-photo {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid white;
-        }
-        #card-library-name {
-            font-size: 14px;
-            line-height: 1.2;
-            margin-bottom: 0.2rem;
-            font-weight: bold;
-            color: #fcd34d; /* Amber */
-        }
-        #card-id-number {
-            font-size: 18px;
-            font-weight: bold;
-            font-family: Inter, sans-serif;
-            letter-spacing: 1px;
+        .card-header {
+            background-color: #0d9488; /* Teal-600 */
             color: white;
-            background-color: #0d3b38;
-            padding: 0 6px;
-            border-radius: 4px;
+            padding: 8px;
+            text-align: center;
         }
-        
-        /* Print media query to enhance card print quality */
+        .card-body {
+            background-color: #e0f2f1; /* Teal-50 */
+            padding: 10px;
+            display: flex;
+            flex-direction: row-reverse;
+            justify-content: space-between;
+            height: 140px;
+        }
+        .card-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 4px;
+            object-fit: cover;
+            border: 2px solid #fbbf24; /* Amber-400 */
+            margin-top: 5px;
+        }
+        .card-details {
+            text-align: right;
+            line-height: 1.2;
+            font-size: 11px;
+            width: calc(100% - 90px);
+        }
+        .card-footer {
+             background-color: #115e59; /* Teal-700 */
+             color: #fcd34d; /* Amber-300 */
+             font-size: 10px;
+             text-align: center;
+             padding: 4px;
+        }
+
+        /* Styling for PDF Print Button */
         @media print {
-            body * {
-                visibility: hidden;
-            }
-            #print-area, #print-area * {
-                visibility: visible;
-            }
-            #print-area {
+            body * { visibility: hidden; }
+            #card-area, #card-area * { visibility: visible; }
+            #card-area {
                 position: absolute;
                 left: 0;
                 top: 0;
-                /* Reset margins for clean printout */
-                margin: 0; 
-                padding: 0;
-                /* Ensure only the card is visible */
-                width: 100%;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
+                margin: 0;
             }
-            #member-card {
-                box-shadow: none;
-                border: 1px solid #000;
-            }
+            .no-print { display: none; }
         }
+        
     </style>
 
-    <!-- Firebase SDK Imports for Data Retrieval -->
+    <!-- Firebase SDK Imports -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -99,7 +93,7 @@
         
         setLogLevel('Debug');
         
-        // --- Shared Firebase Config (Must Match index.html) ---
+        // --- Shared Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyBxgOhd3y5L7Xl_IzWkuJ02PBlswR9lt5k",
             authDomain: "nirmal-library.firebaseapp.com",
@@ -113,15 +107,15 @@
 
         let db;
         let auth;
-
+        let currentMemberData = null; // Store fetched data here
+        
         // Helper function to format date
-        const formatDate = (timestamp) => {
-            if (!timestamp) return 'نامعلوم';
-            // Firestore timestamp conversion
-            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp); 
-            return date.toLocaleDateString('sd-PK');
+        const formatDate = (dateValue) => {
+            if (!dateValue) return 'نامعلوم';
+            const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
+            return date.toLocaleDateString('sd-PK', { year: 'numeric', month: '2-digit', day: '2-digit' });
         };
-
+        
         // --- Firebase Initialization and Auth ---
         async function initFirebaseAndAuth() {
             try {
@@ -129,161 +123,177 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 await signInAnonymously(auth);
+                // Check for ID in URL if coming from the apply page
+                const urlParams = new URLSearchParams(window.location.search);
+                const idFromUrl = urlParams.get('id');
+                if (idFromUrl) {
+                    document.getElementById('card-id-input').value = idFromUrl;
+                    window.checkStatus();
+                }
             } catch (error) {
-                document.getElementById('status').textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
-                document.getElementById('status').classList.add('text-red-600');
+                document.getElementById('status-message').textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
+                document.getElementById('status-message').className = 'text-center mb-4 font-semibold text-sm text-red-600';
                 console.error("Firebase Auth Error:", error);
             }
         }
-
+        
         // --- Status Check Logic ---
         window.checkStatus = async function() {
-            const cardIdInput = document.getElementById('card-id-input').value.trim().toUpperCase();
-            const statusElement = document.getElementById('status');
-            const cardDisplay = document.getElementById('card-display');
-            cardDisplay.classList.add('hidden');
-            cardDisplay.innerHTML = ''; 
+            const cardId = document.getElementById('card-id-input').value.trim().toUpperCase();
+            const statusElement = document.getElementById('status-message');
+            const resultArea = document.getElementById('result-area');
+            const cardArea = document.getElementById('card-area');
+            
+            // CRITICAL FIX: Ensure innerHTML is set to an existing element
+            if (statusElement) {
+                 statusElement.textContent = '';
+                 statusElement.className = 'text-center mb-4 font-semibold text-sm text-gray-600';
+            }
+            if (resultArea) resultArea.classList.add('hidden');
+            if (cardArea) cardArea.innerHTML = '';
+            currentMemberData = null;
 
-            if (!cardIdInput) {
-                statusElement.textContent = 'مھرباني ڪري پنھنجو ID ڪارڊ نمبر داخل ڪريو.';
-                statusElement.className = 'mt-4 font-semibold text-red-600 text-center';
+
+            if (!cardId) {
+                if (statusElement) statusElement.textContent = 'مھرباني ڪري ممبرشپ ID داخل ڪريو.';
                 return;
             }
 
-            statusElement.textContent = 'اسٽيٽس ٽريڪ ڪري رهيو آهي...';
-            statusElement.className = 'mt-4 font-semibold text-amber-600 text-center';
-
+            if (statusElement) statusElement.textContent = 'اسٽيٽس ڳولي رهيو آهي...';
+            
             try {
                 const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
-                const q = query(membersRef, where('cardId', '==', cardIdInput));
+                const q = query(membersRef, where('cardId', '==', cardId));
+                
                 const querySnapshot = await getDocs(q);
-
+                
                 if (querySnapshot.empty) {
-                    statusElement.textContent = `غلط ID ڪارڊ نمبر: ${cardIdInput}. مھرباني ڪري ٻيهر چيڪ ڪريو.`;
-                    statusElement.className = 'mt-4 font-semibold text-red-600 text-center';
+                    if (statusElement) statusElement.textContent = 'ڪابه درخواست يا ممبرشپ ID نه ملي.';
                     return;
                 }
-
-                const memberData = querySnapshot.docs[0].data();
                 
-                // Render Status
-                if (memberData.status === 'Pending') {
-                    statusElement.textContent = `درخواست جي حيثيت: التوا ۾ (Pending). ايڊمن جي منظوري جو انتظار ڪريو.`;
-                    statusElement.className = 'mt-4 font-semibold text-amber-600 text-center';
-                } else if (memberData.status === 'Rejected') {
-                    statusElement.textContent = `درخواست جي حيثيت: رد ٿيل (Rejected). وڌيڪ معلومات لاءِ لائبريرين سان رابطو ڪريو.`;
-                    statusElement.className = 'mt-4 font-semibold text-red-600 text-center';
-                } else if (memberData.status === 'Approved') {
-                    // Approved - Show Card Generator
-                    const approvedDate = formatDate(memberData.approvedDate);
-                    const expiryDate = formatDate(memberData.expiryDate);
-                    
-                    statusElement.innerHTML = `
-                        <span class="text-green-600">درخواست جي حيثيت: منظور (Approved)!</span>
-                        <p class="text-sm text-gray-600 mt-2">منظوري جي تاريخ: ${approvedDate} | مدي پڄاڻي: ${expiryDate}</p>
-                        <button onclick="window.printCard()" class="mt-4 bg-teal-600 text-white font-bold py-3 px-6 rounded-md hover:bg-teal-700 transition-colors">
-                            ممبرشپ ڪارڊ پرنٽ ڪريو (PDF)
-                        </button>
-                    `;
-                    statusElement.className = 'mt-4 font-semibold text-center';
+                // Assuming cardId is unique, there should be only one result
+                const memberDoc = querySnapshot.docs[0];
+                const data = memberDoc.data();
+                currentMemberData = data; // Store data globally
+                
+                if (resultArea) resultArea.classList.remove('hidden');
 
-                    // Prepare Card HTML
-                    document.getElementById('member-card-container').innerHTML = window.generateCardHtml(memberData, approvedDate, expiryDate);
-                    cardDisplay.classList.remove('hidden');
+                if (data.status === 'Pending') {
+                    if (statusElement) statusElement.innerHTML = `<span class="text-amber-600">توهان جي درخواست جائزي هيٺ آهي. مهرباني ڪري صبر ڪيو.</span>`;
+                    document.getElementById('print-card-button').classList.add('hidden');
+                
+                } else if (data.status === 'Rejected') {
+                    if (statusElement) statusElement.innerHTML = `<span class="text-red-600">توهان جي ممبرشپ درخواست رد ڪئي وئي آهي. وڌيڪ معلومات لاءِ لائبريرين سان رابطو ڪريو.</span>`;
+                    document.getElementById('print-card-button').classList.add('hidden');
 
-                    // Check for expiry warning
-                    const today = new Date();
-                    if (memberData.expiryDate.toDate() < today) {
-                        statusElement.innerHTML = `
-                            <span class="text-red-600">خبردار: توهان جي ممبرشپ جي مدي پڄاڻي ٿي وئي آهي (${expiryDate}). مهرباني ڪري نئين درخواست جمع ڪرايو يا لائبريرين سان رابطو ڪريو.</span>
-                            <button onclick="window.printCard()" class="mt-4 bg-gray-500 text-white font-bold py-3 px-6 rounded-md cursor-not-allowed">
-                                مدي پڄاڻي ٿيل ڪارڊ پرنٽ ڪريو
-                            </button>
-                        `;
-                    }
+                } else if (data.status === 'Approved') {
+                    if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ممبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ پرنٽ ڪريو.</span>`;
+                    document.getElementById('print-card-button').classList.remove('hidden');
+                    window.renderCard(data); // Render the card immediately
                 }
-            } catch (e) {
-                console.error("Error checking status: ", e);
-                statusElement.textContent = `ڊيٽابيس مان ڊيٽا حاصل ڪرڻ ۾ غلطي ٿي. (${e.message})`;
-                statusElement.className = 'mt-4 font-semibold text-red-600 text-center';
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                if (statusElement) statusElement.textContent = `ڊيٽابيس مان ڊيٽا حاصل ڪرڻ ۾ غلطي ٿي. (${error.message})`;
             }
         };
 
-        window.generateCardHtml = function(data, approvedDate, expiryDate) {
-             return `
-                <div id="member-card" class="print-element">
-                    <div class="flex justify-between items-start mb-2">
-                        <!-- Library Info -->
-                        <div class="flex flex-col items-start">
-                            <p id="card-library-name">نِرمل جيوتاڻي لائبريري</p>
-                            <p class="text-xs text-gray-200">ٿرڙي محبت | آزاد منگي فائونڊيشن</p>
-                        </div>
-                        <!-- Photo -->
-                        <img id="card-photo" src="${data.photoBase64}" alt="Member Photo">
-                    </div>
+        // --- Card Rendering Logic ---
+        window.renderCard = function(data) {
+            const cardArea = document.getElementById('card-area');
+            if (!cardArea) return;
+            
+            const approvedDateStr = formatDate(data.approvedDate);
+            const expiryDateStr = formatDate(data.expiryDate);
 
-                    <!-- Member Details -->
-                    <div class="text-xs text-left">
-                        <p class="mb-1 text-sm font-bold">${data.name}</p>
-                        <p class="text-gray-300">ولد: ${data.fatherName}</p>
-                        <p class="text-gray-300">پيشو: ${data.occupation}</p>
-                        <p class="text-gray-300 mb-2">رابطو: <span class="latin">${data.contact}</span></p>
+            cardArea.innerHTML = `
+                <div class="card-container border-4 border-teal-800" id="membership-card-to-print">
+                    <div class="card-header">
+                        <h2 class="text-lg font-extrabold leading-none">نرمل جيوتاڻي لائبريري</h2>
+                        <p class="text-xs">ممبرشپ ڪارڊ</p>
                     </div>
-
-                    <!-- ID and Validity -->
-                    <div class="flex justify-between items-center text-xs mt-3">
-                        <div class="flex flex-col items-start">
-                            <p class="text-gray-300">ID نمبر:</p>
-                            <span id="card-id-number" class="latin">${data.cardId}</span>
+                    <div class="card-body">
+                        <div class="card-details">
+                            <p class="font-bold text-teal-800 text-lg">${data.name}</p>
+                            <p class="text-gray-700">پيءُ جو نالو: ${data.fatherName}</p>
+                            <p class="text-gray-700">پيشو: ${data.occupation}</p>
+                            <p class="text-gray-700">موبايل: <span class="latin">${data.contact}</span></p>
+                            <p class="mt-2 text-teal-700 font-bold">ID #: <span class="latin">${data.cardId}</span></p>
+                            <p class="mt-1 text-xs">منظوري: <span class="latin">${approvedDateStr}</span></p>
+                            <p class="text-xs text-red-600">مدت ختم ٿيڻ: <span class="latin">${expiryDateStr}</span></p>
                         </div>
-                        <div class="flex flex-col items-end text-gray-300">
-                            <p>صحيحيت (Validity)</p>
-                            <p><sup>شروع: ${approvedDate}</sup></p>
-                            <p><sup>ختم: ${expiryDate}</sup></p>
-                        </div>
+                        <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
+                    </div>
+                    <div class="card-footer">
+                        نِرمل جيوتاڻي لائبريري ٿرڙي محبت، آزاد منگي فائونڊيشن جي طرفان
                     </div>
                 </div>
-             `;
+            `;
         };
 
+        // --- PDF Generation Logic (using html2pdf) ---
         window.printCard = function() {
-            window.print();
+            const cardElement = document.getElementById('membership-card-to-print');
+            if (!cardElement) {
+                document.getElementById('status-message').textContent = 'ڪارڊ پرنٽ ڪرڻ لاءِ دستياب ناهي.';
+                return;
+            }
+
+            // Temporarily clone and show the card in a standardized size for PDF generation
+            const cardClone = cardElement.cloneNode(true);
+            
+            // Configuration for A4 size, landscape, and specific width/height for a card
+            const opt = {
+                margin: 5,
+                filename: `Nirmal_Jevtani_Library_Card_${currentMemberData.cardId}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 3 },
+                jsPDF: { unit: 'mm', format: 'a7', orientation: 'landscape' } // A7 size is good for cards
+            };
+
+            html2pdf().from(cardClone).set(opt).save();
         };
+
 
         document.addEventListener('DOMContentLoaded', initFirebaseAndAuth);
     </script>
 </head>
 <body class="bg-stone-50 text-gray-800 p-4 md:p-8">
 
-    <div class="container mx-auto max-w-4xl">
-        <header class="text-center mb-8 pb-4 border-b-2 border-teal-500">
+    <div class="container mx-auto max-w-2xl">
+        <header class="text-center mb-8 pb-4 border-b-2 border-teal-500 no-print">
             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
-            <h1 class="text-3xl font-bold text-teal-700">ممبرشپ اسٽيٽس ٽريڪر</h1>
-            <p class="mt-1 text-gray-600">نِرمل جيوتاڻي لائبريري، ٿرڙي محبت</p>
+            <h1 class="text-3xl font-bold text-teal-700">ممبرشپ اسٽيٽس چيڪر</h1>
+            <p class="mt-1 text-gray-600">پنھنجو ID داخل ڪريو ته جيئن درخواست جي حيثيت معلوم ڪري سگھجي.</p>
         </header>
 
-        <div id="print-area">
-            <!-- ID Input and Status -->
-            <div id="tracker-section" class="bg-white p-6 rounded-lg shadow-xl max-w-md mx-auto border-t-4 border-amber-500">
-                <h2 class="text-2xl font-bold mb-4 text-center text-teal-700">پنهنجي درخواست جي حيثيت چيڪ ڪريو</h2>
-                
-                <div class="mb-4">
-                    <label for="card-id-input" class="block text-right mb-2 font-medium">ID ڪارڊ نمبر</label>
-                    <input type="text" id="card-id-input" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned latin uppercase" placeholder="مثال: NJL-A1B2C3D4">
-                </div>
-                
-                <button onclick="window.checkStatus()" class="w-full bg-amber-600 text-white font-bold py-3 rounded-md hover:bg-amber-700 transition-colors">اسٽيٽس چيڪ ڪريو</button>
-                
-                <div id="status" class="mt-4 font-semibold text-center text-amber-500">ڊيٽابيس لوڊ ٿي رهيو آهي...</div>
+        <!-- Status Check Form -->
+        <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 mb-8 no-print">
+            <label for="card-id-input" class="block text-right mb-2 font-medium">پنهنجو منفرد ممبرشپ ID نمبر داخل ڪريو</label>
+            <div class="flex space-x-2 space-x-reverse">
+                <button onclick="window.checkStatus()" class="bg-teal-600 text-white font-bold py-3 px-6 rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap">چيڪ اسٽيٽس</button>
+                <input type="text" id="card-id-input" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned latin" placeholder="مثال: NJL-F4A5B6C7">
             </div>
-
-            <!-- Card Display (Initially Hidden) -->
-            <div id="card-display" class="w-full p-4 hidden">
-                 <div id="member-card-container" class="flex justify-center">
-                    <!-- Card content will be inserted here -->
-                 </div>
-            </div>
+            
+            <div id="status-message" class="text-center mt-4 font-semibold text-sm text-gray-600"></div>
         </div>
+
+        <!-- Result Area (Hidden until status is Approved) -->
+        <div id="result-area" class="hidden text-center">
+            
+            <!-- Card Display Area -->
+            <div id="card-area">
+                <!-- Membership Card will be rendered here by renderCard(data) -->
+            </div>
+            
+            <!-- Print Button (Visible only if Approved) -->
+            <button id="print-card-button" onclick="window.printCard()" class="hidden mt-6 bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-amber-700 transition-colors no-print">
+                <span class="mr-2">ڊائونلوڊ / پرنٽ ڪارڊ (PDF)</span>
+                <span class="latin">🖨️</span>
+            </button>
+        </div>
+        
     </div>
 </body>
 </html>
