@@ -26,10 +26,10 @@
              text-align: right;
         }
         
-        /* Card Container - Designed for standard ID card aspect ratio (3.5 x 2 inches) */
+        /* Card Container - Standard ID size (3.5 x 2 inches) */
         .card-container {
-            width: 320px; /* Equivalent to 3.5 inches at 96 DPI */
-            height: 183px; /* Equivalent to 2 inches at 96 DPI */
+            width: 330px; /* Slightly wider for better fit */
+            height: 200px;
             margin: 20px auto;
             border: 3px solid #115e59; /* Teal-700 */
             border-radius: 12px;
@@ -49,40 +49,35 @@
             line-height: 1.1;
         }
         
-        /* Card Body - Uses Grid for fixed layout */
+        /* Card Body - Main content area with Photo and Details */
         .card-body {
             display: grid;
-            grid-template-columns: 85px 1fr; /* Photo on the right (85px), Details on the left (Remaining space) */
+            grid-template-columns: 1fr 100px; /* Details (1fr) on the right, Photo/Signature (100px) on the left */
             background-color: #e0f2f1; /* Teal-50 */
-            padding: 8px;
-            gap: 8px;
+            padding: 5px;
+            gap: 5px;
             flex-grow: 1;
-            position: relative;
         }
         
-        /* Photo Styling */
-        .card-photo-box {
-            order: 2; /* Move photo to the right column in RTL */
-            text-align: center;
-        }
-        .card-photo {
-            width: 75px;
-            height: 90px;
-            border-radius: 4px;
-            object-fit: cover;
-            border: 2px solid #fbbf24; /* Amber-400 */
+        /* Detail Section */
+        .card-details-section {
+            order: 2; /* Details on the Right in RTL layout */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
         }
         
         /* Details Grid */
         .card-details-grid {
-            order: 1; /* Move details to the left column in RTL */
+            border-bottom: 1px solid #0d9488; /* Separator line */
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+            
             display: grid;
             grid-template-columns: max-content 1fr; /* Label column and Value column */
-            gap: 2px 5px;
+            gap: 2px 8px;
             font-size: 10px;
             line-height: 1.2;
-            width: 100%;
-            padding-right: 5px;
         }
         
         .detail-label {
@@ -100,34 +95,61 @@
             white-space: nowrap;
         }
         
-        /* Signature Area */
+        /* Photo and Signature Section (Left Side) */
+        .card-photo-section {
+            order: 1; /* Photo/Signature on the Left in RTL layout */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 5px;
+        }
+        .card-photo {
+            width: 80px;
+            height: 95px;
+            border-radius: 4px;
+            object-fit: cover;
+            border: 2px solid #fbbf24; /* Amber-400 */
+        }
+
+        /* Signature Area (Bottom of Details Section) */
         .signature-area {
-            position: absolute;
-            bottom: 5px;
-            left: 5px;
-            right: 95px; /* Adjust based on photo width */
             display: flex;
             justify-content: space-between;
             font-size: 8px;
-            z-index: 5;
             padding-right: 5px;
+            width: 100%;
+            margin-top: auto; /* Push to bottom of details section */
         }
-        .signature-line {
-            border-top: 1px dashed #4b5563; /* Gray-600 */
-            width: 60px;
-            margin-top: 2px;
-            margin-bottom: 1px;
-        }
-        .sig-box {
+
+        .sig-box-student {
             text-align: center;
             line-height: 1.1;
+            width: 80px; /* Aligned beneath the photo */
+            position: absolute; /* Place student signature relative to the left section */
+            bottom: 5px;
+            left: 10px;
+        }
+        
+        .sig-box-issuer {
+            text-align: right;
+            line-height: 1.1;
+            width: 100px; /* Space for the issuer signature */
+            margin-right: 15px; /* Push away from the center */
+        }
+
+        .signature-line {
+            border-top: 1px dashed #4b5563; /* Gray-600 */
+            width: 70px;
+            margin-top: 2px;
+            margin-bottom: 1px;
+            margin-right: 0; /* Align line right for RTL */
         }
         
         /* Card Footer */
         .card-footer {
              background-color: #115e59; /* Teal-700 */
              color: #fcd34d; /* Amber-300 */
-             font-size: 8px;
+             font-size: 9px;
              text-align: center;
              padding: 2px 4px;
         }
@@ -262,7 +284,7 @@
             }
         };
 
-        // --- Card Rendering Logic (UPDATED LAYOUT) ---
+        // --- Card Rendering Logic (FINAL RTL LAYOUT) ---
         window.renderCard = function(data) {
             const cardArea = document.getElementById('card-area');
             if (!cardArea) return;
@@ -273,64 +295,68 @@
             cardArea.innerHTML = `
                 <div class="card-container" id="membership-card-to-print">
                     
+                    <!-- Card Header (Two lines) -->
                     <div class="card-header">
-                        <h2 class="text-lg font-extrabold leading-none">نرمل جيوتاڻي لائبريري</h2>
-                        <p class="text-xs">ممبرشپ ڪارڊ - آزاد منگي فائونڊيشن</p>
+                        <h2 class="text-lg font-extrabold leading-none">نرمل جيوتاڻي لائبريري ٿرڙي محبت</h2>
+                        <p class="text-sm">ميمبرشب ڪارڊ</p>
                     </div>
                     
+                    <!-- Card Body (Main Details and Photo) -->
                     <div class="card-body">
                         
-                        <!-- Student Details Grid -->
-                        <div class="card-details-grid">
-                            
-                            <div class="detail-label">نالو:</div>
-                            <div class="detail-value">${data.name}</div>
-                            
-                            <div class="detail-label">پيءُ جو نالو:</div>
-                            <div class="detail-value">${data.fatherName}</div>
-                            
-                            <div class="detail-label">پيشو:</div>
-                            <div class="detail-value">${data.occupation}</div>
-                            
-                            <div class="detail-label">موبايل:</div>
-                            <div class="detail-value latin">${data.contact}</div>
-                            
-                            <div class="detail-label">ID #:</div>
-                            <div class="detail-value text-teal-800 font-extrabold latin">${data.cardId}</div>
-                            
-                            <div class="detail-label">منظوري:</div>
-                            <div class="detail-value latin">${approvedDateStr}</div>
-                            
-                            <div class="detail-label text-red-600">مدت ختم:</div>
-                            <div class="detail-value latin text-red-600">${expiryDateStr}</div>
-                            
-                        </div>
-                        
-                        <!-- Photo Box -->
-                        <div class="card-photo-box">
-                            <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
-                        </div>
-                        
-                        <!-- Signature Area (Absolute position) -->
-                        <div class="signature-area">
-                            <!-- Librarian Signature -->
-                            <div class="sig-box text-right">
-                                <div class="signature-line"></div>
+                        <!-- Details Section (Right Side) -->
+                        <div class="card-details-section">
+                            <hr class="border-t border-teal-700 w-full mb-1">
+                            <h3 class="text-sm font-bold text-teal-800 text-center mb-2">شاگرد جي تفصيل</h3>
+                            <div class="card-details-grid">
+                                
+                                <div class="detail-label">نالو:</div>
+                                <div class="detail-value text-teal-800 font-extrabold">${data.name}</div>
+                                
+                                <div class="detail-label">پيءُ جو نالو:</div>
+                                <div class="detail-value">${data.fatherName}</div>
+                                
+                                <div class="detail-label">پيشو:</div>
+                                <div class="detail-value">${data.occupation}</div>
+                                
+                                <div class="detail-label">موبايل:</div>
+                                <div class="detail-value latin">${data.contact}</div>
+                                
+                                <div class="detail-label">ID #:</div>
+                                <div class="detail-value text-amber-800 font-extrabold latin">${data.cardId}</div>
+                                
+                                <div class="detail-label">منظوري:</div>
+                                <div class="detail-value latin">${approvedDateStr}</div>
+                                
+                                <div class="detail-label text-red-600">مدت ختم:</div>
+                                <div class="detail-value latin text-red-600">${expiryDateStr}</div>
+                                
+                            </div>
+                            <!-- Issuer Signature (Below Details) -->
+                            <div class="sig-box-issuer mt-2">
+                                <div class="signature-line ml-auto"></div>
                                 <p>لائبريرين جا دستخط</p>
                                 <p class="latin text-xs text-gray-700">(Issuer/Librarian)</p>
                             </div>
-                            <!-- Student Signature -->
-                            <div class="sig-box text-left">
-                                <div class="signature-line"></div>
+                        </div>
+                        
+                        <!-- Photo/Student Signature Section (Left Side) -->
+                        <div class="card-photo-section">
+                            <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
+                            
+                            <!-- Student Signature (Beneath Photo) -->
+                            <div class="sig-box-student mt-3">
+                                <div class="signature-line mx-auto"></div>
                                 <p>شاگرد جا دستخط</p>
                                 <p class="latin text-xs text-gray-700">(Student Signature)</p>
                             </div>
                         </div>
-                        
+
                     </div>
                     
+                    <!-- Card Footer -->
                     <div class="card-footer">
-                        نِرمل جيوتاڻي لائبريري ٿرڙي محبت، By آزاد منگي فائونڊيشن
+                        آزاد منگي فائونڊيشن جي طرفان
                     </div>
                 </div>
             `;
