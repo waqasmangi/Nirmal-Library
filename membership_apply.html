@@ -65,7 +65,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, setLogLevel, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         setLogLevel('Debug');
         
@@ -76,7 +76,7 @@
             projectId: "nirmal-library", 
             storageBucket: "nirmal-library.firebasestorage.app",
             messagingSenderId: "157338670869",
-            appId: "1:157338670869:web:f44c9b0a3d9e9ebedcfb1c"
+            appId: "1:157338670869:web:f44c9b0a09e9ebedcfb1c" // Updated App ID from index.html
         };
         const appId = firebaseConfig.projectId;
         // --- End Shared Firebase Config ---
@@ -226,7 +226,7 @@
             }
         }
         
-        // --- Form Submission Logic ---
+        // --- Form Submission Logic (UPDATED with Duplicate Check) ---
         window.submitMembership = async function() {
             const name = document.getElementById('name').value.trim();
             const fatherName = document.getElementById('fatherName').value.trim();
@@ -245,11 +245,39 @@
                 return;
             }
             
-            statusElement.textContent = 'درخواست جمع ڪري رهيو آهي...';
+            statusElement.textContent = 'ڊپلڪيٽ انٽري چيڪ ڪري رهيو آهي...';
             statusElement.classList.remove('text-red-600', 'text-green-600');
             statusElement.classList.add('text-amber-500');
-
+            
             try {
+                // --- STEP 1: Check for Duplicates by Contact Number ---
+                const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
+                const q = query(membersRef, where('contact', '==', contact));
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                    // Check if there is an Approved entry with this contact
+                    const approvedMember = querySnapshot.docs.find(doc => doc.data().status === 'Approved');
+                    if (approvedMember) {
+                        statusElement.textContent = `ڊپلڪيٽ انٽري ملي. هي نمبر اڳ ۾ ئي ID ${approvedMember.data().cardId} سان منظور ٿيل آهي.`;
+                        statusElement.classList.remove('text-amber-500', 'text-green-600');
+                        statusElement.classList.add('text-red-600');
+                        return;
+                    }
+                    // If no approved member, check if there is a pending one.
+                    const pendingMember = querySnapshot.docs.find(doc => doc.data().status === 'Pending');
+                     if (pendingMember) {
+                        statusElement.textContent = `ڊپلڪيٽ انٽري ملي. هن نمبر سان درخواست ID ${pendingMember.data().cardId} اڳ ۾ ئي التوا ۾ آهي.`;
+                        statusElement.classList.remove('text-amber-500', 'text-green-600');
+                        statusElement.classList.add('text-red-600');
+                        return;
+                    }
+                    // Allow submission if the existing entry is cancelled/rejected.
+                }
+                
+                statusElement.textContent = 'درخواست جمع ڪري رهيو آهي...';
+                
+                // --- STEP 2: Generate ID and Submit ---
                 // Generate Unique Card ID (Simple UUID prefix)
                 cardId = 'NJL-' + crypto.randomUUID().substring(0, 8).toUpperCase();
 
@@ -263,7 +291,7 @@
                     userId: auth.currentUser?.uid || 'anonymous-user'
                 };
 
-                await addDoc(collection(db, `artifacts/${appId}/public/data/members`), applicationData);
+                await addDoc(membersRef, applicationData);
 
                 // Show success message and hide form
                 document.getElementById('application-form').classList.add('hidden');

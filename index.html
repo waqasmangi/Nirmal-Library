@@ -433,10 +433,10 @@
         });
     }
     
-    // --- Structural Logic Refactor ---
+    // --- Structural Logic Refactor (TTS REMOVED) ---
     function startAppLogic() {
-        // TTS Welcome Message
-        window.speakText("Welcome to Nirmal Jevtani Library Thariri Muhabat");
+        // TTS Welcome Message was here, it is now REMOVED.
+        // window.speakText("Welcome to Nirmal Jevtani Library Thariri Muhabat");
 
         const mobileMenuButton = document.getElementById('mobile-menu-button');
         const mobileMenu = document.getElementById('mobile-menu');
@@ -474,22 +474,22 @@
                 <p class="text-sm text-amber-300 mt-1">آزاد منگي فائونڊيشن جي طرفان</p>
             </div>
             <nav class="hidden md:flex space-x-reverse space-x-6">
-                <!-- NEW LINKS ADDED -->
+                <!-- Links (Desktop) -->
                 <a href="membership_apply.html" class="hover:text-amber-300 font-bold text-green-300">ممبرشپ لاءِ درخواست ڏيو</a>
                 <a href="members_directory.html" class="hover:text-amber-300">ممبرز جي ڊائريڪٽري</a>
                 <a href="#inventory" class="hover:text-amber-300">ڪتابن جي فهرست</a>
-                <a href="basic_english_learning.html" class="hover:text-amber-300">انگريزي سکو</a>
+                <!-- REMOVED: English Learning Link -->
                 <a href="librarian_admin.html" class="hover:text-red-300 text-red-300 font-bold">لائبريرين جي رسائي</a>
             </nav>
             <button id="mobile-menu-button" class="md:hidden text-2xl">☰</button>
         </div>
         <nav id="mobile-menu" class="md:hidden hidden bg-teal-700 text-center mt-2">
-            <!-- NEW LINKS ADDED -->
+            <!-- Links (Mobile) -->
             <a href="membership_apply.html" class="block py-2 font-bold text-green-300 hover:bg-teal-600">ممبرشپ لاءِ درخواست ڏيو</a>
             <a href="members_directory.html" class="block py-2 hover:bg-teal-600">ممبرز جي ڊائريڪٽري</a>
             
             <a href="#inventory" class="block py-2 hover:bg-teal-600">ڪتابن جي فهرست</a>
-            <a href="basic_english_learning.html" class="block py-2 font-bold text-amber-500 hover:bg-teal-600">بنيادي انگريزي سکو</a>
+            <!-- REMOVED: English Learning Link -->
             <a href="#feedback" class="block py-2 hover:bg-teal-600">رايا</a>
             <a href="#about" class="block py-2 hover:bg-teal-600">اسان جي باري ۾</a>
             <a href="librarian_admin.html" class="block py-2 text-red-300 font-bold hover:bg-teal-600">لائبريرين جي رسائي</a>

@@ -289,7 +289,7 @@
             }
         };
 
-        // --- Card Rendering Logic ---
+        // --- Card Rendering Logic (UPDATED) ---
         window.renderCard = function(data) {
             const cardArea = document.getElementById('card-area');
             if (!cardArea) return;
@@ -325,8 +325,11 @@
                                     <div class="detail-label">پيشو:</div>
                                     <div class="detail-value">${data.occupation}</div>
                                     
+                                    <!-- REMOVED: Mobile Number Field -->
+                                    <!-- 
                                     <div class="detail-label">موبايل:</div>
                                     <div class="detail-value latin">${data.contact}</div>
+                                    -->
                                     
                                     <div class="detail-label">پيدائش جي تاريخ:</div>
                                     <div class="detail-value latin">${dobStr}</div>

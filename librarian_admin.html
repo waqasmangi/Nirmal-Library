@@ -19,6 +19,7 @@
         }
         .latin {
             font-family: Inter, sans-serif;
+            direction: ltr;
         }
         .text-right-aligned {
              text-align: right;
@@ -59,6 +60,13 @@
             max-width: 90%;
             width: 400px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            max-height: 90vh; /* Added max height for mobile scroll */
+            overflow-y: auto;
+        }
+        /* Fix for date input alignment and visibility in modals */
+        input[type="date"] {
+            text-align: right;
+            direction: ltr; /* Force LTR direction for date formatting */
         }
     </style>
 
@@ -77,7 +85,7 @@
             projectId: "nirmal-library", 
             storageBucket: "nirmal-library.firebasestorage.app",
             messagingSenderId: "157338670869",
-            appId: "1:157338670869:web:f44c9b0a3d9e9ebedcfb1c"
+            appId: "1:157338670869:web:f44c9b0a09e9ebedcfb1c" // Updated App ID from index.html
         };
         const appId = firebaseConfig.projectId;
         const ADMIN_PASSWORD = "Nirmal2025"; // !!! CRITICAL: Simple client-side password - DO NOT USE FOR SENSITIVE DATA !!!
@@ -92,7 +100,8 @@
         let auth;
         let inventoryData = []; // Global storage for all books
         let currentBookIdToEdit = null; // State to track which book is being edited
-        let pendingMembersData = []; // Global storage for pending member applications
+        let pendingMembersData = []; // Global storage for all member applications
+        let currentMemberToEdit = null; // State to track the member being edited
 
         // --- View Switching Logic ---
         window.switchView = function(viewId) {
@@ -155,6 +164,24 @@
                 console.error("Firebase Auth Error:", error);
             }
         }
+        
+        // Helper function to format date
+        const formatDate = (timestamp) => {
+            if (!timestamp) return 'نامعلوم';
+            // Convert Firebase Timestamp to JS Date object if necessary
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp); 
+            return date.toLocaleDateString('sd-PK');
+        };
+        
+        // Helper function to format Date object to YYYY-MM-DD string
+        const dateToInputFormat = (date) => {
+            if (!date) return '';
+            const d = date.toDate ? date.toDate() : new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
         
         // --- Book Inventory Logic (Existing Code) ---
         window.submitBook = async function() {
@@ -311,13 +338,6 @@
 
         // --- Membership Management Logic ---
         
-        // Helper function to format date
-        const formatDate = (timestamp) => {
-            if (!timestamp) return 'نامعلوم';
-            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-            return date.toLocaleDateString('sd-PK');
-        };
-
         function listenForPendingMembers(db, appId) {
             const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
             
@@ -333,7 +353,7 @@
                 renderMembershipRequests();
             }, (error) => {
                  console.error("Error listening to members: ", error);
-                 document.getElementById('membership-list').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">درخواستون لوڊ ڪرڻ ۾ غلطي: ${error.message}</td></tr>`;
+                 document.getElementById('membership-list').innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-600">درخواستون لوڊ ڪرڻ ۾ غلطي: ${error.message}</td></tr>`;
             });
         }
         
@@ -342,7 +362,7 @@
             list.innerHTML = '';
             
             if (data.length === 0) {
-                 list.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">ڪابه التوا ۾ درخواست موجود ناهي.</td></tr>';
+                 list.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">ڪابه التوا ۾ درخواست موجود ناهي.</td></tr>';
                  return;
             }
 
@@ -365,32 +385,32 @@
 
                 const photo = member.photoBase64 ? `<img src="${member.photoBase64}" class="member-photo-admin" alt="Member Photo">` : 'تصوير ناهي';
                 
-                let actionButtons = '';
+                let actionButtons = `
+                    <button onclick="window.openEditModal('${member.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ايڊٽ ڪريو</button>
+                `;
+
                 if (member.status === 'Pending') {
-                    actionButtons = `
+                    actionButtons += `
                         <button onclick="window.approveMember('${member.id}', '${member.name}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منظور ڪريو</button>
-                        <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منسوخ ڪريو (Reason)</button>
+                        <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منسوخ ڪريو</button>
                     `;
                 } else if (member.status === 'Approved') {
-                    actionButtons = `
-                        <span class="${statusColor} font-semibold text-sm">${statusText}</span>
-                        <a href="membership_track.html?id=${member.cardId}" target="_blank" class="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ڪارڊ پرنٽ ڪريو</a>
+                    actionButtons += `
+                        <a href="membership_track.html?id=${member.cardId}" target="_blank" class="bg-teal-600 text-white px-3 py-1 rounded-md hover:bg-teal-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ڪارڊ پرنٽ ڪريو</a>
                         <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ممبرشپ رد ڪريو</button>
                     `;
-                } else {
-                     actionButtons = `<span class="${statusColor} font-semibold text-sm">${statusText}</span>`;
                 }
-
+                
                 // Add the Delete button to all rows
                 actionButtons += `
                     <button onclick="window.deleteMemberRecord('${member.id}', '${member.name}')" class="bg-gray-400 text-white px-3 py-1 rounded-md hover:bg-gray-500 transition-colors text-sm whitespace-nowrap mt-1 md:mt-0">حذف ڪريو</button>
                 `;
 
-
                 row.innerHTML = `
                     <td class="p-4">${index + 1}</td>
                     <td class="p-4">${photo}</td>
-                    <td class="p-4 font-semibold">${member.name} (${member.cardId})</td>
+                    <td class="p-4 font-semibold">${member.name}</td>
+                    <td class="p-4 text-sm latin font-mono text-red-700">${member.cardId}</td>
                     <td class="p-4 text-sm">${member.occupation}</td>
                     <td class="p-4 text-sm text-gray-500">${member.submissionTime}</td>
                     <td class="p-4 space-y-1 space-x-2 space-x-reverse flex flex-col md:flex-row md:justify-end items-end md:items-center">
@@ -400,6 +420,84 @@
                 list.appendChild(row);
             });
         };
+
+        // --- NEW: Edit Modal Logic ---
+        window.openEditModal = function(memberId) {
+            const member = pendingMembersData.find(m => m.id === memberId);
+            if (!member) return;
+            
+            currentMemberToEdit = member;
+
+            // Populate form fields
+            document.getElementById('edit-name').value = member.name || '';
+            document.getElementById('edit-fatherName').value = member.fatherName || '';
+            document.getElementById('edit-gender').value = member.gender || 'placeholder';
+            // Convert Firebase Timestamp or Date to YYYY-MM-DD format
+            document.getElementById('edit-dob').value = dateToInputFormat(member.dob); 
+            document.getElementById('edit-occupation').value = member.occupation || '';
+            document.getElementById('edit-address').value = member.address || '';
+            document.getElementById('edit-contact').value = member.contact || '';
+            document.getElementById('edit-cardId-display').textContent = member.cardId;
+            document.getElementById('edit-member-photo-preview').src = member.photoBase64 || 'https://placehold.co/150x150/e0f2f1/115e59?text=Photo';
+            document.getElementById('edit-member-id').value = memberId;
+            document.getElementById('edit-modal-status').textContent = '';
+
+            document.getElementById('edit-modal').classList.remove('hidden');
+        };
+
+        window.closeEditModal = function() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            currentMemberToEdit = null;
+        };
+        
+        window.updateMemberData = async function() {
+            const memberId = document.getElementById('edit-member-id').value;
+            const statusElement = document.getElementById('edit-modal-status');
+            
+            const updatedData = {
+                name: document.getElementById('edit-name').value.trim(),
+                fatherName: document.getElementById('edit-fatherName').value.trim(),
+                gender: document.getElementById('edit-gender').value,
+                dob: document.getElementById('edit-dob').value,
+                occupation: document.getElementById('edit-occupation').value.trim(),
+                address: document.getElementById('edit-address').value.trim(),
+                contact: document.getElementById('edit-contact').value.trim(),
+                // NOTE: cardId and photoBase64 are not edited in this modal for security/complexity reasons.
+            };
+
+            if (!updatedData.name || !updatedData.contact) {
+                 statusElement.textContent = 'نالو ۽ رابطو نمبر خالي نٿو ٿي سگھي.';
+                 statusElement.classList.add('text-red-600');
+                 return;
+            }
+            
+            // NOTE: We rely on the initial unique cardId, so no need to check for it here.
+
+            statusElement.textContent = 'ڊيٽا اپڊيٽ ڪري رهيو آهي...';
+            statusElement.classList.remove('text-red-600', 'text-green-600');
+            statusElement.classList.add('text-amber-500');
+
+            try {
+                // Handle DOB format conversion: Firestore prefers Date objects or strings,
+                // but since we only care about the date for the card, a YYYY-MM-DD string is fine.
+                // However, to maintain consistency, we'll store it as a date string if provided.
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), updatedData);
+                
+                statusElement.textContent = 'ميمبر ڊيٽا ڪاميابي سان اپڊيٽ ٿي وئي!';
+                statusElement.classList.remove('text-amber-500');
+                statusElement.classList.add('text-green-600');
+
+                // Close modal after a short delay
+                setTimeout(window.closeEditModal, 1500);
+
+            } catch (e) {
+                console.error("Error updating member data: ", e);
+                statusElement.textContent = `ڊيٽا اپڊيٽ ڪرڻ ۾ غلطي ٿي: ${e.message}`;
+                statusElement.classList.remove('text-amber-500', 'text-green-600');
+                statusElement.classList.add('text-red-600');
+            }
+        };
+
 
         window.approveMember = async function(memberId, memberName) {
             if (!confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ منظور ڪرڻ چاهيو ٿا؟ اهو ممبرشپ ڪارڊ ڇھن مھينن لاءِ صحيح ٿي ويندو.`)) {
@@ -427,7 +525,7 @@
             }
         };
 
-        // --- NEW: Function to open the Cancel Modal ---
+        // --- Function to open the Cancel Modal ---
         window.openCancelModal = function(memberId, memberName) {
             document.getElementById('cancel-member-name').textContent = memberName;
             document.getElementById('cancel-member-id').value = memberId;
@@ -439,7 +537,7 @@
             document.getElementById('cancel-modal').classList.add('hidden');
         };
 
-        // --- NEW: Function to process cancellation with reason ---
+        // --- Function to process cancellation with reason ---
         window.processCancellation = async function() {
             const memberId = document.getElementById('cancel-member-id').value;
             const memberName = document.getElementById('cancel-member-name').textContent;
@@ -474,7 +572,7 @@
             }
         };
         
-        // --- NEW: Function to delete a member record ---
+        // --- Function to delete a member record ---
         window.deleteMemberRecord = async function(memberId, memberName) {
             if (!confirm(`ڇا توهان واقعي ${memberName} جو سڄو رڪارڊ ڊيٽابيس مان حذف ڪرڻ چاهيو ٿا؟ اهو مستقل طور ختم ٿي ويندو!`)) return;
             
@@ -628,21 +726,88 @@
                         <tr>
                             <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شمار</th>
                             <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تصوير</th>
-                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شاگرد جو نالو (ID)</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شاگرد جو نالو</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider latin">ID</th>
                             <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">پيشو</th>
                             <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تاريخ درخواست</th>
                             <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عمل</th>
                         </tr>
                     </thead>
                     <tbody id="membership-list" class="bg-white divide-y divide-gray-200">
-                        <tr><td colspan="6" class="p-4 text-center text-gray-500">درخواستون لوڊ ٿي رهيون آهن...</td></tr>
+                        <tr><td colspan="7" class="p-4 text-center text-gray-500">درخواستون لوڊ ٿي رهيون آهن...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
     
-    <!-- Cancellation Modal (NEW) -->
+    <!-- Member Edit Modal (NEW) -->
+    <div id="edit-modal" class="modal-backdrop hidden">
+        <div class="modal-content text-right">
+            <h3 class="text-xl font-bold mb-4 text-blue-700">ميمبر ڊيٽا کي ايڊٽ ڪريو</h3>
+            <p class="mb-3 text-sm text-gray-600">هتي توهان ميمبر جي ذاتي معلومات ۾ غلطي جي صورت ۾ تبديلي ڪري سگهو ٿا.</p>
+            
+            <input type="hidden" id="edit-member-id">
+            
+            <div class="mb-4 text-center">
+                 <img id="edit-member-photo-preview" src="https://placehold.co/150x150/e0f2f1/115e59?text=Photo" alt="Member Photo" class="mx-auto w-24 h-24 object-cover rounded-md mb-2">
+                 <p class="text-sm font-bold text-teal-700">ميمبرشپ ID: <span id="edit-cardId-display" class="latin font-mono text-red-700">...</span></p>
+                 <p class="text-xs text-gray-500">نوٽ: تصوير ۽ ID تبديل نٿو ڪري سگهجي.</p>
+            </div>
+            
+            <!-- Edit Form Fields -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="mb-2">
+                    <label for="edit-name" class="block text-right mb-1 font-medium text-sm">پورو نالو</label>
+                    <input type="text" id="edit-name" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned" placeholder="شاگرد جو پورو نالو">
+                </div>
+                <div class="mb-2">
+                    <label for="edit-fatherName" class="block text-right mb-1 font-medium text-sm">پيءُ جو نالو</label>
+                    <input type="text" id="edit-fatherName" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned" placeholder="پيءُ جو نالو">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div class="mb-2">
+                    <label for="edit-gender" class="block text-right mb-1 font-medium text-sm">جنس</label>
+                    <select id="edit-gender" class="w-full p-2 border border-gray-300 rounded-md bg-white">
+                        <option value="placeholder" disabled selected>جنس چونڊيو</option>
+                        <option value="مرد">مرد (Male)</option>
+                        <option value="عورت">عورت (Female)</option>
+                        <option value="ٻيا">ٻيا (Other)</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label for="edit-dob" class="block text-right mb-1 font-medium text-sm">پيدائش جي تاريخ</label>
+                    <input type="date" id="edit-dob" class="w-full p-2 border border-gray-300 rounded-md latin">
+                </div>
+            </div>
+            
+            <div class="mb-2">
+                <label for="edit-occupation" class="block text-right mb-1 font-medium text-sm">پيشو / تعليم</label>
+                <input type="text" id="edit-occupation" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned" placeholder="پيشو">
+            </div>
+
+            <div class="mb-2">
+                <label for="edit-address" class="block text-right mb-1 font-medium text-sm">مڪمل ايڊريس</label>
+                <textarea id="edit-address" rows="2" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned" placeholder="گھر جو پتو"></textarea>
+            </div>
+            
+             <div class="mb-4">
+                <label for="edit-contact" class="block text-right mb-1 font-medium text-sm">رابطو نمبر</label>
+                <input type="text" id="edit-contact" class="w-full p-2 border border-gray-300 rounded-md latin" placeholder="مثال: 03001234567">
+            </div>
+            
+            <div id="edit-modal-status" class="text-center mb-4 font-semibold text-sm"></div>
+
+            <div class="flex justify-end space-x-2 space-x-reverse">
+                <button onclick="window.closeEditModal()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">منسوخ ڪريو</button>
+                <button onclick="window.updateMemberData()" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">ڊيٽا محفوظ ڪريو</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cancellation Modal (Existing) -->
     <div id="cancel-modal" class="modal-backdrop hidden">
         <div class="modal-content text-right">
             <h3 class="text-xl font-bold mb-4 text-red-700">ممبرشپ رد ڪرڻ جو سبب</h3>
