@@ -1,6 +1,3 @@
-<!-- Chosen Palette: Teal, Amber, Stone (Minimal and Educational) -->
-<!-- Application Structure Plan: Dashboard/Portal approach. Chosen structure: Top-level Navigation linking to English Learning (separate page) and Admin Panel (separate page). Main page content is organized vertically (Inventory -> Reviews -> About) for optimal mobile scrolling and centralized information access. This structure simplifies user flow: The main page acts as a hub, and content is dynamically updated via Firestore. -->
-<!-- Visualization & Content Choices: Inventory (Report Info -> Organize -> HTML Table + JS Filter -> Search function for usability -> Vanilla JS/HTML). Reviews (Report Info -> Inform -> HTML/CSS Display + JS Firestore Listener -> Clickable Star Rating & Like button for engagement -> Firestore/Vanilla JS). TTS on load (Goal: Engagement/Accessibility -> TTS Welcome Message -> TTS API). CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 <!DOCTYPE html>
 <html lang="sd" dir="rtl">
 <head>
@@ -45,6 +42,27 @@
                 font-size: 1rem; /* Larger size on desktop */
             }
         }
+        /* Star Rating Styles (NEW) */
+        .star-rating {
+            display: flex;
+            justify-content: center;
+            direction: rtl; /* For displaying stars in RTL order */
+        }
+        .star-rating input {
+            display: none;
+        }
+        .star-rating label {
+            font-size: 2.5rem; /* Large touch target */
+            color: #ccc;
+            cursor: pointer;
+            padding: 0 0.1rem;
+            transition: color 0.2s;
+        }
+        .star-rating input:checked ~ label,
+        .star-rating label:hover,
+        .star-rating label:hover ~ label {
+            color: #fbbf24; /* Amber-400 */
+        }
     </style>
     
     <!-- Firebase SDK Imports for Live Feedback System -->
@@ -69,54 +87,24 @@
         const appId = firebaseConfig.projectId;
         // =========================================================================
 
-        let userName = sessionStorage.getItem('userName') || "اڻڄاتل";
         let userId = ''; 
         let db;
         let auth;
         let bookInventoryData = []; 
         
-        // --- TTS Helper Function ---
-        window.speakText = function(text) {
-            if ('speechSynthesis' in window) {
-                const voices = speechSynthesis.getVoices();
-                const utterance = new SpeechSynthesisUtterance(text);
-                const enVoice = voices.find(voice => voice.lang === 'en-US' || voice.lang.startsWith('en'));
-                if (enVoice) {
-                    utterance.voice = enVoice;
-                } else {
-                    utterance.lang = 'en-US'; 
-                }
-                speechSynthesis.speak(utterance);
-            } else {
-                console.error("TTS not supported.");
-            }
-        };
+        // --- NEW: Star Rating Logic ---
+        let currentRating = 5; // Default rating
 
-        window.changeUserName = function() {
-            let newName = null;
-            let currentName = sessionStorage.getItem('userName') || '';
-
-            do {
-                newName = prompt("مهرباني ڪري پنهنجو نالو داخل ڪريو (تبصرو ۽ تجويزون موڪلڻ لاءِ):", currentName);
-                if (newName === null) { 
-                    return;
-                }
-                newName = newName.trim();
-                if (newName === '') {
-                    alert("نالو خالي نٿو ٿي سگھي. مهرباني ڪري نالو داخل ڪريو.");
-                }
-            } while (newName === '');
-
-            userName = newName;
-            sessionStorage.setItem('userName', userName);
-            document.getElementById('user-name-display').textContent = userName;
-            // Re-initialize to ensure the new user name is ready for submissions
-            if (db) initFirebaseAndAuth(); 
+        window.setRating = function(rating) {
+            currentRating = rating;
+            // Visually update the displayed stars if needed, although the CSS handles the checked state
+            console.log("Selected Rating:", currentRating);
         };
         
         window.toggleLike = async function(docId, currentLikes) {
             if (!userId) {
-                alert("مهرباني ڪري انتظار ڪريو جيستائين سسٽم ڊيٽابيس سان ڳنڍي وڃي.");
+                // Simplified error handling
+                console.error("System not ready or authorized.");
                 return;
             }
             
@@ -128,7 +116,6 @@
                 });
             } catch (e) {
                 console.error("Error updating document (Like): ", e);
-                alert(`لائڪ موڪلڻ ۾ غلطي ٿي (Permissions Issue): ${e.message}.`);
             }
         };
         
@@ -138,20 +125,13 @@
             window.open(`whatsapp://send?text=${fullMessage}`, '_blank');
         };
 
-        window.shareReview = function(text, rating) {
+        window.shareReview = function(text, rating, name) {
             const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
-            const message = `📚 نئون تبصرو: ${userName} طرفان\nدرجه بندي: ${stars}\nروايو: ${text}\n`;
+            const message = `📚 نئين رايہ: ${name} طرفان\nدرجه بندي: ${stars}\nراءِ: ${text}\n`;
             window.shareOnWhatsApp(message);
         };
         
-        window.shareSuggestion = function(level, changes, topic) {
-            // Level is now static placeholder 'مقرر نه ڪيل' in this function since the field was removed from the form
-            const levelText = level === 'مقرر نه ڪيل' ? 'تياري جي سطح مقرر نه ڪئي وئي' : level; 
-            const message = `💡 نئين ترقي جي تجويز: ${userName} طرفان\n- تياري جي سطح: ${levelText}\n- تبديلي گهربل: ${changes}\n- سکڻ جو نئون موضوع: ${topic}\n`;
-            window.shareOnWhatsApp(message);
-        };
-
-        // --- Firebase Initialization and Auth ---
+        // --- Firebase Initialization and Auth (Simplified) ---
         async function initFirebaseAndAuth() {
             try {
                 const app = initializeApp(firebaseConfig);
@@ -161,28 +141,23 @@
                 await signInAnonymously(auth);
                 userId = auth.currentUser?.uid || crypto.randomUUID();
                 
-                document.getElementById('user-name-display').textContent = userName;
-
                 // Start listeners
                 listenForReviews(db, appId);
-                listenForAdvancedFeedback(db, appId);
                 listenForBookInventory(db, appId);
 
             } catch (error) {
                 console.error("Firebase Auth Error:", error);
                 userId = crypto.randomUUID();
                 const statusElement = document.getElementById('review-status');
-                statusElement.textContent = `ڊيٽابيس لوڊ نه ٿي سگھيو. (غلطي: ${error.code}). مهرباني ڪري رولز ۽ Anonymous Auth چالو ڪريو.`;
-                statusElement.classList.add('text-red-600');
+                if(statusElement) {
+                     statusElement.textContent = `ڊيٽابيس لوڊ نه ٿي سگھيو. (غلطي: ${error.code}).`;
+                     statusElement.classList.add('text-red-600');
+                }
             }
         }
         
         function getReviewsCollectionRef(db, appId) {
             return collection(db, `artifacts/${appId}/public/data/reviews`);
-        }
-        
-        function getAdvancedFeedbackCollectionRef(db, appId) {
-            return collection(db, `artifacts/${appId}/public/data/advancedFeedback`);
         }
         
         function getBookInventoryCollectionRef(db, appId) {
@@ -237,233 +212,134 @@
         };
         // --- End Book Inventory Logic ---
         
-        // --- Review & Suggestion Submission (Formspree & Firestore) ---
-        async function sendFormspreeEmail(formId, formData) {
-            const formElement = document.getElementById(formId);
-            if (!formElement) return;
-            try {
-                const response = await fetch(formElement.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'Accept': 'application/json' }
-                });
-                return response.ok;
-            } catch (error) {
-                console.error("Error during Formspree submission:", error);
-                return false;
-            }
-        }
-
+        // --- Review Submission Logic (Refactored for new form structure) ---
         window.submitReview = async function() {
-            const rating = document.getElementById('review-rating').value;
+            const rating = currentRating; // Use the value from the new star rating
             const text = document.getElementById('review-text').value.trim();
+            const name = document.getElementById('reviewer-name').value.trim() || 'اڻڄاتل'; // NEW: Get name
             const reviewStatus = document.getElementById('review-status');
             
-            if (!rating || !text) { reviewStatus.textContent = 'مھرباني ڪري ريٽنگ ۽ تبصرو ٻئي ڏيو.'; return; }
+            if (!rating || !text) { reviewStatus.textContent = 'مھرباني ڪري ريٽنگ ۽ راءِ ٻئي ڏيو.'; return; }
 
-            reviewStatus.textContent = 'تبصرو موڪلي رهيو آهي...';
+            reviewStatus.textContent = 'راءِ موڪلي رهيو آهي...';
             reviewStatus.classList.remove('text-red-600', 'text-green-600');
             reviewStatus.classList.add('text-amber-600');
             
             try {
                 // 1. Save to Firestore (for persistent display)
                 await addDoc(getReviewsCollectionRef(db, appId), {
-                    userName: userName, rating: parseInt(rating, 10), text: text, likes: 0, timestamp: serverTimestamp()
+                    userName: name, rating: parseInt(rating, 10), text: text, likes: 0, timestamp: serverTimestamp()
                 });
                 
-                // 2. Send Email via Formspree (for notification)
-                const formData = new FormData();
-                formData.append('Name', userName);
-                formData.append('Rating', `${rating} Stars`);
-                formData.append('Review_Text', text);
-                formData.append('_subject', `New Student Review: ${userName}`); 
-                await sendFormspreeEmail('review-form', formData);
-
                 const safeText = text.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                const safeName = name.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                
                 reviewStatus.innerHTML = `
-                    <p class="text-green-600 font-semibold">توهان جو تبصرو موڪليو ويو! مهرباني.</p>
-                    <button onclick="window.shareReview('${safeText}', ${parseInt(rating, 10)})" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors flex items-center mx-auto">
+                    <p class="text-green-600 font-semibold">توهان جي راءِ موڪلي وئي! مهرباني.</p>
+                    <button onclick="window.shareReview('${safeText}', ${parseInt(rating, 10)}, '${safeName}')" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors flex items-center mx-auto">
                         WhatsApp تي شيئر ڪريو 💬
                     </button>`;
                 reviewStatus.classList.remove('text-amber-600', 'text-red-600');
                 reviewStatus.classList.add('text-green-600');
+                
                 document.getElementById('review-text').value = '';
-                document.getElementById('review-rating').value = 5;
+                document.getElementById('reviewer-name').value = '';
+                // Reset star rating visual
+                document.getElementById('star-5').checked = true;
+                currentRating = 5; 
+
             } catch (e) {
                 console.error("Error adding document: ", e);
-                reviewStatus.textContent = `تبصرو موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied يا Firebase ڪنيڪشن). مھرباني ڪري چيڪ ڪريو.`;
+                reviewStatus.textContent = `راءِ موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied يا Firebase ڪنيڪشن). مھرباني ڪري چيڪ ڪريو.`;
                 reviewStatus.classList.remove('text-green-600', 'text-amber-600');
                 reviewStatus.classList.add('text-red-600');
             }
         };
         
-        window.submitAdvancedFeedback = async function() {
-            const changes = document.getElementById('changes-wanted').value.trim();
-            const learnMore = document.getElementById('learn-more-topic').value.trim();
-            const status = document.getElementById('advanced-feedback-status');
+        // --- Review Display Logic (Updated 'رائون' to 'رايہ') ---
+        function listenForReviews(db, appId) {
+            const reviewsRef = getReviewsCollectionRef(db, appId);
+            const q = query(reviewsRef, orderBy('timestamp', 'desc')); 
             
-            // Modified check: removed check for advanceLevel
-            if (!changes || !learnMore) { status.textContent = 'مھرباني ڪري سڀئي خالي جايون ڀريو.'; return; }
+            onSnapshot(q, (snapshot) => {
+                const reviewsList = document.getElementById('reviews-list');
+                reviewsList.innerHTML = '';
+                
+                let totalRating = 0;
+                let reviewCount = 0;
 
-            status.textContent = 'رايا موڪلي رهيو آهي...';
-            status.classList.remove('text-red-600', 'text-green-600');
-            status.classList.add('text-amber-600');
-            
-            try {
-                // 1. Save to Firestore (Removed advanceLevel field)
-                await addDoc(getAdvancedFeedbackCollectionRef(db, appId), {
-                    userName: userName, changesWanted: changes, learnMoreTopic: learnMore, timestamp: serverTimestamp()
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    const reviewElement = document.createElement('div');
+                    
+                    const stars = '★'.repeat(data.rating) + '☆'.repeat(5 - data.rating);
+                    const userNameDisplay = data.userName || "اڻڄاتل";
+                    const likesCount = data.likes || 0;
+
+                    reviewElement.className = 'bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-3 text-right-aligned';
+                    reviewElement.innerHTML = `
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-amber-500 text-xl">${stars}</p>
+                            <p class="text-sm text-gray-500 font-bold">${userNameDisplay}</p>
+                        </div>
+                        <p class="text-gray-700">${data.text}</p>
+                        <div class="mt-3 text-right">
+                            <button onclick="window.toggleLike('${doc.id}', ${likesCount})" class="text-red-500 hover:text-red-600 transition-colors flex items-center float-left">
+                                <span class="mr-1">${likesCount}</span> ♥ 
+                            </button>
+                        </div>
+                    `;
+                    reviewsList.appendChild(reviewElement);
+
+                    totalRating += data.rating;
+                    reviewCount++;
                 });
+
+                const avgRating = reviewCount > 0 ? (totalRating / reviewCount).toFixed(1) : 0;
                 
-                // 2. Send Email via Formspree (Removed advanceLevel field)
-                const formData = new FormData();
-                formData.append('Name', userName);
-                formData.append('Changes_Requested', changes);
-                formData.append('Topic_Requested', learnMore);
-                formData.append('_subject', `New Advanced Suggestion: ${userName}`); 
-                await sendFormspreeEmail('advanced-feedback-form', formData);
-
-            const safeChanges = changes.replace(/'/g, "\\'").replace(/"/g, '\\"');
-            const safeTopic = learnMore.replace(/'/g, "\\'").replace(/"/g, '\\"');
-            
-            // Modified shareSuggestion call (using a static placeholder 'مقرر نه ڪيل' for the removed level)
-            status.innerHTML = `<p class="text-green-600 font-semibold">توهان جا تفصيلي رايا موڪليا ويا! مهرباني.</p>
-                <button onclick="window.shareSuggestion('مقرر نه ڪيل', '${safeChanges}', '${safeTopic}')" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors flex items-center mx-auto">
-                    WhatsApp تي شيئر ڪريو 💬
-                </button>`;
-
-            status.classList.remove('text-amber-600', 'text-red-600');
-            status.classList.add('text-green-600');
-            document.getElementById('changes-wanted').value = '';
-            document.getElementById('learn-more-topic').value = '';
-        } catch (e) {
-            console.error("Error adding advanced feedback: ", e);
-            status.textContent = `رايا موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied يا Firebase ڪنيڪشن). مھرباني ڪري چيڪ ڪريو.`;
-            status.classList.remove('text-green-600', 'text-amber-600');
-            status.classList.add('text-red-600');
-        }
-    };
-    // --- End Review & Suggestion Submission ---
-
-
-    function listenForReviews(db, appId) {
-        const reviewsRef = getReviewsCollectionRef(db, appId);
-        const q = query(reviewsRef, orderBy('timestamp', 'desc')); 
-        
-        onSnapshot(q, (snapshot) => {
-            const reviewsList = document.getElementById('reviews-list');
-            reviewsList.innerHTML = '';
-            
-            let totalRating = 0;
-            let reviewCount = 0;
-
-            snapshot.docs.forEach(doc => {
-                const data = doc.data();
-                const reviewElement = document.createElement('div');
+                // CRITICAL CHANGE 1: Display 'توھاڻ جون تجويزون'
+                document.getElementById('average-rating').textContent = `توھاڻ جون تجويزون`; 
                 
-                const stars = '★'.repeat(data.rating) + '☆'.repeat(5 - data.rating);
-                const userNameDisplay = data.userName || "اڻڄاتل";
-                const likesCount = data.likes || 0;
-
-                reviewElement.className = 'bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-3 text-right-aligned';
-                reviewElement.innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <p class="text-amber-500 text-xl">${stars}</p>
-                        <p class="text-sm text-gray-500 font-bold">${userNameDisplay}</p>
-                    </div>
-                    <p class="text-gray-700">${data.text}</p>
-                    <div class="mt-3 text-right">
-                         <button onclick="window.toggleLike('${doc.id}', ${likesCount})" class="text-red-500 hover:text-red-600 transition-colors flex items-center float-left">
-                             <span class="mr-1">${likesCount}</span> ♥ 
-                         </button>
-                    </div>
-                `;
-                reviewsList.appendChild(reviewElement);
-
-                totalRating += data.rating;
-                reviewCount++;
-            });
-
-            const avgRating = reviewCount > 0 ? (totalRating / reviewCount).toFixed(1) : 0;
-            document.getElementById('average-rating').textContent = `${avgRating} ستارن جي درجه بندي (${reviewCount} تبصرا)`;
-            
-            if (reviewCount === 0) {
-                 reviewsList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪو تبصرو ناهي. پھريون تبصرو شامل ڪريو!</p>';
-            }
-        }, (error) => {
-             console.error("Error listening to reviews: ", error);
-             document.getElementById('reviews-list').innerHTML = `<p class="text-center text-red-600 mt-4">تبصرو لوڊ نه ٿي سگھيو (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
-        });
-    }
-    
-    function listenForAdvancedFeedback(db, appId) {
-        const feedbackRef = getAdvancedFeedbackCollectionRef(db, appId);
-        const q = query(feedbackRef, orderBy('timestamp', 'desc')); 
-        
-        onSnapshot(q, (snapshot) => {
-            const feedbackList = document.getElementById('advanced-feedback-list');
-            feedbackList.innerHTML = '';
-            
-            if (snapshot.docs.length === 0) {
-                feedbackList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪا به ترقي جي تجويز ناهي. پھريون شامل ڪريو!</p>';
-                return;
-            }
-
-            snapshot.docs.forEach(doc => {
-                const data = doc.data();
-                const itemElement = document.createElement('div');
-                
-                const userNameDisplay = data.userName || "اڻڄاتل";
-                // Removed: const advanceText = data.advanceLevel === 'Yes' ? 'تيار آهي' : 'وڌيڪ مشق گهرجي';
-
-                itemElement.className = 'bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-400 mb-3 text-right-aligned';
-                itemElement.innerHTML = `
-                    <div class="mb-2">
-                        <p class="text-lg font-bold text-teal-700">${userNameDisplay} (رايا ڏيندڙ)</p>
-                        <p class="text-sm text-gray-600">اڳڀرائي جي رايا.</p>
-                    </div>
-                    <p class="mt-2">**تبديلي گهربل:** <span class="text-gray-700">${data.changesWanted}</span></p>
-                    <p>**وڌيڪ سکڻ جو موضوع:** <span class="text-gray-700">${data.learnMoreTopic}</span></p>
-                `;
-                feedbackList.appendChild(itemElement);
-            });
-        }, (error) => {
-             console.error("Error listening to advanced feedback: ", error);
-             document.getElementById('advanced-feedback-list').innerHTML = `<p class="text-center text-red-600 mt-4">رايا لوڊ نه ٿي سگھيا (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
-        });
-    }
-    
-    // --- Structural Logic Refactor (TTS REMOVED) ---
-    function startAppLogic() {
-        // TTS Welcome Message was here, it is now REMOVED.
-        // window.speakText("Welcome to Nirmal Jevtani Library Thariri Muhabat");
-
-        const mobileMenuButton = document.getElementById('mobile-menu-button');
-        const mobileMenu = document.getElementById('mobile-menu');
-        mobileMenuButton.addEventListener('click', () => {
-            mobileMenu.classList.toggle('hidden');
-        });
-
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
-                });
-                if (!mobileMenu.classList.contains('hidden')) {
-                     mobileMenu.classList.add('hidden');
+                // CRITICAL CHANGE 2: Updated the count text from 'رائون' to 'رايہ'
+                const secondaryStatus = document.getElementById('review-status-details');
+                if (secondaryStatus) {
+                    secondaryStatus.textContent = `(${avgRating} ستارا - ${reviewCount} رايہ)`;
                 }
+                
+                if (reviewCount === 0) {
+                    reviewsList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪا رايہ ناهي. پھريون رايہ شامل ڪريو!</p>';
+                }
+            }, (error) => {
+                console.error("Error listening to reviews: ", error);
+                document.getElementById('reviews-list').innerHTML = `<p class="text-center text-red-600 mt-4">رايہ لوڊ نه ٿي سگھيو (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
             });
-        });
-
-        if (userName === "اڻڄاتل") {
-            window.changeUserName();
         }
-        initFirebaseAndAuth();
-    }
+        
+        // --- Structural Logic Refactor ---
+        function startAppLogic() {
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
 
-    document.addEventListener('DOMContentLoaded', startAppLogic);
-</script>
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                    if (!mobileMenu.classList.contains('hidden')) {
+                         mobileMenu.classList.add('hidden');
+                    }
+                });
+            });
+
+            initFirebaseAndAuth();
+        }
+
+        document.addEventListener('DOMContentLoaded', startAppLogic);
+    </script>
 </head>
 <body class="bg-stone-50 text-gray-800">
 
@@ -474,23 +350,21 @@
                 <p class="text-sm text-amber-300 mt-1">آزاد منگي فائونڊيشن جي طرفان</p>
             </div>
             <nav class="hidden md:flex space-x-reverse space-x-6">
-                <!-- Links (Desktop) -->
+                <!-- NEW LINKS ADDED -->
                 <a href="membership_apply.html" class="hover:text-amber-300 font-bold text-green-300">ممبرشپ لاءِ درخواست ڏيو</a>
                 <a href="members_directory.html" class="hover:text-amber-300">ممبرز جي ڊائريڪٽري</a>
                 <a href="#inventory" class="hover:text-amber-300">ڪتابن جي فهرست</a>
-                <!-- REMOVED: English Learning Link -->
                 <a href="librarian_admin.html" class="hover:text-red-300 text-red-300 font-bold">لائبريرين جي رسائي</a>
             </nav>
             <button id="mobile-menu-button" class="md:hidden text-2xl">☰</button>
         </div>
         <nav id="mobile-menu" class="md:hidden hidden bg-teal-700 text-center mt-2">
-            <!-- Links (Mobile) -->
+            <!-- NEW LINKS ADDED -->
             <a href="membership_apply.html" class="block py-2 font-bold text-green-300 hover:bg-teal-600">ممبرشپ لاءِ درخواست ڏيو</a>
             <a href="members_directory.html" class="block py-2 hover:bg-teal-600">ممبرز جي ڊائريڪٽري</a>
             
             <a href="#inventory" class="block py-2 hover:bg-teal-600">ڪتابن جي فهرست</a>
-            <!-- REMOVED: English Learning Link -->
-            <a href="#feedback" class="block py-2 hover:bg-teal-600">رايا</a>
+            <a href="#feedback" class="block py-2 hover:bg-teal-600">راءِ</a>
             <a href="#about" class="block py-2 hover:bg-teal-600">اسان جي باري ۾</a>
             <a href="librarian_admin.html" class="block py-2 text-red-300 font-bold hover:bg-teal-600">لائبريرين جي رسائي</a>
         </nav>
@@ -498,13 +372,7 @@
 
     <main class="container mx-auto p-4 md:p-8">
         
-        <!-- User Display -->
-        <p class="text-sm text-center text-gray-500 mb-8 p-2 bg-amber-50 rounded-md shadow-inner flex justify-center items-center">
-            شاگرد جو نالو: <span id="user-name-display" class="font-bold text-teal-700">لوڊ ٿي رهيو آهي...</span> 
-            <button id="change-name-btn" class="text-xs text-blue-600 font-normal underline mr-2" onclick="window.changeUserName()">نالو تبديل ڪريو</button>
-        </p>
-        
-        <!-- NEW: Large Portal Title (Replaces Banner) -->
+        <!-- Large Portal Title -->
         <div class="py-12 md:py-20 bg-teal-600 rounded-lg shadow-xl mb-10 border-b-8 border-amber-400">
             <h2 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-tight">
                 نرمل جيوتاڻي لائبريري آن لائين پورٽل
@@ -513,8 +381,9 @@
                 <a href="membership_apply.html" class="bg-green-500 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-600 transition-colors">
                     <span class="text-lg">ممبرشپ فارم ڀريو</span>
                 </a>
+                <!-- Updated Button Text -->
                 <a href="membership_track.html" class="bg-amber-500 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-amber-600 transition-colors">
-                     <span class="text-lg">ممبرشپ سٹیٽس چيڪ ڪريو</span>
+                     <span class="text-lg">ميمبرشب اسٽيٽس چيڪ ڪريو</span>
                 </a>
             </div>
         </div>
@@ -548,40 +417,51 @@
         </section>
 
 
-        <!-- Feedback Section (Firestore Integrated) -->
+        <!-- Feedback Section (Updated Heading & Form) -->
         <section id="feedback" class="py-12 bg-teal-50 rounded-lg p-6 mb-12">
-            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">عام تبصرو ۽ ريٽنگ (لائيو سسٽم)</h2>
-            <p class="text-center text-lg text-gray-600 mb-8">ويب سائيٽ جي باري ۾ پنھنجو تبصرو ڏيو. توهان جي راءِ سڀني شاگردن کي نظر ايندي.</p>
+            <!-- Updated Heading -->
+            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">ويب سائيٽ جي باري ۾ پنھنجي قيمتي راءِ ڏيو</h2>
+            <p class="text-center text-lg text-gray-600 mb-8">ويب سائيٽ جي باري ۾ پنھنجي راءِ ڏيو. توهان جي راءِ سڀني شاگردن کي نظر ايندي.</p>
 
-            <!-- Submission Form -->
+            <!-- Submission Form (Refactored) -->
             <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 max-w-3xl mx-auto mb-10 text-right-aligned">
-                <h3 class="text-2xl font-semibold mb-4 text-center">پنھنجي درجه بندي ڏيو</h3>
+                <h3 class="text-2xl font-semibold mb-4 text-center">پنھنجي راءِ ڏيو</h3>
                 
                 <form id="review-form" action="https://formspree.io/f/f/waqasmangi.uk@gmail.com" method="POST" style="display: none;">
+                    <!-- Formspree kept hidden for simple submission (though primary method is Firestore) -->
                     <input type="hidden" name="_replyto" value="waqasmangi.uk@gmail.com">
                     <input type="hidden" name="Feedback_Type" value="Review">
                 </form>
 
-                <label for="review-rating" class="block text-right mb-2 font-medium">ريٽنگ (1 کان 5 ستارا)</label>
-                <select id="review-rating" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50">
-                    <option value="5">5 ستارا (بهترين)</option>
-                    <option value="4">4 ستارا (سٺو)</option>
-                    <option value="3">3 ستارا (عام)</option>
-                    <option value="2">2 ستارا (ناقص)</option>
-                    <option value="1">1 ستارو (تمام خراب)</option>
-                </select>
+                <!-- NEW: Name Field -->
+                <label for="reviewer-name" class="block text-right mb-4 font-medium">پنهنجو نالو (Optional)</label>
+                <input type="text" id="reviewer-name" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50 text-right-aligned responsive-placeholder" placeholder="توهان جو نالو (مثال: علي احمد)">
+                
+                <!-- NEW: Star Rating Control -->
+                <label class="block text-right mb-2 font-medium">درجه بندي (1 کان 5 ستارا)</label>
+                <div class="star-rating mb-6">
+                    <input type="radio" id="star-5" name="rating" value="5" checked onclick="window.setRating(5)" /><label for="star-5" title="5 ستارا">★</label>
+                    <input type="radio" id="star-4" name="rating" value="4" onclick="window.setRating(4)" /><label for="star-4" title="4 ستارا">★</label>
+                    <input type="radio" id="star-3" name="rating" value="3" onclick="window.setRating(3)" /><label for="star-3" title="3 ستارا">★</label>
+                    <input type="radio" id="star-2" name="rating" value="2" onclick="window.setRating(2)" /><label for="star-2" title="2 ستارا">★</label>
+                    <input type="radio" id="star-1" name="rating" value="1" onclick="window.setRating(1)" /><label for="star-1" title="1 ستارو">★</label>
+                </div>
 
-                <label for="review-text" class="block text-right mb-2 font-medium">توهان جو تبصرو</label>
+                <label for="review-text" class="block text-right mb-2 font-medium">توهان جي راءِ (Opinion)</label>
                 <textarea id="review-text" rows="4" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned responsive-placeholder" placeholder="هتي لکو ته توهان کي ھي ويبسائيٽ ڪيئن لڳي..."></textarea>
                 
                 <div id="review-status" class="text-center mb-4 font-semibold text-sm"></div>
 
-                <button onclick="window.submitReview()" class="w-full bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition-colors">تبصرو موڪليو</button>
+                <button onclick="window.submitReview()" class="w-full bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition-colors">راءِ موڪليو</button>
             </div>
 
-            <!-- Live Reviews Display (Added Scroll and Max Height) -->
+            <!-- Live Reviews Display -->
             <div class="max-w-3xl mx-auto">
-                <h3 class="text-2xl font-semibold mb-4 text-center text-teal-700" id="average-rating">اوسط درجه بندي (لوڊ ٿي رهيو آهي...)</h3>
+                <!-- CRITICAL CHANGE 1: Changed "اوسط درجه بندي" to "توھاڻ جون تجويزون" -->
+                <h3 class="text-2xl font-semibold mb-4 text-center text-teal-700" id="average-rating">توھاڻ جون تجويزون</h3>
+                <!-- CRITICAL CHANGE 2: Updated the count text from 'رائون' to 'رايہ' in JS -->
+                <p id="review-status-details" class="text-center text-sm text-gray-500 mb-4"></p> 
+
                 <div id="reviews-list" class="max-h-96 overflow-y-auto p-2 bg-white rounded-lg shadow-inner">
                     <!-- Reviews will be loaded here by Firestore -->
                     <p class="text-center text-gray-500">لوڊ ٿي رهيو آهي...</p>
@@ -589,69 +469,32 @@
             </div>
         </section>
         
-        <!-- Advanced Feedback Section (Firestore Integrated) -->
-        <section id="advanced-feedback" class="py-12 mb-12">
-            <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">اڳڀرائي ۽ سکيا جا نوان موضوع</h2>
-            <p class="text-center text-lg text-gray-600 mb-8">جيڪڏهن توهان انگريزيءَ جي وڌيڪ سطح تي وڃڻ چاهيو ٿا يا نوان موضوع سکڻ چاهيو ٿا، ته هي فارم ڀريو. توهان جا رايا ويبسائيٽ جي مستقبل جي ترقيءَ لاءِ اهم آهن.</p>
-
-            <!-- Advanced Submission Form -->
-            <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 max-w-3xl mx-auto mb-10 text-right-aligned">
-                <h3 class="text-2xl font-semibold mb-4 text-center">آئنده لاءِ تجويزون</h3>
-                
-                <form id="advanced-feedback-form" action="https://formspree.io/f/f/waqasmangi.uk@gmail.com" method="POST" style="display: none;">
-                    <input type="hidden" name="_replyto" value="waqasmangi.uk@gmail.com">
-                    <input type="hidden" name="Feedback_Type" value="Advanced_Suggestion">
-                </form>
-
-                <!-- Removed: ڇا توهان ايندڙ سطح تي وڃڻ چاهيو ٿا؟ -->
-
-                <label for="learn-more-topic" class="block text-right mb-2 font-medium">توهان وڌيڪ ڪهڙو موضوع سکڻ چاهيو ٿا؟ (مثال: جملن جي جوڙجڪ، گفتگو)</label>
-                <textarea id="learn-more-topic" rows="2" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned responsive-placeholder" placeholder="جيئن: Prepositions يا Dialogue writing"></textarea>
-                
-                <label for="changes-wanted" class="block text-right mb-2 font-medium">هن ويبسائيٽ ۾ توهان ڪهڙيون تبديليون چاهيو ٿا؟</label>
-                <textarea id="changes-wanted" rows="3" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned responsive-placeholder" placeholder="جيئن: وڌيڪ مثال، وڊيوز، يا گهٽ مشق"></textarea>
-
-                
-                <div id="advanced-feedback-status" class="text-center mb-4 font-semibold text-sm"></div>
-
-                <button onclick="window.submitAdvancedFeedback()" class="w-full bg-teal-700 text-white font-bold py-3 rounded-md hover:bg-teal-800 transition-colors">تجويزون موڪليو</button>
-            </div>
-            
-            <!-- Live Advanced Feedback Display (Added Scroll and Max Height) -->
-            <div class="max-w-3xl mx-auto">
-                <h3 class="text-2xl font-semibold mb-4 text-center text-teal-700">شاگردن جون ترقيءَ جون تجويزون</h3>
-                <div id="advanced-feedback-list" class="max-h-96 overflow-y-auto p-2 bg-white rounded-lg shadow-inner">
-                    <!-- Advanced feedback will be loaded here by Firestore -->
-                    <p class="text-center text-gray-500">لوڊ ٿي رهيون آهن...</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- About Section -->
+        <!-- About Section (Updated Content & Alignment) -->
         <section id="about" class="py-12 bg-teal-800 text-white rounded-lg p-6">
             <div class="text-center">
                 <h2 class="text-3xl font-bold mb-4">اسان جي باري ۾</h2>
                 <div class="max-w-3xl mx-auto">
-                    <div class="mb-8 text-right-aligned">
+                    <!-- Text alignment centered -->
+                    <div class="mb-8 text-center">
                         <h3 class="text-2xl font-semibold text-amber-300">پيشڪش</h3>
-                        <p class="text-lg mt-2">نرمل جيوتاڻي لائبريري، **ٿرڙي محبت**</p>
-                        <p class="mt-4 text-justify leading-relaxed">هي ويبسائيٽ، جيڪا سندھ جي شاگردن لاءِ بنيادي انگريزي سکڻ جي ڪوشش آهي، انھن شخصيتن جي ياد ۾ پيش ڪيو وڃي ٿو جن جي محنت سان هي لائبريري وجود ۾ آئي.</p>
+                        <!-- NEW TEXT ADDED -->
+                        <p class="mt-4 text-center leading-relaxed">
+                            ھي نرمل جيوتاڻي لائبريري جو آنلائن پورٽل آھي، جتي اوھان لائبريري ۾ موجود ڪتابن جي فھرست چيڪ ڪري سگھو ٿا، لائبريري جي ميمبرشب اپلائي ڪري سگھو ٿا ۽ ھن کي وڌيڪ بھتر بنائڻ لاءِ راءِ بہ ڏئي سگھو ٿا.
+                        </p>
                         <div class="mt-4">
                             <p class="font-semibold">جن جي ڪوششن سان ھي لائبريري قائم ٿي:</p>
-                            <p>**ڊاڪٽر علي گوهر آزاد منگي**</p>
-                            <p class="latin text-sm">(Dr. Ali Gohar Azad Mangi)</p>
+                            <!-- Cleaned Name -->
+                            <p>ڊاڪٽر علي گوهر آزاد منگي</p> 
                         </div>
                         <div class="mt-6 border-t border-teal-500 pt-4">
                             <p class="font-semibold text-amber-300">پيش ڪندڙ ۽ مددگار:</p>
-                            <p>**جناب وقاص احمد منگي**</p>
-                            <p class="text-sm mt-3">**حوصله افزائي ۽ مدد:**</p>
-                            <p>**جناب گلاب گن** (Mr. Gulab Gunn)</p>
-                            <p>**چاچا حميد چنه** (Uncle Hameed Channa)</p>
+                            <!-- Cleaned Names -->
+                            <p>جناب وقاص احمد منگي</p>
+                            <p class="text-sm mt-3">حوصله افزائي ۽ مدد:</p>
+                            <!-- Cleaned Names -->
+                            <p>جناب گلاب گن</p>
+                            <p>چاچا حميد چنه</p>
                         </div>
-                    </div>
-                    <div class="text-right-aligned">
-                         <h3 class="text-2xl font-semibold text-amber-300">مهاڳ</h3>
-                         <p class="mt-4 text-justify leading-relaxed">پيارا شاگرد ۽ سکندڙ! ھي ويبسائيٽ خاص طور تي اوھان لاءِ تيار ڪيو ويو آھي. اڄ جي دور ۾، انگريزي زبان سکڻ اسان لاءِ رڳو ھڪ شوق نه پر ھڪ ضرورت بڻجي چڪي آھي. ڀلي اھا اعليٰ تعليم ھجي، يا ڪاروباري دنيا, يا ڊجيٽل ٽيڪنالاجي, ھر جاءِ تي انگريزيءَ جي اھميت وڌي رھي آھي. اسان جو مقصد ھي آھي ته اوھان کي انگريزيءَ جا بنيادي اصول تمام سادي ۽ آسان سندھی زبان ۾ سمجھا وڃن. ھر سبق کي ايئن تيار ڪيو ويو آھي جو اوھين آسانيءَ سان انگريزيءَ جا ننڍا جملا ٺاھڻ ۽ روزمره جي ڳالھ ٻولھ ڪرڻ سکي سگھو.</p>
                     </div>
                 </div>
             </div>
@@ -659,6 +502,7 @@
 
     </main>
 
+    <!-- Footer Alignment changed to Center -->
     <footer class="text-center p-4 bg-stone-200 text-gray-600">
         <p>&copy; 2025 نرمل جيوتاڻي لائبريري. سڀ حق محفوظ آھن.</p>
         <p class="text-sm mt-1 latin">Website Version 1.0</p>
