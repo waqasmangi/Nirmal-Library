@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="sd" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لائبريري ممبرز جي ڊائريڪٽري</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom Font: MB Lateefi.otf -->
+    <style>
+        @font-face {
+            font-family: 'MBLateefi';
+            src: url('MB Lateefi.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        body {
+            font-family: 'MBLateefi', 'Noto Nastaliq Urdu', serif;
+        }
+        .latin {
+            font-family: Inter, sans-serif;
+        }
+        .text-right-aligned {
+             text-align: right;
+        }
+        .member-photo {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 3px solid #fcd34d; /* Amber */
+        }
+    </style>
+
+    <!-- Firebase SDK Imports for Data Retrieval -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, onSnapshot, orderBy, where, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        setLogLevel('Debug');
+        
+        // --- Shared Firebase Config (Must Match index.html) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxgOhd3y5L7Xl_IzWkuJ02PBlswR9lt5k",
+            authDomain: "nirmal-library.firebaseapp.com",
+            projectId: "nirmal-library", 
+            storageBucket: "nirmal-library.firebasestorage.app",
+            messagingSenderId: "157338670869",
+            appId: "1:157338670869:web:f44c9b0a3d9e9ebedcfb1c"
+        };
+        const appId = firebaseConfig.projectId;
+        // --- End Shared Firebase Config ---
+
+        let db;
+        let auth;
+        
+        // Helper function to format date
+        const formatDate = (timestamp) => {
+            if (!timestamp) return 'نامعلوم';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString('sd-PK');
+        };
+
+        // --- Firebase Initialization and Auth ---
+        async function initFirebaseAndAuth() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                await signInAnonymously(auth);
+                listenForApprovedMembers(db, appId);
+            } catch (error) {
+                document.getElementById('directory-list').innerHTML = `<p class="text-center text-red-600 mt-4">ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})</p>`;
+                console.error("Firebase Auth Error:", error);
+            }
+        }
+
+        function listenForApprovedMembers(db, appId) {
+            const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
+            // Only fetch members with status 'Approved'
+            const q = query(membersRef, where('status', '==', 'Approved'), orderBy('approvedDate', 'desc')); 
+            
+            onSnapshot(q, (snapshot) => {
+                const directoryList = document.getElementById('directory-list');
+                directoryList.innerHTML = '';
+                
+                if (snapshot.empty) {
+                     directoryList.innerHTML = '<p class="text-center text-gray-500 mt-8 text-xl">اڃا تائين ڪو به منظور ٿيل ميمبر ناهي.</p>';
+                     return;
+                }
+
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    const approvedDate = formatDate(data.approvedDate || data.memberSince);
+
+                    const memberCard = document.createElement('div');
+                    memberCard.className = 'bg-white p-6 rounded-lg shadow-md border-b-4 border-teal-500 flex flex-col items-center text-center';
+                    
+                    memberCard.innerHTML = `
+                        <img src="${data.photoBase64 || 'https://placehold.co/80x80/0d3b38/fff?text=N/A'}" alt="${data.name} Photo" class="member-photo mb-3">
+                        <h3 class="text-xl font-bold text-teal-700">${data.name}</h3>
+                        <p class="text-sm text-gray-600 mb-2">${data.occupation}</p>
+                        <p class="text-xs text-amber-600 font-semibold">ممبر بڻجڻ جي تاريخ:</p>
+                        <p class="text-sm text-gray-500">${approvedDate}</p>
+                    `;
+                    directoryList.appendChild(memberCard);
+                });
+            }, (error) => {
+                 console.error("Error listening to approved members: ", error);
+                 document.getElementById('directory-list').innerHTML = `<p class="text-center text-red-600 mt-4">ممبرز جي ڊيٽا لوڊ نه ٿي سگھي. (${error.message})</p>`;
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', initFirebaseAndAuth);
+    </script>
+</head>
+<body class="bg-stone-50 text-gray-800 p-4 md:p-8">
+
+    <div class="container mx-auto max-w-4xl">
+        <header class="text-center mb-10 pb-4 border-b-2 border-teal-500">
+            <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
+            <h1 class="text-4xl font-bold text-teal-700">نِرمل جيوتاڻي لائبريري ممبرز جي ڊائريڪٽري</h1>
+            <p class="mt-2 text-gray-600">آزاد منگي فائونڊيشن | منظور ٿيل لائبريري ممبرز جي فهرست.</p>
+        </header>
+
+        <div id="directory-list" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+            <!-- Approved member cards will be loaded here -->
+            <p class="text-center text-gray-500 col-span-full">لوڊ ٿي رهيو آهي...</p>
+        </div>
+        
+    </div>
+</body>
+</html>

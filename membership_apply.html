@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="sd" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ممبرشپ درخواست فارم</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom Font: MB Lateefi.otf -->
+    <style>
+        @font-face {
+            font-family: 'MBLateefi';
+            src: url('MB Lateefi.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        body {
+            font-family: 'MBLateefi', 'Noto Nastaliq Urdu', serif;
+        }
+        .latin {
+            font-family: Inter, sans-serif;
+        }
+        .text-right-aligned {
+             text-align: right;
+        }
+        #photo-preview {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin: 0 auto 1rem;
+            border: 2px solid #38bdf8; /* Sky-400 */
+        }
+    </style>
+
+    <!-- Firebase SDK Imports for Data Submission -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        setLogLevel('Debug');
+        
+        // --- Shared Firebase Config (Must Match index.html) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxgOhd3y5L7Xl_IzWkuJ02PBlswR9lt5k",
+            authDomain: "nirmal-library.firebaseapp.com",
+            projectId: "nirmal-library", 
+            storageBucket: "nirmal-library.firebasestorage.app",
+            messagingSenderId: "157338670869",
+            appId: "1:157338670869:web:f44c9b0a3d9e9ebedcfb1c"
+        };
+        const appId = firebaseConfig.projectId;
+        // --- End Shared Firebase Config ---
+
+        let db;
+        let auth;
+        let photoBase64 = null;
+        let cardId = null;
+
+        // --- Firebase Initialization and Auth ---
+        async function initFirebaseAndAuth() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                await signInAnonymously(auth);
+            } catch (error) {
+                document.getElementById('status').textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
+                document.getElementById('status').classList.add('text-red-600');
+                console.error("Firebase Auth Error:", error);
+            }
+        }
+
+        // --- Photo Handling Logic ---
+        window.handlePhotoChange = function(event) {
+            const file = event.target.files[0];
+            const preview = document.getElementById('photo-preview');
+            const reader = new FileReader();
+
+            if (file) {
+                // Limit file size to 1MB (Firestore document limit is 1MB)
+                if (file.size > 1024 * 1024) {
+                    document.getElementById('status').textContent = 'تصوير جي سائيز 1MB کان وڌيڪ آھي. مھرباني ڪري ننڍي تصوير استعمال ڪريو.';
+                    document.getElementById('status').classList.add('text-red-600');
+                    event.target.value = ''; // Clear the input
+                    preview.src = 'https://placehold.co/150x150/e0f2f1/115e59?text=Photo';
+                    photoBase64 = null;
+                    return;
+                }
+
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    photoBase64 = e.target.result; // Store Base64 string
+                    document.getElementById('status').textContent = '';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.src = 'https://placehold.co/150x150/e0f2f1/115e59?text=Photo';
+                photoBase64 = null;
+            }
+        };
+
+        // --- Form Submission Logic ---
+        window.submitMembership = async function() {
+            const name = document.getElementById('name').value.trim();
+            const fatherName = document.getElementById('fatherName').value.trim();
+            const gender = document.getElementById('gender').value;
+            const dob = document.getElementById('dob').value;
+            const occupation = document.getElementById('occupation').value.trim();
+            const address = document.getElementById('address').value.trim();
+            const contact = document.getElementById('contact').value.trim();
+            const statusElement = document.getElementById('status');
+            
+            // Simple validation
+            if (!name || !fatherName || !dob || !occupation || !address || !contact || !photoBase64 || gender === "placeholder") {
+                statusElement.textContent = 'مھرباني ڪري سڀ معلومات ۽ پنھنجي تصوير شامل ڪريو.';
+                statusElement.classList.remove('text-green-600', 'text-amber-500');
+                statusElement.classList.add('text-red-600');
+                return;
+            }
+            
+            statusElement.textContent = 'درخواست جمع ڪري رهيو آهي...';
+            statusElement.classList.remove('text-red-600', 'text-green-600');
+            statusElement.classList.add('text-amber-500');
+
+            try {
+                // Generate Unique Card ID (Simple UUID prefix)
+                cardId = 'NJL-' + crypto.randomUUID().substring(0, 8).toUpperCase();
+
+                const applicationData = {
+                    name, fatherName, gender, dob, occupation, address, contact,
+                    photoBase64,
+                    cardId,
+                    status: 'Pending', // Initial status
+                    memberSince: serverTimestamp(), // Submission Date
+                    // approvedDate and expiryDate will be set by admin
+                    userId: auth.currentUser?.uid || 'anonymous-user'
+                };
+
+                await addDoc(collection(db, `artifacts/${appId}/public/data/members`), applicationData);
+
+                // Show success message and hide form
+                document.getElementById('application-form').classList.add('hidden');
+                document.getElementById('success-message').classList.remove('hidden');
+                document.getElementById('display-card-id').textContent = cardId;
+                
+                statusElement.textContent = 'درخواست ڪاميابي سان جمع ٿي وئي!';
+                statusElement.classList.remove('text-amber-500', 'text-red-600');
+                statusElement.classList.add('text-green-600');
+
+            } catch (e) {
+                console.error("Error submitting membership: ", e);
+                statusElement.textContent = `درخواست جمع ڪرائڻ ۾ غلطي ٿي: ${e.message}`;
+                statusElement.classList.remove('text-amber-500', 'text-green-600');
+                statusElement.classList.add('text-red-600');
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', initFirebaseAndAuth);
+    </script>
+</head>
+<body class="bg-stone-50 text-gray-800 p-4 md:p-8">
+
+    <div class="container mx-auto max-w-2xl">
+        <header class="text-center mb-8 pb-4 border-b-2 border-teal-500">
+            <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
+            <h1 class="text-3xl font-bold text-teal-700">ممبرشپ درخواست فارم</h1>
+            <p class="mt-1 text-gray-600">نِرمل جيوتاڻي لائبريري، ٿرڙي محبت (آزاد منگي فائونڊيشن جي طرفان)</p>
+            <p class="mt-2 font-semibold text-amber-600">ممبرشپ فيس: مفت (Free) - مدي پڄاڻي: 6 مھينا</p>
+        </header>
+
+        <!-- Success Message (Initially Hidden) -->
+        <div id="success-message" class="hidden bg-green-100 p-6 rounded-lg shadow-xl border-t-4 border-green-500 text-center">
+            <p class="text-2xl font-bold text-green-700 mb-4">توهان جي درخواست ڪاميابي سان جمع ٿي وئي!</p>
+            <p class="text-lg text-gray-700 mb-6">توهان جو منفرد ID ڪارڊ نمبر هيٺ ڏنل آهي. مهرباني ڪري ان کي محفوظ ڪريو ته جيئن توهان پنهنجي درخواست جي حيثيت کي ٽريڪ ڪري سگهو.</p>
+            <div class="bg-white p-4 rounded-md inline-block border-2 border-green-400">
+                <p class="text-xl font-mono text-teal-800">ID نمبر: <strong id="display-card-id" class="latin">...</strong></p>
+            </div>
+            <div class="mt-6">
+                <a href="membership_track.html" class="bg-amber-600 text-white font-bold py-3 px-6 rounded-md hover:bg-amber-700 transition-colors">
+                    درخواست جي حيثيت چيڪ ڪريو
+                </a>
+            </div>
+        </div>
+
+        <!-- Application Form (Initially Visible) -->
+        <div id="application-form" class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500">
+            <h2 class="text-2xl font-bold mb-6 text-center text-teal-700">شاگرد جي ذاتي معلومات</h2>
+            
+            <!-- Photo/Selfie Section -->
+            <div class="mb-6 border p-4 rounded-lg text-center bg-teal-50">
+                <h3 class="font-semibold mb-3 text-lg">پاسپورٽ سائيز تصوير / سيلفي (Passport Size Photo)</h3>
+                <img id="photo-preview" src="https://placehold.co/150x150/e0f2f1/115e59?text=Photo" alt="Photo Preview" class="mx-auto mb-4">
+                
+                <input type="file" accept="image/*" capture="user" id="photo-upload" onchange="window.handlePhotoChange(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
+                <p class="text-xs mt-2 text-gray-500">سائيز حد: 1MB</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="mb-4">
+                    <label for="name" class="block text-right mb-2 font-medium">پورو نالو (Name)</label>
+                    <input type="text" id="name" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned" placeholder="شاگرد جو پورو نالو">
+                </div>
+                <div class="mb-4">
+                    <label for="fatherName" class="block text-right mb-2 font-medium">پيءُ جو نالو (Father Name)</label>
+                    <input type="text" id="fatherName" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned" placeholder="پيءُ جو نالو">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div class="mb-4">
+                    <label for="gender" class="block text-right mb-2 font-medium">جنس (Gender)</label>
+                    <select id="gender" class="w-full p-3 border border-gray-300 rounded-md bg-white">
+                        <option value="placeholder" disabled selected>جنس چونڊيو</option>
+                        <option value="مرد">مرد (Male)</option>
+                        <option value="عورت">عورت (Female)</option>
+                        <option value="ٻيا">ٻيا (Other)</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="dob" class="block text-right mb-2 font-medium">پيدائش جي تاريخ (Date of Birth)</label>
+                    <input type="date" id="dob" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned">
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label for="occupation" class="block text-right mb-2 font-medium">پيشو / تعليم (Occupation)</label>
+                <input type="text" id="occupation" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned" placeholder="مثال: شاگرد، ڪاليج شاگرد، استاد، وغيره">
+            </div>
+
+            <div class="mb-4">
+                <label for="address" class="block text-right mb-2 font-medium">مڪمل ايڊريس (Address)</label>
+                <textarea id="address" rows="2" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned" placeholder="گھر جو پتو ۽ شھر/ڳوٺ"></textarea>
+            </div>
+            
+             <div class="mb-6">
+                <label for="contact" class="block text-right mb-2 font-medium">رابطو نمبر (Contact Number)</label>
+                <input type="text" id="contact" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned latin" placeholder="مثال: 03001234567">
+            </div>
+            
+            <div id="status" class="text-center mb-4 font-semibold text-sm text-amber-500">ڊيٽابيس لوڊ ٿي رهيو آهي...</div>
+
+            <button onclick="window.submitMembership()" class="w-full bg-teal-600 text-white font-bold py-3 rounded-md hover:bg-teal-700 transition-colors">درخواست جمع ڪريو</button>
+        </div>
+        
+    </div>
+</body>
+</html>

@@ -35,13 +35,20 @@
         input[type=number] {
             -moz-appearance: textfield;
         }
+        /* Style for photo preview in admin panel */
+        .member-photo-admin {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
     </style>
 
     <!-- Firebase SDK Imports for Database Management -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, setLogLevel, doc, deleteDoc, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, setLogLevel, doc, deleteDoc, updateDoc, orderBy, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         setLogLevel('Debug');
         
@@ -67,6 +74,26 @@
         let auth;
         let inventoryData = []; // Global storage for all books
         let currentBookIdToEdit = null; // State to track which book is being edited
+        let pendingMembersData = []; // Global storage for pending member applications
+
+        // --- View Switching Logic ---
+        window.switchView = function(viewId) {
+            document.querySelectorAll('.admin-view').forEach(view => {
+                view.classList.add('hidden');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('bg-teal-700', 'text-white');
+                tab.classList.add('bg-teal-100', 'text-teal-800');
+            });
+            document.getElementById(`tab-${viewId}`).classList.add('bg-teal-700', 'text-white');
+            document.getElementById(`tab-${viewId}`).classList.remove('bg-teal-100', 'text-teal-800');
+
+            if (viewId === 'membership-requests') {
+                 listenForPendingMembers(db, appId);
+            }
+        };
 
         window.checkPassword = function() {
             const inputPassword = document.getElementById('password-input').value;
@@ -99,27 +126,30 @@
                     option.textContent = cat;
                     categorySelect.appendChild(option);
                 });
-
+                
+                // Set initial view and start listeners
+                window.switchView('book-inventory');
                 listenForBooks(db, appId);
+                listenForPendingMembers(db, appId); // Start listening for pending requests immediately
 
             } catch (error) {
                 document.getElementById('status').textContent = `Firebase غلطي: ${error.code}. مهرباني ڪري چيڪ ڪريو ته Anonymous Auth چالو آهي.`;
                 console.error("Firebase Auth Error:", error);
             }
         }
-
+        
+        // --- Book Inventory Logic (Existing Code) ---
         window.submitBook = async function() {
             const title = document.getElementById('book-title').value.trim();
-            const author = document.getElementById('book-author').value.trim() || 'نامعلوم'; // New author field
+            const author = document.getElementById('book-author').value.trim() || 'نامعلوم'; 
             const categoryElement = document.getElementById('book-category');
             let category = categoryElement.value;
             
-            // If category is not selected or empty, default to 'Other'
             if (!category || category === "category-placeholder") {
                 category = "ٻيا (Other)";
             }
             
-            const status = document.getElementById('status');
+            const status = document.getElementById('book-inventory-status');
             
             if (!title) {
                 status.textContent = 'ڪتاب جو نالو لازمي آھي.';
@@ -131,23 +161,15 @@
             status.classList.add('text-amber-500');
             status.textContent = currentBookIdToEdit ? 'تبديليون محفوظ ڪري رهيو آهي...' : 'ڪتاب جمع ڪري رهيو آهي...';
 
-
             try {
                 if (currentBookIdToEdit) {
-                    // EDIT MODE: Update existing document
                     await updateDoc(doc(db, `artifacts/${appId}/public/data/book_inventory`, currentBookIdToEdit), {
-                        title: title,
-                        author: author,
-                        category: category,
+                        title: title, author: author, category: category,
                     });
                     status.textContent = `ڪتاب "${title}" جون تبديليون ڪاميابي سان محفوظ ٿي ويون!`;
                 } else {
-                    // ADD MODE: Add new document
                     await addDoc(collection(db, `artifacts/${appId}/public/data/book_inventory`), {
-                        title: title,
-                        author: author,
-                        category: category,
-                        timestamp: serverTimestamp()
+                        title: title, author: author, category: category, timestamp: serverTimestamp()
                     });
                     status.textContent = `ڪتاب "${title}" ڪاميابي سان شامل ڪيو ويو!`;
                 }
@@ -155,11 +177,10 @@
                 status.classList.remove('text-amber-500');
                 status.classList.add('text-green-600');
                 
-                // Reset form state
                 document.getElementById('book-title').value = '';
                 document.getElementById('book-author').value = '';
                 document.getElementById('book-category').value = 'ٻيا (Other)';
-                window.cancelEdit(); // Reset to Add Mode
+                window.cancelEdit(); 
 
             } catch (e) {
                 console.error("Error submitting book: ", e);
@@ -181,7 +202,6 @@
             }
         };
 
-        // NEW: Function to load data into the form for editing
         window.editBook = function(bookId) {
             const bookToEdit = inventoryData.find(book => book.id === bookId);
             if (!bookToEdit) {
@@ -191,50 +211,41 @@
             
             document.getElementById('book-title').value = bookToEdit.title;
             document.getElementById('book-author').value = bookToEdit.author;
-            // Ensure the category value exists in the dropdown before setting it, otherwise set to 'Other'
             document.getElementById('book-category').value = bookToEdit.category || 'ٻيا (Other)'; 
             
-            currentBookIdToEdit = bookId; // Set global state
+            currentBookIdToEdit = bookId; 
             
-            // Change button appearance and add Cancel button
             document.getElementById('submit-book-btn').textContent = 'تبديليون محفوظ ڪريو';
             document.getElementById('cancel-edit-btn').classList.remove('hidden');
             
-            // Clear status message
-            document.getElementById('status').textContent = 'ڪتاب ايڊٽ ڪرڻ لاءِ تياري...';
-            document.getElementById('status').classList.remove('text-green-600', 'text-red-600');
-            document.getElementById('status').classList.add('text-amber-500');
+            document.getElementById('book-inventory-status').textContent = 'ڪتاب ايڊٽ ڪرڻ لاءِ تياري...';
+            document.getElementById('book-inventory-status').classList.remove('text-green-600', 'text-red-600');
+            document.getElementById('book-inventory-status').classList.add('text-amber-500');
 
-            // Scroll to form
             document.getElementById('add-book-form-card').scrollIntoView({ behavior: 'smooth' });
         };
         
-        // NEW: Function to reset the form after editing or cancellation
         window.cancelEdit = function() {
             currentBookIdToEdit = null;
             document.getElementById('book-title').value = '';
             document.getElementById('book-author').value = '';
             document.getElementById('book-category').value = 'ٻيا (Other)';
             
-            // Reset button appearance
             document.getElementById('submit-book-btn').textContent = 'ڪتاب شامل ڪريو';
             document.getElementById('cancel-edit-btn').classList.add('hidden');
-            document.getElementById('status').textContent = '';
+            document.getElementById('book-inventory-status').textContent = '';
         };
-
 
         function listenForBooks(db, appId) {
             const booksRef = collection(db, `artifacts/${appId}/public/data/book_inventory`);
-            const q = query(booksRef, orderBy('timestamp', 'desc')); // Order by timestamp for latest first
+            const q = query(booksRef, orderBy('timestamp', 'desc')); 
             
             onSnapshot(q, (snapshot) => {
-                // 1. Store the full data set
                 inventoryData = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
                     time: doc.data().timestamp ? new Date(doc.data().timestamp.toDate()).toLocaleDateString('sd-PK') : 'نامعلوم'
                 }));
-                // 2. Render the initial list (unfiltered)
                 filterBookList(); 
             }, (error) => {
                  console.error("Error listening to books: ", error);
@@ -276,22 +287,137 @@
                 list.appendChild(row);
             });
         };
+        // --- End Book Inventory Logic ---
+
+
+        // --- Membership Management Logic (NEW CODE) ---
         
+        // Helper function to format date
+        const formatDate = (timestamp) => {
+            if (!timestamp) return 'نامعلوم';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString('sd-PK');
+        };
+
+        function listenForPendingMembers(db, appId) {
+            // Only fetch pending requests initially, but allow admin to view others via search
+            const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
+            const q = query(membersRef, where('status', '==', 'Pending'), orderBy('memberSince', 'asc')); 
+            
+            onSnapshot(q, (snapshot) => {
+                pendingMembersData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    submissionTime: formatDate(doc.data().memberSince) 
+                }));
+                renderMembershipRequests();
+            }, (error) => {
+                 console.error("Error listening to members: ", error);
+                 document.getElementById('membership-list').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">درخواستون لوڊ ڪرڻ ۾ غلطي: ${error.message}</td></tr>`;
+            });
+        }
+        
+        window.renderMembershipRequests = function(data = pendingMembersData) {
+            const list = document.getElementById('membership-list');
+            list.innerHTML = '';
+            
+            if (data.length === 0) {
+                 list.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">ڪابه التوا ۾ درخواست موجود ناهي.</td></tr>';
+                 return;
+            }
+
+            data.forEach((member, index) => {
+                const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                const statusColor = member.status === 'Pending' ? 'text-amber-600' : 
+                                    (member.status === 'Approved' ? 'text-green-600' : 'text-red-600');
+                const statusText = member.status === 'Pending' ? 'التوا ۾' : 
+                                   (member.status === 'Approved' ? 'منظور' : 'رد ٿيل');
+                const photo = member.photoBase64 ? `<img src="${member.photoBase64}" class="member-photo-admin" alt="Member Photo">` : 'تصوير ناهي';
+                
+                const buttons = member.status === 'Pending' ? `
+                    <button onclick="window.approveMember('${member.id}', '${member.name}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm">منظور ڪريو</button>
+                    <button onclick="window.rejectMember('${member.id}', '${member.name}')" class="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 transition-colors text-sm">رد ڪريو</button>
+                ` : `<span class="${statusColor} font-semibold">${statusText}</span>`;
+
+                row.innerHTML = `
+                    <td class="p-4">${index + 1}</td>
+                    <td class="p-4">${photo}</td>
+                    <td class="p-4 font-semibold">${member.name} (${member.cardId})</td>
+                    <td class="p-4 text-sm">${member.occupation}</td>
+                    <td class="p-4 text-sm text-gray-500">${member.submissionTime}</td>
+                    <td class="p-4 space-x-2 space-x-reverse flex justify-end">
+                        ${buttons}
+                    </td>
+                `;
+                list.appendChild(row);
+            });
+        };
+
+        window.approveMember = async function(memberId, memberName) {
+            if (confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ منظور ڪرڻ چاهيو ٿا؟ اهو ممبرشپ ڪارڊ ڇھن مھينن لاءِ صحيح ٿي ويندو.`)) {
+                try {
+                    const approvedDate = new Date();
+                    const expiryDate = new Date(approvedDate);
+                    expiryDate.setMonth(expiryDate.getMonth() + 6); // Set expiry 6 months later
+                    
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
+                        status: 'Approved',
+                        approvedDate: approvedDate,
+                        expiryDate: expiryDate,
+                        // Do not update memberSince as that is the submission date
+                    });
+                     // Change to view all members for immediate visual confirmation
+                    document.getElementById('membership-requests-status').textContent = `${memberName} جي ممبرشپ ڪاميابي سان منظور ٿي وئي.`;
+                    document.getElementById('membership-requests-status').classList.remove('text-red-600', 'text-amber-500');
+                    document.getElementById('membership-requests-status').classList.add('text-green-600');
+                } catch (e) {
+                    alert(`منظوري ۾ غلطي ٿي: ${e.message}`);
+                    console.error("Error approving member: ", e);
+                }
+            }
+        };
+
+        window.rejectMember = async function(memberId, memberName) {
+             if (confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ رد ڪرڻ چاهيو ٿا؟`)) {
+                try {
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
+                        status: 'Rejected',
+                    });
+                    document.getElementById('membership-requests-status').textContent = `${memberName} جي درخواست رد ڪئي وئي.`;
+                    document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
+                    document.getElementById('membership-requests-status').classList.add('text-red-600');
+                } catch (e) {
+                    alert(`رد ڪرڻ ۾ غلطي ٿي: ${e.message}`);
+                    console.error("Error rejecting member: ", e);
+                }
+            }
+        };
+
+        window.manualAdd = function() {
+            // Redirect to the student application page, as manual entry requires all the same info (including photo)
+            window.location.href = 'membership_apply.html';
+        };
+
         // --- Admin Access Gate ---
         document.addEventListener('DOMContentLoaded', function() {
+            // Set initial status message for book inventory
+            document.getElementById('book-inventory-status').id = 'book-inventory-status'; 
+
             const accessKey = prompt("مهرباني ڪري انتظاميا پاسورڊ داخل ڪريو:");
             if (accessKey === ADMIN_PASSWORD) {
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('admin-content').classList.remove('hidden');
                 initFirebaseAndAuth();
             } else {
-                document.getElementById('login-screen').innerHTML = '<p class="text-red-500 font-bold text-2xl">غلط پاسورڊ. مهرباني ڪري ٻيهر ڪوشش ڪريو.</p>';
+                document.getElementById('login-screen').innerHTML = '<p class="text-red-500 font-bold text-2xl">غلط پاسورڊ. ٻيهر ڪوشش ڪريو.</p>';
             }
         });
 
     </script>
 </head>
-<body class="bg-stone-50 text-gray-800 p-8">
+<body class="bg-stone-50 text-gray-800 p-4 md:p-8">
 
     <!-- Login Screen -->
     <div id="login-screen" class="min-h-screen flex items-center justify-center p-4 bg-teal-800">
@@ -308,70 +434,113 @@
     <!-- Admin Panel (Hidden until login) -->
     <div id="admin-content" class="container mx-auto hidden">
         <header class="text-center mb-10 pb-5 border-b-2 border-teal-500">
-            <h1 class="text-4xl font-bold text-teal-700">نِرمل لائبريري ڪتابن جو انتظاميا پينل</h1>
-            <p class="mt-2 text-gray-600">ڪتاب شامل ڪريو ۽ فهرست کي منظم ڪريو.</p>
+            <h1 class="text-4xl font-bold text-teal-700">نِرمل لائبريري انتظاميا پينل</h1>
+            <p class="mt-2 text-gray-600">انتظاميه لاءِ وقف ٿيل صفحو.</p>
         </header>
         
-        <div class="max-w-2xl mx-auto mb-6">
-            <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-center">← مکيه ويبسائيٽ ڏانهن واپس وڃو</a>
+        <div class="max-w-4xl mx-auto mb-6 flex justify-between items-center">
+             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-center">← مکيه ويبسائيٽ ڏانهن واپس وڃو</a>
+             <button onclick="window.manualAdd()" class="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 transition-colors">نئون ممبر شامل ڪريو (Manual)</button>
         </div>
 
-        <!-- Add/Edit Book Form -->
-        <div id="add-book-form-card" class="bg-white p-6 rounded-lg shadow-xl max-w-2xl mx-auto mb-10 border-t-4 border-amber-500">
-            <h2 class="text-2xl font-bold mb-4 text-center">نئون ڪتاب شامل ڪريو</h2>
+        <!-- Navigation Tabs -->
+        <div class="max-w-4xl mx-auto mb-6 flex rounded-lg overflow-hidden shadow-lg">
+            <button id="tab-book-inventory" onclick="window.switchView('book-inventory')" class="nav-tab w-1/2 p-3 font-semibold transition-colors bg-teal-700 text-white">
+                ڪتابن جي فهرست (Inventory)
+            </button>
+            <button id="tab-membership-requests" onclick="window.switchView('membership-requests')" class="nav-tab w-1/2 p-3 font-semibold transition-colors bg-teal-100 text-teal-800">
+                ممبرشپ درخواستون
+            </button>
+        </div>
+
+
+        <!-- View 1: Book Inventory Management -->
+        <div id="book-inventory" class="admin-view max-w-4xl mx-auto">
+             <h2 class="text-3xl font-bold text-center mb-6 text-amber-700">ڪتاب شامل ڪريو ۽ فهرست منظم ڪريو</h2>
+             
+            <!-- Add/Edit Book Form -->
+            <div id="add-book-form-card" class="bg-white p-6 rounded-lg shadow-xl max-w-2xl mx-auto mb-10 border-t-4 border-amber-500">
+                <h3 class="text-2xl font-bold mb-4 text-center">نئون ڪتاب شامل ڪريو</h3>
+                
+                <div class="mb-4">
+                    <label for="book-title" class="block text-right mb-2 font-medium">ڪتاب جو نالو</label>
+                    <input type="text" id="book-title" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: انگريزي گرامر جا بنيادي اصول">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="book-author" class="block text-right mb-2 font-medium">ليکڪ جو نالو</label>
+                    <input type="text" id="book-author" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: ڊاڪٽر علي گوهر آزاد منگي">
+                </div>
+
+                <div class="mb-6">
+                    <label for="book-category" class="block text-right mb-2 font-medium">ڪيٽيگري</label>
+                    <select id="book-category" class="w-full p-2 border border-gray-300 rounded-md bg-white">
+                        <option value="ٻيا (Other)" disabled selected>ڪيٽيگري چونڊيو</option>
+                        <!-- Options populated by JS: BOOK_CATEGORIES -->
+                    </select>
+                </div>
+                
+                <div id="book-inventory-status" class="text-center mb-4 font-semibold text-sm"></div>
+
+                <div class="flex space-x-2 space-x-reverse">
+                    <button onclick="window.submitBook()" id="submit-book-btn" class="w-full bg-teal-600 text-white font-bold py-3 rounded-md hover:bg-teal-700 transition-colors">ڪتاب شامل ڪريو</button>
+                    <button onclick="window.cancelEdit()" id="cancel-edit-btn" class="hidden bg-gray-400 text-white font-bold py-3 px-4 rounded-md hover:bg-gray-500 transition-colors whitespace-nowrap">منسوخ ڪريو</button>
+                </div>
+            </div>
+
+            <!-- Book List Table -->
+            <h3 class="text-3xl font-bold text-center mb-6 text-teal-700">موجوده ڪتابن جي فهرست</h3>
             
-            <div class="mb-4">
-                <label for="book-title" class="block text-right mb-2 font-medium">ڪتاب جو نالو</label>
-                <input type="text" id="book-title" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: انگريزي گرامر جا بنيادي اصول">
+            <div class="max-w-4xl mx-auto mb-4">
+                <input type="text" id="admin-search" onkeyup="window.filterBookList()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب، ليکڪ، يا ڪيٽيگري ڳوليو">
             </div>
             
-            <div class="mb-4">
-                <label for="book-author" class="block text-right mb-2 font-medium">ليکڪ جو نالو</label>
-                <input type="text" id="book-author" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: ڊاڪٽر علي گوهر آزاد منگي">
-            </div>
-
-            <div class="mb-6">
-                <label for="book-category" class="block text-right mb-2 font-medium">ڪيٽيگري</label>
-                <select id="book-category" class="w-full p-2 border border-gray-300 rounded-md bg-white">
-                    <option value="category-placeholder" disabled selected>ڪيٽيگري چونڊيو</option>
-                    <!-- Options populated by JS: BOOK_CATEGORIES -->
-                </select>
-            </div>
-            
-            <div id="status" class="text-center mb-4 font-semibold text-sm"></div>
-
-            <div class="flex space-x-2 space-x-reverse">
-                <button onclick="window.submitBook()" id="submit-book-btn" class="w-full bg-teal-600 text-white font-bold py-3 rounded-md hover:bg-teal-700 transition-colors">ڪتاب شامل ڪريو</button>
-                <button onclick="window.cancelEdit()" id="cancel-edit-btn" class="hidden bg-gray-400 text-white font-bold py-3 px-4 rounded-md hover:bg-gray-500 transition-colors whitespace-nowrap">منسوخ ڪريو</button>
+            <div class="overflow-x-auto bg-white rounded-lg shadow-xl">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شمار</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪتاب جو نالو</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ليکڪ</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪيٽيگري</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شامل ٿيڻ جي تاريخ</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عمل</th>
+                        </tr>
+                    </thead>
+                    <tbody id="book-list" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="6" class="p-4 text-center text-gray-500">لوڊ ٿي رهيو آهي...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <!-- Book List Table -->
-        <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">موجوده ڪتابن جي فهرست</h2>
-        
-        <div class="max-w-4xl mx-auto mb-4">
-            <input type="text" id="admin-search" onkeyup="window.filterBookList()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب، ليکڪ، يا ڪيٽيگري ڳوليو">
+        <!-- View 2: Membership Requests Management (NEW) -->
+        <div id="membership-requests" class="admin-view max-w-4xl mx-auto hidden">
+             <h2 class="text-3xl font-bold text-center mb-6 text-amber-700">ممبرشپ درخواستون (Moderation)</h2>
+             
+             <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+                 <p id="membership-requests-status" class="text-center font-semibold text-sm text-gray-600">صرف التوا ۾ پيل درخواستون ڏيکاريون وينديون.</p>
+             </div>
+
+             <div class="overflow-x-auto bg-white rounded-lg shadow-xl">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شمار</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تصوير</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شاگرد جو نالو (ID)</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">پيشو</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تاريخ درخواست</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عمل</th>
+                        </tr>
+                    </thead>
+                    <tbody id="membership-list" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="6" class="p-4 text-center text-gray-500">درخواستون لوڊ ٿي رهيون آهن...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-        
-        <div class="overflow-x-auto bg-white rounded-lg shadow-xl">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead>
-                    <tr>
-                        <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شمار</th>
-                        <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪتاب جو نالو</th>
-                        <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ليکڪ</th>
-                        <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪيٽيگري</th>
-                        <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شامل ٿيڻ جي تاريخ</th>
-                        <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عمل</th>
-                    </tr>
-                </thead>
-                <tbody id="book-list" class="bg-white divide-y divide-gray-200">
-                    <tr><td colspan="6" class="p-4 text-center text-gray-500">لوڊ ٿي رهيو آهي...</td></tr>
-                </tbody>
-            </table>
-        </div>
+
     </div>
 </body>
 </html>
-
-                
