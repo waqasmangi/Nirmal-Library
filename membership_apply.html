@@ -80,6 +80,9 @@
         };
         const appId = firebaseConfig.projectId;
         // --- End Shared Firebase Config ---
+        
+        // --- Formspree Endpoint ---
+        const FORMSPREE_URL = "https://formspree.io/f/mqayqjpz"; // Your provided endpoint
 
         let db;
         let auth;
@@ -226,7 +229,7 @@
             }
         }
         
-        // --- Form Submission Logic ---
+        // --- Form Submission Logic (UPDATED FOR DUAL SUBMISSION) ---
         window.submitMembership = async function() {
             const name = document.getElementById('name').value.trim();
             const fatherName = document.getElementById('fatherName').value.trim();
@@ -288,7 +291,39 @@
                     userId: auth.currentUser?.uid || 'anonymous-user'
                 };
 
-                await addDoc(collection(db, `artifacts/${appId}/public/data/members`), applicationData);
+                // 1. Submit to Firestore
+                const firestorePromise = addDoc(collection(db, `artifacts/${appId}/public/data/members`), applicationData);
+
+                // 2. Submit to Formspree for email notification (Non-blocking)
+                const formData = new FormData();
+                formData.append("Applicant_Name", name);
+                formData.append("Father_Name", fatherName);
+                formData.append("Contact_Number", contact);
+                formData.append("Occupation", occupation);
+                formData.append("Address", address);
+                formData.append("Generated_Card_ID", cardId);
+                formData.append("Application_Status", "New Submission (Pending)");
+                formData.append("Notification_Type", "New Membership Application");
+                
+                const formspreePromise = fetch(FORMSPREE_URL, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        console.log("Formspree notification sent successfully for membership.");
+                    } else {
+                        console.error("Formspree notification failed for membership.");
+                    }
+                }).catch(error => console.error("Error sending Formspree notification for membership:", error));
+                
+                // Wait for Firestore to complete before showing success
+                await firestorePromise;
+                
+                // Note: The Formspree promise is intentionally not awaited to keep the UI fast.
+                Promise.resolve(formspreePromise); 
 
                 // Show success message and hide form
                 document.getElementById('application-form').classList.add('hidden');
@@ -329,7 +364,7 @@
             
             <!-- NEW ID DISPLAY BLOCK -->
             <div class="mb-6">
-                <p class="text-lg font-bold text-teal-800 mb-2">ممبرشپ ID نمبر:</p>
+                <p class="text-lg font-bold text-teal-800 mb-2">ميمبرشپ ID نمبر:</p>
                 <!-- This block holds the ID number on its own line -->
                 <div class="bg-white p-3 rounded-md inline-block border-2 border-green-400 w-full md:w-auto">
                     <strong id="display-card-id" class="latin text-2xl font-mono text-gray-900 tracking-wider">...</strong>

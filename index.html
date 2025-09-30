@@ -94,6 +94,8 @@
         
         // --- NEW: Star Rating Logic ---
         let currentRating = 5; // Default rating
+        // --- FORM SPREE ENDPOINT FOR EMAIL NOTIFICATION ---
+        const FORMSPREE_URL = "https://formspree.io/f/mqayqjpz"; // YOUR PROVIDED ENDPOINT
 
         window.setRating = function(rating) {
             currentRating = rating;
@@ -212,7 +214,7 @@
         };
         // --- End Book Inventory Logic ---
         
-        // --- Review Submission Logic (Refactored for new form structure) ---
+        // --- Review Submission Logic (Refactored for dual submission) ---
         window.submitReview = async function() {
             const rating = currentRating; // Use the value from the new star rating
             const text = document.getElementById('review-text').value.trim();
@@ -227,9 +229,33 @@
             
             try {
                 // 1. Save to Firestore (for persistent display)
-                await addDoc(getReviewsCollectionRef(db, appId), {
+                const firestorePromise = addDoc(getReviewsCollectionRef(db, appId), {
                     userName: name, rating: parseInt(rating, 10), text: text, likes: 0, timestamp: serverTimestamp()
                 });
+
+                // 2. Submit to Formspree (for immediate email notification)
+                const formData = new FormData();
+                formData.append("Reviewer_Name", name);
+                formData.append("Rating", `${rating} Stars`);
+                formData.append("Review_Text", text);
+                formData.append("Source_Page", window.location.href);
+
+                const formspreePromise = fetch(FORMSPREE_URL, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        console.log("Formspree notification sent successfully.");
+                    } else {
+                        console.error("Formspree notification failed.");
+                    }
+                }).catch(error => console.error("Error sending Formspree notification:", error));
+                
+                // Wait for both operations to complete (although Formspree failure won't stop Firestore save)
+                await Promise.allSettled([firestorePromise, formspreePromise]);
                 
                 const safeText = text.replace(/'/g, "\\'").replace(/"/g, '\\"');
                 const safeName = name.replace(/'/g, "\\'").replace(/"/g, '\\"');
@@ -300,7 +326,7 @@
                 // CRITICAL CHANGE 1: Display 'توھاڻ جون تجويزون'
                 document.getElementById('average-rating').textContent = `توھاڻ جون تجويزون`; 
                 
-                // CRITICAL CHANGE 2: Updated the count text from 'رائون' to 'رايہ'
+                // CRITICAL CHANGE 2: Updated the count text from 'رائون' to 'رايہ' in JS
                 const secondaryStatus = document.getElementById('review-status-details');
                 if (secondaryStatus) {
                     secondaryStatus.textContent = `(${avgRating} ستارا - ${reviewCount} رايہ)`;
@@ -427,12 +453,8 @@
             <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 max-w-3xl mx-auto mb-10 text-right-aligned">
                 <h3 class="text-2xl font-semibold mb-4 text-center">پنھنجي راءِ ڏيو</h3>
                 
-                <form id="review-form" action="https://formspree.io/f/f/waqasmangi.uk@gmail.com" method="POST" style="display: none;">
-                    <!-- Formspree kept hidden for simple submission (though primary method is Firestore) -->
-                    <input type="hidden" name="_replyto" value="waqasmangi.uk@gmail.com">
-                    <input type="hidden" name="Feedback_Type" value="Review">
-                </form>
-
+                <!-- NOTE: Hidden Formspree form removed as submission is handled via fetch API in JS now -->
+                
                 <!-- NEW: Name Field -->
                 <label for="reviewer-name" class="block text-right mb-4 font-medium">پنهنجو نالو (Optional)</label>
                 <input type="text" id="reviewer-name" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50 text-right-aligned responsive-placeholder" placeholder="توهان جو نالو (مثال: علي احمد)">
