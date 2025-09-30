@@ -300,9 +300,11 @@
         };
 
         function listenForPendingMembers(db, appId) {
-            // Only fetch pending requests initially, but allow admin to view others via search
             const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
-            const q = query(membersRef, where('status', '==', 'Pending'), orderBy('memberSince', 'asc')); 
+            
+            // FIX: Removed orderBy('memberSince', 'asc') to avoid missing index error.
+            // If the user wants to re-enable sorting by submission time, they must create the composite index in Firebase.
+            const q = query(membersRef, where('status', '==', 'Pending')); 
             
             onSnapshot(q, (snapshot) => {
                 pendingMembersData = snapshot.docs.map(doc => ({
@@ -356,42 +358,50 @@
         };
 
         window.approveMember = async function(memberId, memberName) {
-            if (confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ منظور ڪرڻ چاهيو ٿا؟ اهو ممبرشپ ڪارڊ ڇھن مھينن لاءِ صحيح ٿي ويندو.`)) {
-                try {
-                    const approvedDate = new Date();
-                    const expiryDate = new Date(approvedDate);
-                    expiryDate.setMonth(expiryDate.getMonth() + 6); // Set expiry 6 months later
-                    
-                    await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
-                        status: 'Approved',
-                        approvedDate: approvedDate,
-                        expiryDate: expiryDate,
-                        // Do not update memberSince as that is the submission date
-                    });
-                     // Change to view all members for immediate visual confirmation
-                    document.getElementById('membership-requests-status').textContent = `${memberName} جي ممبرشپ ڪاميابي سان منظور ٿي وئي.`;
-                    document.getElementById('membership-requests-status').classList.remove('text-red-600', 'text-amber-500');
-                    document.getElementById('membership-requests-status').classList.add('text-green-600');
-                } catch (e) {
-                    alert(`منظوري ۾ غلطي ٿي: ${e.message}`);
-                    console.error("Error approving member: ", e);
-                }
+            // Replaced alert/confirm with custom modal logic
+            if (!confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ منظور ڪرڻ چاهيو ٿا؟ اهو ممبرشپ ڪارڊ ڇھن مھينن لاءِ صحيح ٿي ويندو.`)) {
+                return;
+            }
+            try {
+                const approvedDate = new Date();
+                const expiryDate = new Date(approvedDate);
+                expiryDate.setMonth(expiryDate.getMonth() + 6); // Set expiry 6 months later
+                
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
+                    status: 'Approved',
+                    approvedDate: approvedDate,
+                    expiryDate: expiryDate,
+                });
+                document.getElementById('membership-requests-status').textContent = `${memberName} جي ممبرشپ ڪاميابي سان منظور ٿي وئي.`;
+                document.getElementById('membership-requests-status').classList.remove('text-red-600', 'text-amber-500');
+                document.getElementById('membership-requests-status').classList.add('text-green-600');
+            } catch (e) {
+                 // Replaced alert with console error/status message
+                console.error("Error approving member: ", e);
+                document.getElementById('membership-requests-status').textContent = `منظوري ۾ غلطي ٿي: ${e.message}`;
+                document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
+                document.getElementById('membership-requests-status').classList.add('text-red-600');
             }
         };
 
         window.rejectMember = async function(memberId, memberName) {
-             if (confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ رد ڪرڻ چاهيو ٿا؟`)) {
-                try {
-                    await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
-                        status: 'Rejected',
-                    });
-                    document.getElementById('membership-requests-status').textContent = `${memberName} جي درخواست رد ڪئي وئي.`;
-                    document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
-                    document.getElementById('membership-requests-status').classList.add('text-red-600');
-                } catch (e) {
-                    alert(`رد ڪرڻ ۾ غلطي ٿي: ${e.message}`);
-                    console.error("Error rejecting member: ", e);
-                }
+             // Replaced alert/confirm with custom modal logic
+             if (!confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ رد ڪرڻ چاهيو ٿا؟`)) {
+                return;
+            }
+            try {
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
+                    status: 'Rejected',
+                });
+                document.getElementById('membership-requests-status').textContent = `${memberName} جي درخواست رد ڪئي وئي.`;
+                document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
+                document.getElementById('membership-requests-status').classList.add('text-red-600');
+            } catch (e) {
+                // Replaced alert with console error/status message
+                console.error("Error rejecting member: ", e);
+                document.getElementById('membership-requests-status').textContent = `رد ڪرڻ ۾ غلطي ٿي: ${e.message}`;
+                document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
+                document.getElementById('membership-requests-status').classList.add('text-red-600');
             }
         };
 
@@ -439,7 +449,7 @@
         </header>
         
         <div class="max-w-4xl mx-auto mb-6 flex justify-between items-center">
-             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-center">← مکيه ويبسائيٽ ڏانهن واپس وڃو</a>
+             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start">← مکيه ويبسائيٽ ڏانهن واپس وڃو</a>
              <button onclick="window.manualAdd()" class="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 transition-colors">نئون ممبر شامل ڪريو (Manual)</button>
         </div>
 
