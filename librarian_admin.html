@@ -3,10 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="page-title">لائبريري انتظاميا پينل</title>
-    <!-- NEW: Favicon (Updated URL) -->
-    <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" type="image/png">
-    
+    <title>لائبريري انتظاميا پينل</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Custom Font: MB Lateefi.otf (CORRECTED) -->
@@ -25,17 +22,6 @@
         }
         .text-right-aligned {
              text-align: right;
-        }
-        /* Consolidated Logo Style */
-        .nirmal-logo-header {
-            width: 55px;
-            height: 55px; 
-            object-fit: contain; 
-            border-radius: 9999px; 
-            background-color: #fcd34d;
-            padding: 2px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-left: 1rem;
         }
         /* Hide default number input arrows */
         input[type=number]::-webkit-inner-spin-button, 
@@ -104,405 +90,43 @@
         
         let db;
         let auth;
-        let inventoryData = []; 
-        let currentBookIdToEdit = null; 
-        let pendingMembersData = []; 
-        let currentMemberDataToEdit = null; 
-        let currentLang = 'sd';
+        let inventoryData = []; // Global storage for all books
+        let currentBookIdToEdit = null; // State to track which book is being edited
+        let pendingMembersData = []; // Global storage for pending member applications
+        let currentMemberDataToEdit = null; // State to track which member is being edited (NEW)
 
-        // --- TRANSLATION DATA ---
-        const TRANSLATIONS = {
-            sd: {
-                title: "لائبريري انتظاميا پينل", subtitle: "انتظاميه لاءِ وقف ٿيل صفحو.",
-                nav_apply: "درخواست فارم", nav_directory: "ممبرز جي ڊائريڪٽري", nav_inventory: "ڪتابن جي فهرست", 
-                nav_feedback: "راءِ", nav_about: "اسان جي باري ۾", nav_admin: "لائبريرين جي رسائي", lang_btn: "English",
-                back_to_portal: "← مکيه پورٽل ڏانهن واپس",
-                
-                // Login Screen
-                login_header: "نِرمل لائبريري انتظاميا پورٽل",
-                login_subtitle: "پاسورڊ داخل ڪريو ته جيئن ڪتابن جي فهرست ۽ ممبرن جي درخواستن جو انتظام ڪري سگهجي.",
-                login_placeholder: "پاسورڊ داخل ڪريو", login_btn: "رسائي",
-                login_failed: "غلط پاسورڊ. ٻيهر ڪوشش ڪريو.",
-                login_warning_header: "اھم ھدايت:",
-                login_warning_text: "جيڪڏھن اوھان کي ھن صفحي تي داخل ٿيڻ جي اجازت ناھي، مھرباني ڪري ھيٺ ڏنل بٽڻ تي ڪلڪ ڪري مکيه پورٽل ڏانھن واپس وڃو.",
-                
-                // Admin Content Header
-                admin_manual_add: "نئون ممبر شامل ڪريو (Manual)",
-                
-                // Tabs
-                tab_inventory: "ڪتابن جي فهرست (Inventory)",
-                tab_members: "ممبرشپ درخواستون",
-                
-                // Inventory View
-                inv_main_header: "ڪتاب شامل ڪريو ۽ فهرست منظم ڪريو",
-                inv_add_header: "نئون ڪتاب شامل ڪريو",
-                inv_title_label: "ڪتاب جو نالو", inv_title_placeholder: "مثال: انگريزي گرامر جا بنيادي اصول",
-                inv_author_label: "ليکڪ جو نالو", inv_author_placeholder: "مثال: ڊاڪٽر علي گوهر آزاد منگي",
-                inv_category_label: "ڪيٽيگري", inv_category_placeholder: "ڪيٽيگري چونڊيو",
-                inv_submit_add: "ڪتاب شامل ڪريو", inv_submit_edit: "تبديليون محفوظ ڪريو", inv_cancel_edit: "منسوخ ڪريو",
-                inv_list_header: "موجوده ڪتابن جي فهرست",
-                inv_search_placeholder: "ڪتاب، ليکڪ، يا ڪيٽيگري ڳوليو",
-                inv_table_no: "شمار", inv_table_title: "ڪتاب جو نالو", inv_table_author: "ليکڪ", inv_table_category: "ڪيٽيگري", inv_table_date: "شامل ٿيڻ جي تاريخ", inv_table_action: "عمل",
-                inv_edit_btn: "ايڊٽ ڪريو", inv_delete_btn: "حذف ڪريو",
-                inv_status_missing: "ڪتاب جو نالو لازمي آھي.",
-                inv_status_saving: "تبديليون محفوظ ڪري رهيو آهي...", inv_status_adding: "ڪتاب جمع ڪري رهيو آهي...",
-                inv_status_edit_ready: "ڪتاب ايڊٽ ڪرڻ لاءِ تياري...", inv_status_no_books: "ڪابه ڪتاب نه ملي سگهي.",
-                inv_success_edit: (title) => `ڪتاب \"${title}\" جون تبديليون ڪاميابي سان محفوظ ٿي ويون!`,
-                inv_success_add: (title) => `ڪتاب \"${title}\" ڪاميابي سان شامل ڪيو ويو!`,
-                inv_delete_success: "ڪتاب ڪاميابي سان حذف ٿي ويو.", inv_delete_confirm: "ڇا توهان واقعي هن ڪتاب کي حذف ڪرڻ چاهيو ٿا؟",
-                
-                // Members View
-                mem_main_header: "ممبرشپ درخواستون (Moderation)",
-                mem_status_initial: "سڀئي درخواستون ڏيکاريون وينديون (التوا، منظور ٿيل، منسوخ).",
-                mem_table_no: "شمار", mem_table_photo: "تصوير", mem_table_name: "شاگرد جو نالو (ID)", mem_table_occupation: "پيشو", mem_table_date: "تاريخ درخواست", mem_table_action: "عمل",
-                mem_status_pending: "التوا ۾", mem_status_approved: "منظور", mem_status_cancelled: "منسوخ", mem_status_rejected: "منسوخ",
-                mem_btn_approve: "منظور ڪريو", mem_btn_cancel: "منسوخ ڪريو (Reason)", mem_btn_print: "ڪارڊ پرنٽ ڪريو",
-                mem_btn_edit: "ايڊٽ ڪريو", mem_btn_delete: "حذف ڪريو",
-                mem_status_no_pending: "ڪابه التوا ۾ درخواست موجود ناهي.",
-                mem_delete_confirm: (name) => `ڇا توهان واقعي ${name} جو سڄو رڪارڊ ڊيٽابيس مان حذف ڪرڻ چاهيو ٿا؟ اهو مستقل طور ختم ٿي ويندو!`,
-                mem_approve_confirm: (name) => `ڇا توهان واقعي ${name} جي ممبرشپ منظور ڪرڻ چاهيو ٿا؟ اهو ممبرشپ ڪارڊ ڇھن مھينن لاءِ صحيح ٿي ويندو.`,
-                mem_approve_success: (name) => `${name} جي ممبرشپ ڪاميابي سان منظور ٿي وئي.`,
-                mem_cancel_success: (name, reason) => `${name} جي ممبرشپ ڪاميابي سان رد ٿي وئي. سبب: ${reason}`,
-                
-                // Cancellation Modal
-                cancel_modal_header: "ممبرشپ رد ڪرڻ جو سبب", cancel_modal_text: (name) => `ڇا توھان ${name} جي ممبرشپ رد ڪري رھيا آھيو؟ مھرباني ڪري سبب لکو جيڪو شاگرد کي اسٽيٽس ٽريڪنگ دوران ڏيکاريو ويندو.`,
-                cancel_placeholder: "ممبرشپ رد ڪرڻ جو سبب... مثال: نا مڪمل دستاويز يا جعلي معلومات.",
-                cancel_modal_btn_cancel: "منسوخ ڪريو", cancel_modal_btn_process: "رد ڪريو ۽ سبب محفوظ ڪريو",
-                cancel_status_missing: "ممبرشپ رد ڪرڻ لاءِ مھرباني ڪري ڪو سبب لکو.",
-                
-                // Edit Modal
-                edit_modal_header: "ميمبرشپ تفصيل ايڊٽ ڪريو", edit_modal_id: "ميمبر ID:",
-                edit_name_label: "پورو نالو", edit_father_label: "پيءُ جو نالو", edit_gender_label: "جنس", edit_dob_label: "پيدائش جي تاريخ",
-                edit_occupation_label: "پيشو / تعليم", edit_address_label: "مڪمل ايڊريس", edit_contact_label: "رابطو نمبر",
-                edit_photo_note: "نوٽ: تصوير تبديل نٿي ڪري سگھجي. نئين تصوير لاءِ نئين درخواست داخل ڪريو.",
-                edit_status_missing: "مهرباني ڪري سڀ ضروري جايون ڀريو.",
-                edit_status_saving: "تبديليون محفوظ ڪري رهيو آهي...", edit_status_success: (name) => `${name} جو رڪارڊ ڪاميابي سان اپڊيٽ ٿي ويو!`,
-                edit_modal_btn_cancel: "منسوخ ڪريو", edit_modal_btn_save: "تبديليون محفوظ ڪريو",
-                
-                // General
-                unknown: "نامعلوم", other: "ٻيا"
-            },
-            en: {
-                title: "Librarian Administration Panel", subtitle: "Dedicated page for administration.",
-                nav_apply: "Apply for Membership", nav_directory: "Members Directory", nav_inventory: "Book Inventory", 
-                nav_feedback: "Feedback", nav_about: "About Us", nav_admin: "Librarian Access", lang_btn: "سنڌي",
-                back_to_portal: "← Back to Main Website",
-                
-                // Login Screen
-                login_header: "Nirmal Library Administration Portal",
-                login_subtitle: "Enter the password to manage the book inventory and member requests.",
-                login_placeholder: "Enter Password", login_btn: "Access",
-                login_failed: "Incorrect password. Try again.",
-                login_warning_header: "Important Note:",
-                login_warning_text: "If you are not authorized to access this page, please click the button below to return to the main portal.",
-                
-                // Admin Content Header
-                admin_manual_add: "Add New Member (Manual)",
-                
-                // Tabs
-                tab_inventory: "Book Inventory",
-                tab_members: "Membership Requests",
-                
-                // Inventory View
-                inv_main_header: "Add Books and Manage Inventory",
-                inv_add_header: "Add New Book",
-                inv_title_label: "Book Title", inv_title_placeholder: "Example: Basic Principles of English Grammar",
-                inv_author_label: "Author Name", inv_author_placeholder: "Example: Dr. Ali Gohar Azad Mangi",
-                inv_category_label: "Category", inv_category_placeholder: "Select Category",
-                inv_submit_add: "Add Book", inv_submit_edit: "Save Changes", inv_cancel_edit: "Cancel",
-                inv_list_header: "Current Book Inventory",
-                inv_search_placeholder: "Search by Book, Author, or Category",
-                inv_table_no: "No.", inv_table_title: "Book Title", inv_table_author: "Author", inv_table_category: "Category", inv_table_date: "Added Date", inv_table_action: "Action",
-                inv_edit_btn: "Edit", inv_delete_btn: "Delete",
-                inv_status_missing: "Book title is required.",
-                inv_status_saving: "Saving changes...", inv_status_adding: "Submitting book...",
-                inv_status_edit_ready: "Ready to edit the book...", inv_status_no_books: "No books found.",
-                inv_success_edit: (title) => `Changes for book \"${title}\" saved successfully!`,
-                inv_success_add: (title) => `Book \"${title}\" added successfully!`,
-                inv_delete_success: "Book deleted successfully.", inv_delete_confirm: "Are you sure you want to delete this book?",
 
-                // Members View
-                mem_main_header: "Membership Requests (Moderation)",
-                mem_status_initial: "All requests will be shown (Pending, Approved, Cancelled).",
-                mem_table_no: "No.", mem_table_photo: "Photo", mem_table_name: "Student Name (ID)", mem_table_occupation: "Occupation", mem_table_date: "Request Date", mem_table_action: "Action",
-                mem_status_pending: "Pending", mem_status_approved: "Approved", mem_status_cancelled: "Cancelled", mem_status_rejected: "Cancelled",
-                mem_btn_approve: "Approve", mem_btn_cancel: "Cancel (Reason)", mem_btn_print: "Print Card",
-                mem_btn_edit: "Edit", mem_btn_delete: "Delete",
-                mem_status_no_pending: "No pending requests found.",
-                mem_delete_confirm: (name) => `Are you sure you want to permanently delete the entire record for ${name} from the database?`,
-                mem_approve_confirm: (name) => `Are you sure you want to approve the membership for ${name}? The card will be valid for six months.`,
-                mem_approve_success: (name) => `Membership for ${name} approved successfully.`,
-                mem_cancel_success: (name, reason) => `Membership for ${name} cancelled successfully. Reason: ${reason}`,
-                
-                // Cancellation Modal
-                cancel_modal_header: "Reason for Membership Cancellation", cancel_modal_text: (name) => `Are you canceling the membership for ${name}? Please provide a reason that will be shown to the student during status tracking.`,
-                cancel_placeholder: "Reason for cancellation... e.g., Incomplete documents or fraudulent information.",
-                cancel_modal_btn_cancel: "Cancel", cancel_modal_btn_process: "Cancel and Save Reason",
-                cancel_status_missing: "Please provide a reason to cancel the membership.",
-                
-                // Edit Modal
-                edit_modal_header: "Edit Membership Details", edit_modal_id: "Member ID:",
-                edit_name_label: "Full Name", edit_father_label: "Father's Name", edit_gender_label: "Gender", edit_dob_label: "Date of Birth",
-                edit_occupation_label: "Occupation / Education", edit_address_label: "Full Address", edit_contact_label: "Contact Number",
-                edit_photo_note: "Note: The photo cannot be changed here. Submit a new application for a new photo.",
-                edit_status_missing: "Please fill in all required fields.",
-                edit_status_saving: "Saving changes...", edit_status_success: (name) => `Record for ${name} updated successfully!`,
-                edit_modal_btn_cancel: "Cancel", edit_modal_btn_save: "Save Changes",
+        // --- View Switching Logic ---
+        window.switchView = function(viewId) {
+            document.querySelectorAll('.admin-view').forEach(view => {
+                view.classList.add('hidden');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
 
-                // General
-                unknown: "Unknown", other: "Other"
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('bg-teal-700', 'text-white');
+                tab.classList.add('bg-teal-100', 'text-teal-800');
+            });
+            document.getElementById(`tab-${viewId}`).classList.add('bg-teal-700', 'text-white');
+            document.getElementById(`tab-${viewId}`).classList.remove('bg-teal-100', 'text-teal-800');
+
+            if (viewId === 'membership-requests') {
+                 listenForPendingMembers(db, appId);
             }
         };
 
-        // --- GLOBAL LANGUAGE TOGGLE FUNCTION (Copied from index.html) ---
-        window.toggleLanguage = function() {
-            currentLang = (currentLang === 'sd' ? 'en' : 'sd');
-            localStorage.setItem('nirmalLang', currentLang);
-            updateContent();
-            
-            // Re-render views to apply language changes immediately
-            if (!document.getElementById('login-screen').classList.contains('hidden')) {
-                // Re-initialize login screen
-                renderLoginScreen();
-            } else {
-                // Re-render admin content based on active tab
-                if (!document.getElementById('book-inventory').classList.contains('hidden')) {
-                    filterBookList(); 
-                } else if (!document.getElementById('membership-requests').classList.contains('hidden')) {
-                    renderMembershipRequests();
-                }
-            }
-        };
-
-        const formatDate = (timestamp) => {
-            if (!timestamp) return TRANSLATIONS[currentLang].unknown;
-            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-            return date.toLocaleDateString(currentLang === 'sd' ? 'sd-PK' : 'en-US');
-        };
-
-        function renderLoginScreen() {
-             const t = TRANSLATIONS[currentLang];
-             document.getElementById('page-title').textContent = t.title;
-             document.getElementById('login-header').textContent = t.login_header;
-             document.getElementById('login-subtitle').textContent = t.login_subtitle;
-             document.getElementById('password-input').placeholder = t.login_placeholder;
-             document.getElementById('login-btn').textContent = t.login_btn;
-             document.getElementById('login-warning-header').textContent = t.login_warning_header;
-             document.getElementById('login-warning-text').textContent = t.login_warning_text;
-             document.getElementById('back-to-portal-login-btn').textContent = t.back_to_portal;
-        }
-
-        function updateContent() {
-            const t = TRANSLATIONS[currentLang];
-            document.documentElement.lang = currentLang;
-            document.documentElement.dir = (currentLang === 'sd' ? 'rtl' : 'ltr');
-            document.querySelectorAll('.text-right-aligned').forEach(el => el.style.textAlign = currentLang === 'sd' ? 'right' : 'left');
-
-            // --- Header/Navigation Updates (Safeguarded with null checks) ---
-            const headerTitle = document.getElementById('header-title');
-            if (headerTitle) headerTitle.textContent = t.title;
-            
-            // #header-subtitle is missing in the new admin header, causing the previous error.
-            const headerSubtitle = document.getElementById('header-subtitle');
-            if (headerSubtitle) headerSubtitle.textContent = t.subtitle;
-            
-            const langToggleBtn = document.getElementById('lang-toggle-btn');
-            if (langToggleBtn) langToggleBtn.textContent = t.lang_btn;
-
-            // Navigation
-            const backToPortalLink = document.getElementById('back-to-portal-link');
-            if (backToPortalLink) backToPortalLink.textContent = t.back_to_portal;
-            
-            const adminManualAddBtn = document.getElementById('admin-manual-add-btn');
-            if (adminManualAddBtn) adminManualAddBtn.textContent = t.admin_manual_add;
-            
-            const tabBookInventory = document.getElementById('tab-book-inventory');
-            if (tabBookInventory) tabBookInventory.textContent = t.tab_inventory;
-            
-            const tabMembershipRequests = document.getElementById('tab-membership-requests');
-            if (tabMembershipRequests) tabMembershipRequests.textContent = t.tab_members;
-            
-            // Admin Content Header (Visible after login)
-            const adminMainTitle = document.getElementById('admin-main-title');
-            if (adminMainTitle) adminMainTitle.textContent = t.title;
-            
-            const adminMainSubtitle = document.getElementById('admin-main-subtitle');
-            if (adminMainSubtitle) adminMainSubtitle.textContent = t.subtitle;
-            
-            // Inventory View
-            const invMainHeader = document.getElementById('inv-main-header');
-            if (invMainHeader) invMainHeader.textContent = t.inv_main_header;
-
-            const invAddHeader = document.getElementById('inv-add-header');
-            if (invAddHeader) invAddHeader.textContent = t.inv_add_header;
-
-            const invTitleLabel = document.getElementById('inv-title-label');
-            if (invTitleLabel) invTitleLabel.textContent = t.inv_title_label;
-
-            const bookTitle = document.getElementById('book-title');
-            if (bookTitle) bookTitle.placeholder = t.inv_title_placeholder;
-            
-            const invAuthorLabel = document.getElementById('inv-author-label');
-            if (invAuthorLabel) invAuthorLabel.textContent = t.inv_author_label;
-            
-            const bookAuthor = document.getElementById('book-author');
-            if (bookAuthor) bookAuthor.placeholder = t.inv_author_placeholder;
-            
-            const invCategoryLabel = document.getElementById('inv-category-label');
-            if (invCategoryLabel) invCategoryLabel.textContent = t.inv_category_label;
-
-            const categoryPlaceholder = document.getElementById('category-placeholder');
-            if (categoryPlaceholder) categoryPlaceholder.textContent = t.inv_category_placeholder;
-
-            const invListHeader = document.getElementById('inv-list-header');
-            if (invListHeader) invListHeader.textContent = t.inv_list_header;
-
-            const adminSearch = document.getElementById('admin-search');
-            if (adminSearch) adminSearch.placeholder = t.inv_search_placeholder;
-
-            const invTableNo = document.getElementById('inv-table-no');
-            if (invTableNo) invTableNo.textContent = t.inv_table_no;
-
-            const invTableTitle = document.getElementById('inv-table-title');
-            if (invTableTitle) invTableTitle.textContent = t.inv_table_title;
-
-            const invTableAuthor = document.getElementById('inv-table-author');
-            if (invTableAuthor) invTableAuthor.textContent = t.inv_table_author;
-
-            const invTableCategory = document.getElementById('inv-table-category');
-            if (invTableCategory) invTableCategory.textContent = t.inv_table_category;
-
-            const invTableDate = document.getElementById('inv-table-date');
-            if (invTableDate) invTableDate.textContent = t.inv_table_date;
-
-            const invTableAction = document.getElementById('inv-table-action');
-            if (invTableAction) invTableAction.textContent = t.inv_table_action;
-            
-            const submitBookBtn = document.getElementById('submit-book-btn');
-            if (submitBookBtn) submitBookBtn.textContent = currentBookIdToEdit ? t.inv_submit_edit : t.inv_submit_add;
-
-            const cancelEditBtn = document.getElementById('cancel-edit-btn');
-            if (cancelEditBtn) cancelEditBtn.textContent = t.inv_cancel_edit;
-            
-            // Members View
-            const memMainHeader = document.getElementById('mem-main-header');
-            if (memMainHeader) memMainHeader.textContent = t.mem_main_header;
-
-            const memStatusInitial = document.getElementById('mem-status-initial');
-            if (memStatusInitial) memStatusInitial.textContent = t.mem_status_initial;
-            
-            const memTableNo = document.getElementById('mem-table-no');
-            if (memTableNo) memTableNo.textContent = t.mem_table_no;
-            
-            const memTablePhoto = document.getElementById('mem-table-photo');
-            if (memTablePhoto) memTablePhoto.textContent = t.mem_table_photo;
-
-            const memTableName = document.getElementById('mem-table-name');
-            if (memTableName) memTableName.textContent = t.mem_table_name;
-            
-            const memTableOccupation = document.getElementById('mem-table-occupation');
-            if (memTableOccupation) memTableOccupation.textContent = t.mem_table_occupation;
-
-            const memTableDate = document.getElementById('mem-table-date');
-            if (memTableDate) memTableDate.textContent = t.mem_table_date;
-            
-            const memTableAction = document.getElementById('mem-table-action');
-            if (memTableAction) memTableAction.textContent = t.mem_table_action;
-
-            // Cancellation Modal
-            const cancelModalHeader = document.getElementById('cancel-modal-header');
-            if (cancelModalHeader) cancelModalHeader.textContent = t.cancel_modal_header;
-
-            const cancellationReason = document.getElementById('cancellation-reason');
-            if (cancellationReason) cancellationReason.placeholder = t.cancel_placeholder;
-
-            const cancelModalBtnCancel = document.getElementById('cancel-modal-btn-cancel');
-            if (cancelModalBtnCancel) cancelModalBtnCancel.textContent = t.cancel_modal_btn_cancel;
-
-            const cancelModalBtnProcess = document.getElementById('cancel-modal-btn-process');
-            if (cancelModalBtnProcess) cancelModalBtnProcess.textContent = t.cancel_modal_btn_process;
-            
-            // Edit Modal
-            const editModalHeader = document.getElementById('edit-modal-header');
-            if (editModalHeader) editModalHeader.textContent = t.edit_modal_header;
-
-            const editModalIdLabel = document.getElementById('edit-modal-id-label');
-            if (editModalIdLabel) editModalIdLabel.textContent = t.edit_modal_id;
-            
-            const editNameLabel = document.getElementById('edit-name-label');
-            if (editNameLabel) editNameLabel.textContent = t.edit_name_label;
-            
-            const editFatherNameLabel = document.getElementById('edit-fatherName-label');
-            if (editFatherNameLabel) editFatherNameLabel.textContent = t.edit_father_label;
-            
-            const editGenderLabel = document.getElementById('edit-gender-label');
-            if (editGenderLabel) editGenderLabel.textContent = t.edit_gender_label;
-
-            const editDobLabel = document.getElementById('edit-dob-label');
-            if (editDobLabel) editDobLabel.textContent = t.edit_dob_label;
-
-            const editOccupationLabel = document.getElementById('edit-occupation-label');
-            if (editOccupationLabel) editOccupationLabel.textContent = t.edit_occupation_label;
-
-            const editAddressLabel = document.getElementById('edit-address-label');
-            if (editAddressLabel) editAddressLabel.textContent = t.edit_address_label;
-
-            const editContactLabel = document.getElementById('edit-contact-label');
-            if (editContactLabel) editContactLabel.textContent = t.edit_contact_label;
-
-            const editPhotoNote = document.getElementById('edit-photo-note');
-            if (editPhotoNote) editPhotoNote.textContent = t.edit_photo_note;
-            
-            const editModalBtnCancel = document.getElementById('edit-modal-btn-cancel');
-            if (editModalBtnCancel) editModalBtnCancel.textContent = t.edit_modal_btn_cancel;
-
-            const editModalBtnSave = document.getElementById('edit-modal-btn-save');
-            if (editModalBtnSave) editModalBtnSave.textContent = t.edit_modal_btn_save;
-
-            // Update category options
-            const categorySelect = document.getElementById('book-category');
-            if (categorySelect) {
-                // Store current selected value to restore later
-                const selectedValue = categorySelect.value;
-                categorySelect.innerHTML = `<option value="category-placeholder" id="category-placeholder" disabled selected>${t.inv_category_placeholder}</option>`;
-                BOOK_CATEGORIES.forEach(cat => {
-                    const option = document.createElement('option');
-                    option.value = cat;
-                    option.textContent = cat;
-                    categorySelect.appendChild(option);
-                });
-                // Restore the selected value
-                categorySelect.value = selectedValue;
-            }
-
-            // Update gender options
-            const editGender = document.getElementById('edit-gender');
-            if (editGender) {
-                 const selectedGender = editGender.value;
-                 editGender.innerHTML = `
-                    <option value="placeholder" disabled>${t.edit_gender_label}</option>
-                    <option value="مرد">${t.male}</option>
-                    <option value="عورت">${t.female}</option>
-                    <option value="ٻيا">${t.other}</option>
-                `;
-                editGender.value = selectedGender;
-            }
-        }
-        
         // --- NEW: Password Check Logic (Called from form submit) ---
         window.checkPassword = function() {
             const inputPassword = document.getElementById('password-input').value;
             const status = document.getElementById('login-status');
-            const t = TRANSLATIONS[currentLang];
             
             if (inputPassword === ADMIN_PASSWORD) {
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('admin-content').classList.remove('hidden');
-                document.getElementById('admin-main-header').classList.remove('hidden'); // Show the main header
                 initFirebaseAndAuth();
             } else {
-                status.textContent = t.login_failed;
-                status.classList.remove('text-amber-500', 'text-gray-700');
+                status.textContent = 'غلط پاسورڊ. ٻيهر ڪوشش ڪريو.';
+                status.classList.remove('text-amber-500');
                 status.classList.add('text-red-500');
             }
         };
@@ -516,16 +140,22 @@
                 
                 await signInAnonymously(auth);
                 
-                // Start listeners
-                listenForBooks(db, appId);
-                listenForPendingMembers(db, appId); 
-
-                // Set initial view and refresh content
+                // Populate category dropdown
+                const categorySelect = document.getElementById('book-category');
+                BOOK_CATEGORIES.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    categorySelect.appendChild(option);
+                });
+                
+                // Set initial view and start listeners
                 window.switchView('book-inventory');
-                updateContent(); 
+                listenForBooks(db, appId);
+                listenForPendingMembers(db, appId); // Start listening for members immediately
 
             } catch (error) {
-                document.getElementById('book-inventory-status').textContent = `Firebase غلطي: ${error.code}. مهرباني ڪري چيڪ ڪريو ته Anonymous Auth چالو آهي.`;
+                document.getElementById('status').textContent = `Firebase غلطي: ${error.code}. مهرباني ڪري چيڪ ڪريو ته Anonymous Auth چالو آهي.`;
                 console.error("Firebase Auth Error:", error);
             }
         }
@@ -538,17 +168,17 @@
 
             msgText.textContent = message;
             msgBox.classList.remove('hidden', 'border-red-500', 'border-blue-500', 'border-green-500');
-            status.textContent = TRANSLATIONS[currentLang].inv_status_missing; // Default status text
+            status.textContent = ''; 
 
             if (type === 'error') {
                 msgBox.classList.add('border-red-500');
-                status.textContent = TRANSLATIONS[currentLang].login_failed; // Using a generic error translation
+                status.textContent = 'غلطي!';
             } else if (type === 'success') {
                  msgBox.classList.add('border-green-500');
-                 status.textContent = TRANSLATIONS[currentLang].inv_delete_success; // Using a generic success translation
+                 status.textContent = 'ڪامياب!';
             } else {
                 msgBox.classList.add('border-blue-500');
-                status.textContent = TRANSLATIONS[currentLang].title; // Using a generic info translation
+                status.textContent = 'معلومات';
             }
             
             setTimeout(() => {
@@ -559,38 +189,37 @@
         // --- Book Inventory Logic (Existing Code) ---
         window.submitBook = async function() {
             const title = document.getElementById('book-title').value.trim();
-            const author = document.getElementById('book-author').value.trim() || TRANSLATIONS[currentLang].unknown; 
+            const author = document.getElementById('book-author').value.trim() || 'نامعلوم'; 
             const categoryElement = document.getElementById('book-category');
             let category = categoryElement.value;
             
             if (!category || category === "category-placeholder") {
-                category = TRANSLATIONS[currentLang].other;
+                category = "ٻيا (Other)";
             }
             
             const status = document.getElementById('book-inventory-status');
-            const t = TRANSLATIONS[currentLang];
             
             if (!title) {
-                status.textContent = t.inv_status_missing;
+                status.textContent = 'ڪتاب جو نالو لازمي آھي.';
                 status.classList.remove('text-green-600', 'text-amber-500');
                 status.classList.add('text-red-600');
                 return;
             }
             status.classList.remove('text-red-600', 'text-green-600');
             status.classList.add('text-amber-500');
-            status.textContent = currentBookIdToEdit ? t.inv_status_saving : t.inv_status_adding;
+            status.textContent = currentBookIdToEdit ? 'تبديليون محفوظ ڪري رهيو آهي...' : 'ڪتاب جمع ڪري رهيو آهي...';
 
             try {
                 if (currentBookIdToEdit) {
                     await updateDoc(doc(db, `artifacts/${appId}/public/data/book_inventory`, currentBookIdToEdit), {
                         title: title, author: author, category: category,
                     });
-                    status.textContent = t.inv_success_edit(title);
+                    status.textContent = `ڪتاب "${title}" جون تبديليون ڪاميابي سان محفوظ ٿي ويون!`;
                 } else {
                     await addDoc(collection(db, `artifacts/${appId}/public/data/book_inventory`), {
                         title: title, author: author, category: category, timestamp: serverTimestamp()
                     });
-                    status.textContent = t.inv_success_add(title);
+                    status.textContent = `ڪتاب "${title}" ڪاميابي سان شامل ڪيو ويو!`;
                 }
 
                 status.classList.remove('text-amber-500');
@@ -598,7 +227,7 @@
                 
                 document.getElementById('book-title').value = '';
                 document.getElementById('book-author').value = '';
-                document.getElementById('book-category').value = 'category-placeholder'; // Reset to placeholder
+                document.getElementById('book-category').value = 'ٻيا (Other)';
                 window.cancelEdit(); 
 
             } catch (e) {
@@ -610,36 +239,33 @@
         };
 
         window.deleteBook = async function(bookId) {
-            const t = TRANSLATIONS[currentLang];
-            if (!confirm(t.inv_delete_confirm)) return;
+            if (!confirm("ڇا توهان واقعي هن ڪتاب کي حذف ڪرڻ چاهيو ٿا؟")) return;
             try {
                 await deleteDoc(doc(db, `artifacts/${appId}/public/data/book_inventory`, bookId));
-                window.showCustomMessage(t.inv_delete_success, 'success');
+                window.showCustomMessage("ڪتاب ڪاميابي سان حذف ٿي ويو.", 'success');
             } catch (e) {
-                window.showCustomMessage(`${t.login_failed}: ${e.message}`, 'error');
+                window.showCustomMessage(`ڪتاب حذف ڪرڻ ۾ غلطي: ${e.message}`, 'error');
                 console.error("Error deleting book: ", e);
             }
         };
 
         window.editBook = function(bookId) {
             const bookToEdit = inventoryData.find(book => book.id === bookId);
-            const t = TRANSLATIONS[currentLang];
-
             if (!bookToEdit) {
-                window.showCustomMessage(t.login_failed, 'error'); // Generic error message
+                window.showCustomMessage("ڪتاب نه ملي سگھيو!", 'error');
                 return;
             }
             
             document.getElementById('book-title').value = bookToEdit.title;
-            document.getElementById('book-author').value = bookToEdit.author || t.unknown; 
-            document.getElementById('book-category').value = bookToEdit.category || t.other; 
+            document.getElementById('book-author').value = bookToEdit.author;
+            document.getElementById('book-category').value = bookToEdit.category || 'ٻيا (Other)'; 
             
             currentBookIdToEdit = bookId; 
             
-            document.getElementById('submit-book-btn').textContent = t.inv_submit_edit;
+            document.getElementById('submit-book-btn').textContent = 'تبديليون محفوظ ڪريو';
             document.getElementById('cancel-edit-btn').classList.remove('hidden');
             
-            document.getElementById('book-inventory-status').textContent = t.inv_status_edit_ready;
+            document.getElementById('book-inventory-status').textContent = 'ڪتاب ايڊٽ ڪرڻ لاءِ تياري...';
             document.getElementById('book-inventory-status').classList.remove('text-green-600', 'text-red-600');
             document.getElementById('book-inventory-status').classList.add('text-amber-500');
 
@@ -650,9 +276,9 @@
             currentBookIdToEdit = null;
             document.getElementById('book-title').value = '';
             document.getElementById('book-author').value = '';
-            document.getElementById('book-category').value = 'category-placeholder';
+            document.getElementById('book-category').value = 'ٻيا (Other)';
             
-            document.getElementById('submit-book-btn').textContent = TRANSLATIONS[currentLang].inv_submit_add;
+            document.getElementById('submit-book-btn').textContent = 'ڪتاب شامل ڪريو';
             document.getElementById('cancel-edit-btn').classList.add('hidden');
             document.getElementById('book-inventory-status').textContent = '';
         };
@@ -665,12 +291,12 @@
                 inventoryData = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
-                    time: doc.data().timestamp ? new Date(doc.data().timestamp.toDate()).toLocaleDateString(currentLang === 'sd' ? 'sd-PK' : 'en-US') : TRANSLATIONS[currentLang].unknown
+                    time: doc.data().timestamp ? new Date(doc.data().timestamp.toDate()).toLocaleDateString('sd-PK') : 'نامعلوم'
                 }));
                 filterBookList(); 
             }, (error) => {
                  console.error("Error listening to books: ", error);
-                 document.getElementById('book-list').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">${TRANSLATIONS[currentLang].login_failed}: ${error.message}</td></tr>`;
+                 document.getElementById('book-list').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">لوڊ ڪرڻ ۾ غلطي: ${error.message}</td></tr>`;
             });
         }
         
@@ -678,7 +304,6 @@
             const searchTerm = document.getElementById('admin-search').value.toLowerCase().trim();
             const list = document.getElementById('book-list');
             list.innerHTML = '';
-            const t = TRANSLATIONS[currentLang];
             
             const filteredData = inventoryData.filter(book => 
                 (book.title || '').toLowerCase().includes(searchTerm) || 
@@ -687,7 +312,7 @@
             );
 
             if (filteredData.length === 0) {
-                 list.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">${t.inv_status_no_books}</td></tr>`;
+                 list.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">ڪابه ڪتاب نه ملي سگهي.</td></tr>';
                  return;
             }
 
@@ -698,12 +323,12 @@
                 row.innerHTML = `
                     <td class="p-4">${index + 1}</td>
                     <td class="p-4 font-semibold">${data.title}</td>
-                    <td class="p-4 text-sm">${data.author || t.unknown}</td>
-                    <td class="p-4">${data.category || t.other}</td>
-                    <td class="p-4 text-sm text-gray-500 latin">${formatDate(data.timestamp)}</td>
+                    <td class="p-4 text-sm">${data.author || 'نامعلوم'}</td>
+                    <td class="p-4">${data.category || 'ٻيا'}</td>
+                    <td class="p-4 text-sm text-gray-500">${data.time}</td>
                     <td class="p-4 space-x-2 space-x-reverse flex justify-end">
-                        <button onclick="window.editBook('${data.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors text-sm">${t.inv_edit_btn}</button>
-                        <button onclick="window.deleteBook('${data.id}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm">${t.inv_delete_btn}</button>
+                        <button onclick="window.editBook('${data.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors text-sm">ايڊٽ ڪريو</button>
+                        <button onclick="window.deleteBook('${data.id}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm">حذف ڪريو</button>
                     </td>
                 `;
                 list.appendChild(row);
@@ -714,6 +339,13 @@
 
         // --- Membership Management Logic ---
         
+        // Helper function to format date
+        const formatDate = (timestamp) => {
+            if (!timestamp) return 'نامعلوم';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString('sd-PK');
+        };
+        
         // Helper to find member by ID
         const findMemberData = (memberId) => {
             return pendingMembersData.find(m => m.id === memberId);
@@ -722,10 +354,8 @@
         // --- NEW: Open Member Edit Modal ---
         window.openEditModal = function(memberId) {
             const memberToEdit = findMemberData(memberId);
-            const t = TRANSLATIONS[currentLang];
-
             if (!memberToEdit) {
-                window.showCustomMessage(t.login_failed, 'error');
+                window.showCustomMessage("ميمبر رڪارڊ نه ملي سگھيو.", 'error');
                 return;
             }
             
@@ -733,7 +363,7 @@
             document.getElementById('edit-member-id-display').textContent = memberToEdit.cardId;
             document.getElementById('edit-name').value = memberToEdit.name || '';
             document.getElementById('edit-fatherName').value = memberToEdit.fatherName || '';
-            document.getElementById('edit-dob').value = memberToEdit.dob || ''; 
+            document.getElementById('edit-dob').value = memberToEdit.dob || ''; // Date format should match input[type=date]
             document.getElementById('edit-occupation').value = memberToEdit.occupation || '';
             document.getElementById('edit-address').value = memberToEdit.address || '';
             document.getElementById('edit-contact').value = memberToEdit.contact || '';
@@ -761,24 +391,24 @@
             const contact = document.getElementById('edit-contact').value.trim();
             const gender = document.getElementById('edit-gender').value;
             const statusElement = document.getElementById('edit-status');
-            const t = TRANSLATIONS[currentLang];
 
             if (!name || !fatherName || !dob || !occupation || !address || !contact || gender === "placeholder") {
-                statusElement.textContent = t.edit_status_missing;
+                statusElement.textContent = 'مهرباني ڪري سڀ ضروري جايون ڀريو.';
                 statusElement.classList.add('text-red-600');
                 return;
             }
 
-            statusElement.textContent = t.edit_status_saving;
-            statusElement.classList.remove('text-red-600', 'text-green-600');
+            statusElement.textContent = 'تبديليون محفوظ ڪري رهيو آهي...';
+            statusElement.classList.remove('text-red-600');
             statusElement.classList.add('text-amber-600');
 
             try {
+                // Note: We don't allow photoBase64 or cardId to be edited here directly
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
                     name, fatherName, dob, occupation, address, contact, gender
                 });
 
-                statusElement.textContent = t.edit_status_success(name);
+                statusElement.textContent = `${name} جو رڪارڊ ڪاميابي سان اپڊيٽ ٿي ويو!`;
                 statusElement.classList.remove('text-amber-600');
                 statusElement.classList.add('text-green-600');
 
@@ -787,7 +417,7 @@
 
             } catch (e) {
                 console.error("Error updating member record: ", e);
-                statusElement.textContent = `${t.login_failed}: ${e.message}`;
+                statusElement.textContent = `رڪارڊ اپڊيٽ ڪرڻ ۾ غلطي ٿي: ${e.message}`;
                 statusElement.classList.remove('text-amber-600', 'text-green-600');
                 statusElement.classList.add('text-red-600');
             }
@@ -798,7 +428,7 @@
             const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
             
             // Query for all members to show status and print option
-            const q = query(membersRef, orderBy('memberSince', 'desc'));
+            const q = query(membersRef);
             
             onSnapshot(q, (snapshot) => {
                 pendingMembersData = snapshot.docs.map(doc => ({
@@ -809,17 +439,16 @@
                 renderMembershipRequests();
             }, (error) => {
                  console.error("Error listening to members: ", error);
-                 document.getElementById('membership-list').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">${TRANSLATIONS[currentLang].login_failed}: ${error.message}</td></tr>`;
+                 document.getElementById('membership-list').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">درخواستون لوڊ ڪرڻ ۾ غلطي: ${error.message}</td></tr>`;
             });
         }
         
         window.renderMembershipRequests = function(data = pendingMembersData) {
             const list = document.getElementById('membership-list');
             list.innerHTML = '';
-            const t = TRANSLATIONS[currentLang];
             
             if (data.length === 0) {
-                 list.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">${t.mem_status_no_pending}</td></tr>`;
+                 list.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">ڪابه التوا ۾ درخواست موجود ناهي.</td></tr>';
                  return;
             }
 
@@ -829,49 +458,48 @@
                 
                 // Set status text and color
                 let statusColor = 'text-gray-500';
-                let statusText = t.mem_status_cancelled;
+                let statusText = member.status === 'Pending' ? 'التوا ۾' : 
+                                   (member.status === 'Approved' ? 'منظور' : 'منسوخ'); 
                 
                 if (member.status === 'Pending') {
                     statusColor = 'text-amber-600';
-                    statusText = t.mem_status_pending;
                 } else if (member.status === 'Approved') {
                     statusColor = 'text-green-600';
-                    statusText = t.mem_status_approved;
                 } else if (member.status === 'Cancelled' || member.status === 'Rejected') {
                     statusColor = 'text-red-600';
-                    statusText = t.mem_status_rejected;
                 }
 
-                const photo = member.photoBase64 ? `<img src="${member.photoBase64}" class="member-photo-admin" alt="Member Photo">` : t.mem_table_photo;
+                const photo = member.photoBase64 ? `<img src="${member.photoBase64}" class="member-photo-admin" alt="Member Photo">` : 'تصوير ناهي';
                 
                 let actionButtons = '';
                 if (member.status === 'Pending') {
                     actionButtons = `
-                        <button onclick="window.approveMember('${member.id}', '${member.name}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">${t.mem_btn_approve}</button>
-                        <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">${t.mem_btn_cancel}</button>
+                        <button onclick="window.approveMember('${member.id}', '${member.name}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منظور ڪريو</button>
+                        <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منسوخ ڪريو (Reason)</button>
                     `;
                 } else if (member.status === 'Approved') {
                     actionButtons = `
                         <span class="${statusColor} font-semibold text-sm">${statusText}</span>
-                        <a href="membership_track.html?id=${member.cardId}" target="_blank" class="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">${t.mem_btn_print}</a>
+                        <a href="membership_track.html?id=${member.cardId}" target="_blank" class="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ڪارڊ پرنٽ ڪريو</a>
                         <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ممبرشپ رد ڪريو</button>
                     `;
                 } else {
                      actionButtons = `<span class="${statusColor} font-semibold text-sm">${statusText}</span>`;
                 }
 
+                // Add Edit and Delete buttons to all rows
                 actionButtons += `
-                    <button onclick="window.openEditModal('${member.id}')" class="bg-amber-500 text-white px-3 py-1 rounded-md hover:bg-amber-600 transition-colors text-sm whitespace-nowrap mt-1 md:mt-0">${t.mem_btn_edit}</button>
-                    <button onclick="window.deleteMemberRecord('${member.id}', '${member.name}')" class="bg-gray-400 text-white px-3 py-1 rounded-md hover:bg-gray-500 transition-colors text-sm whitespace-nowrap mt-1 md:mt-0">${t.mem_btn_delete}</button>
+                    <button onclick="window.openEditModal('${member.id}')" class="bg-amber-500 text-white px-3 py-1 rounded-md hover:bg-amber-600 transition-colors text-sm whitespace-nowrap mt-1 md:mt-0">ايڊٽ ڪريو</button>
+                    <button onclick="window.deleteMemberRecord('${member.id}', '${member.name}')" class="bg-gray-400 text-white px-3 py-1 rounded-md hover:bg-gray-500 transition-colors text-sm whitespace-nowrap mt-1 md:mt-0">حذف ڪريو</button>
                 `;
 
 
                 row.innerHTML = `
                     <td class="p-4">${index + 1}</td>
                     <td class="p-4">${photo}</td>
-                    <td class="p-4 font-semibold">${member.name} <span class="latin text-xs text-gray-500">(${member.cardId})</span></td>
+                    <td class="p-4 font-semibold">${member.name} (${member.cardId})</td>
                     <td class="p-4 text-sm">${member.occupation}</td>
-                    <td class="p-4 text-sm text-gray-500 latin">${member.submissionTime}</td>
+                    <td class="p-4 text-sm text-gray-500">${member.submissionTime}</td>
                     <td class="p-4 space-y-1 space-x-2 space-x-reverse flex flex-col md:flex-row md:justify-end items-end md:items-center">
                         ${actionButtons}
                     </td>
@@ -881,8 +509,7 @@
         };
 
         window.approveMember = async function(memberId, memberName) {
-            const t = TRANSLATIONS[currentLang];
-            if (!confirm(t.mem_approve_confirm(memberName))) {
+            if (!confirm(`ڇا توهان واقعي ${memberName} جي ممبرشپ منظور ڪرڻ چاهيو ٿا؟ اهو ممبرشپ ڪارڊ ڇھن مھينن لاءِ صحيح ٿي ويندو.`)) {
                 return;
             }
             try {
@@ -896,12 +523,12 @@
                     expiryDate: expiryDate,
                     cancellationReason: null // Clear any existing reason
                 });
-                document.getElementById('membership-requests-status').textContent = t.mem_approve_success(memberName);
+                document.getElementById('membership-requests-status').textContent = `${memberName} جي ممبرشپ ڪاميابي سان منظور ٿي وئي.`;
                 document.getElementById('membership-requests-status').classList.remove('text-red-600', 'text-amber-500');
                 document.getElementById('membership-requests-status').classList.add('text-green-600');
             } catch (e) {
                 console.error("Error approving member: ", e);
-                document.getElementById('membership-requests-status').textContent = `${t.login_failed}: ${e.message}`;
+                document.getElementById('membership-requests-status').textContent = `منظوري ۾ غلطي ٿي: ${e.message}`;
                 document.getElementById('membership-requests-status').classList.remove('text-green-600', 'text-amber-500');
                 document.getElementById('membership-requests-status').classList.add('text-red-600');
             }
@@ -909,48 +536,46 @@
 
         // --- Function to open the Cancel Modal ---
         window.openCancelModal = function(memberId, memberName) {
-            const t = TRANSLATIONS[currentLang];
-            document.getElementById('cancel-modal-text-dynamic').textContent = t.cancel_modal_text(memberName);
+            document.getElementById('cancel-member-name').textContent = memberName;
             document.getElementById('cancel-member-id').value = memberId;
             document.getElementById('cancel-modal').classList.remove('hidden');
         };
 
         window.closeCancelModal = function() {
-            document.getElementById('cancellation-reason').value = ''; 
+            document.getElementById('cancellation-reason').value = ''; // Clear reason input
             document.getElementById('cancel-modal').classList.add('hidden');
         };
 
         // --- Function to process cancellation with reason ---
         window.processCancellation = async function() {
             const memberId = document.getElementById('cancel-member-id').value;
-            const memberName = findMemberData(memberId)?.name || 'Member';
+            const memberName = document.getElementById('cancel-member-name').textContent;
             const reason = document.getElementById('cancellation-reason').value.trim();
             const statusElement = document.getElementById('membership-requests-status');
-            const t = TRANSLATIONS[currentLang];
 
             if (!reason) {
-                window.showCustomMessage(t.cancel_status_missing, 'error');
+                window.showCustomMessage("ممبرشپ رد ڪرڻ لاءِ مھرباني ڪري ڪو سبب لکو.", 'error');
                 return;
             }
 
             window.closeCancelModal();
-            statusElement.textContent = `${t.mem_status_cancelled} ${memberName}...`;
+            statusElement.textContent = `ممبرشپ ${memberName} رد ڪري رهيو آهي...`;
             statusElement.classList.remove('text-red-600', 'text-green-600');
             statusElement.classList.add('text-amber-500');
 
             try {
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
-                    status: 'Cancelled', 
-                    cancellationReason: reason, 
+                    status: 'Cancelled', // Use 'Cancelled' status
+                    cancellationReason: reason, // Save the reason for the student to see
                     approvedDate: null,
                     expiryDate: null,
                 });
-                statusElement.textContent = t.mem_cancel_success(memberName, reason);
-                statusElement.classList.remove('text-amber-500', 'text-green-600');
+                statusElement.textContent = `${memberName} جي ممبرشپ ڪاميابي سان رد ٿي وئي. سبب: ${reason}`;
+                statusElement.classList.remove('text-amber-500');
                 statusElement.classList.add('text-red-600');
             } catch (e) {
                 console.error("Error cancelling member: ", e);
-                statusElement.textContent = `${t.login_failed}: ${e.message}`;
+                statusElement.textContent = `ممبرشپ رد ڪرڻ ۾ غلطي ٿي: ${e.message}`;
                 statusElement.classList.remove('text-amber-500', 'text-green-600');
                 statusElement.classList.add('text-red-600');
             }
@@ -958,11 +583,10 @@
         
         // --- Function to delete a member record ---
         window.deleteMemberRecord = async function(memberId, memberName) {
-            const t = TRANSLATIONS[currentLang];
-            if (!confirm(t.mem_delete_confirm(memberName))) return;
+            if (!confirm(`ڇا توهان واقعي ${memberName} جو سڄو رڪارڊ ڊيٽابيس مان حذف ڪرڻ چاهيو ٿا؟ اهو مستقل طور ختم ٿي ويندو!`)) return;
             
             const statusElement = document.getElementById('membership-requests-status');
-            statusElement.textContent = `${t.mem_btn_delete} ${memberName}...`;
+            statusElement.textContent = ` ${memberName} جو رڪارڊ حذف ڪري رهيو آهي...`;
             statusElement.classList.remove('text-red-600', 'text-green-600');
             statusElement.classList.add('text-amber-500');
 
@@ -973,7 +597,7 @@
                 statusElement.classList.add('text-green-600');
             } catch (e) {
                 console.error("Error deleting member record: ", e);
-                statusElement.textContent = `${t.login_failed}: ${e.message}`;
+                statusElement.textContent = `رڪارڊ حذف ڪرڻ ۾ غلطي ٿي: ${e.message}`;
                 statusElement.classList.remove('text-amber-500', 'text-green-600');
                 statusElement.classList.add('text-red-600');
             }
@@ -984,52 +608,18 @@
             window.location.href = 'membership_apply.html';
         };
 
-        // --- View Switching Logic ---
-        window.switchView = function(viewId) {
-            document.querySelectorAll('.admin-view').forEach(view => {
-                view.classList.add('hidden');
-            });
-            document.getElementById(viewId).classList.remove('hidden');
-
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                tab.classList.remove('bg-teal-700', 'text-white');
-                tab.classList.add('bg-teal-100', 'text-teal-800');
-            });
-            document.getElementById(`tab-${viewId}`).classList.add('bg-teal-700', 'text-white');
-            document.getElementById(`tab-${viewId}`).classList.remove('bg-teal-100', 'text-teal-800');
-
-            if (viewId === 'book-inventory') {
-                 filterBookList();
-            } else if (viewId === 'membership-requests') {
-                 renderMembershipRequests();
-            }
-        };
-
+        // --- Admin Access Gate (Removed prompt(), uses form submission now) ---
         document.addEventListener('DOMContentLoaded', function() {
-            currentLang = localStorage.getItem('nirmalLang') || 'sd';
-            
-            // Set initial language for login screen elements before full init
-            renderLoginScreen(); 
-
-            // Initialize categories (language agnostic part)
-            const categorySelect = document.getElementById('book-category');
-            BOOK_CATEGORIES.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat;
-                option.textContent = cat;
-                categorySelect.appendChild(option);
-            });
-            
+            document.getElementById('book-inventory-status').id = 'book-inventory-status'; 
             // The password check is now handled by the checkPassword() function upon form submission.
+            // Ensure the main content is hidden initially.
             document.getElementById('admin-content').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
-            
-            document.getElementById('mobile-menu-button').addEventListener('click', () => { document.getElementById('mobile-menu').classList.toggle('hidden'); });
         });
 
     </script>
 </head>
-<body class="bg-stone-50 text-gray-800">
+<body class="bg-stone-50 text-gray-800 p-4 md:p-8">
 
     <!-- Custom Message Box (Replaces alert/confirm) -->
     <div id="custom-message-box" class="hidden fixed top-4 right-4 bg-white p-4 rounded-lg shadow-xl border-r-4 border-blue-500 z-[60] max-w-sm text-right-aligned">
@@ -1037,54 +627,24 @@
         <p id="custom-message-text" class="text-gray-700"></p>
     </div>
 
-    <!-- Admin Header (Visible only when logged in) -->
-    <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50 hidden" id="admin-main-header">
-        <!-- Header Line: Title | Controls (Language Switcher) -->
-        <div class="container mx-auto flex justify-between items-center">
-            
-            <!-- Title block -->
-            <div class="flex items-center">
-                 <h1 id="header-title" class="text-3xl md:text-4xl font-bold">لائبريري انتظاميا پينل</h1>
-            </div>
-
-            <!-- Right Side Controls: Language Toggle & Menu Button (No Admin Icon here) -->
-            <div class="flex items-center space-x-3 space-x-reverse">
-                
-                <!-- Language Toggle (Always visible, responsive) -->
-                <button id="lang-toggle-btn" onclick="window.toggleLanguage()" 
-                        class="bg-amber-500 text-white text-sm font-semibold py-2 px-3 rounded-full shadow-lg hover:bg-amber-600 transition-colors whitespace-nowrap">
-                    English
-                </button>
-                
-                <!-- Mobile Menu Toggle -->
-                <button id="mobile-menu-button" class="md:hidden text-2xl p-1">☰</button>
-            </div>
-        </div>
-        
-        <!-- Mobile Navigation (Hidden until toggled) -->
-        <nav id="mobile-menu" class="md:hidden hidden bg-teal-700 text-center mt-2">
-            <a href="index.html" class="block py-2 hover:bg-teal-600" id="mobile-nav-back-portal">← مکيه پورٽل ڏانهن واپس</a>
-        </nav>
-    </header>
-
     <!-- Login Screen (Form-based) -->
     <div id="login-screen" class="min-h-screen flex items-center justify-center p-4 bg-teal-800">
         <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md text-center border-t-8 border-amber-500">
-            <h1 id="login-header" class="text-3xl font-bold mb-2 text-teal-700">نِرمل لائبريري انتظاميا پورٽل</h1>
-            <p id="login-subtitle" class="text-gray-600 mb-6 font-semibold">پاسورڊ داخل ڪريو ته جيئن ڪتابن جي فهرست ۽ ممبرن جي درخواستن جو انتظام ڪري سگهجي.</p>
+            <h1 class="text-3xl font-bold mb-2 text-teal-700">نِرمل لائبريري انتظاميا پورٽل</h1>
+            <p class="text-gray-600 mb-6 font-semibold">پاسورڊ داخل ڪريو ته جيئن ڪتابن جي فهرست ۽ ممبرن جي درخواستن جو انتظام ڪري سگهجي.</p>
 
             <!-- Login Form -->
             <form onsubmit="event.preventDefault(); window.checkPassword();">
                 <input type="password" id="password-input" class="w-full p-3 border border-gray-300 rounded-md mb-4 text-center" placeholder="پاسورڊ داخل ڪريو">
-                <button type="submit" id="login-btn" class="w-full bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition-colors">رسائي</button>
+                <button type="submit" class="w-full bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition-colors">رسائي</button>
             </form>
 
             <p id="login-status" class="mt-4 text-sm text-gray-700 font-semibold"></p>
             
             <div class="mt-8 border-t pt-4 border-gray-200">
-                <p id="login-warning-header" class="text-sm text-red-600 font-bold mb-2">اھم ھدايت:</p>
-                <p id="login-warning-text" class="text-sm text-gray-700 mb-4">جيڪڏھن اوھان کي ھن صفحي تي داخل ٿيڻ جي اجازت ناھي، مھرباني ڪري ھيٺ ڏنل بٽڻ تي ڪلڪ ڪري مکيه پورٽل ڏانھن واپس وڃو.</p>
-                <a href="index.html" id="back-to-portal-login-btn" class="inline-block bg-teal-600 text-white font-bold py-2 px-4 rounded-md hover:bg-teal-700 transition-colors">
+                <p class="text-sm text-red-600 font-bold mb-2">اھم ھدايت:</p>
+                <p class="text-sm text-gray-700 mb-4">جيڪڏھن اوھان کي ھن صفحي تي داخل ٿيڻ جي اجازت ناھي، مھرباني ڪري ھيٺ ڏنل بٽڻ تي ڪلڪ ڪري مکيه پورٽل ڏانھن واپس وڃو.</p>
+                <a href="index.html" class="inline-block bg-teal-600 text-white font-bold py-2 px-4 rounded-md hover:bg-teal-700 transition-colors">
                     مکيه پورٽل ڏانهن واپس
                 </a>
             </div>
@@ -1092,15 +652,15 @@
     </div>
 
     <!-- Admin Panel (Hidden until login) -->
-    <div id="admin-content" class="container mx-auto hidden p-4 md:p-8">
+    <div id="admin-content" class="container mx-auto hidden">
         <header class="text-center mb-10 pb-5 border-b-2 border-teal-500">
-            <h1 id="admin-main-title" class="text-4xl font-bold text-teal-700">نِرمل لائبريري انتظاميا پينل</h1>
-            <p id="admin-main-subtitle" class="mt-2 text-gray-600">انتظاميه لاءِ وقف ٿيل صفحو.</p>
+            <h1 class="text-4xl font-bold text-teal-700">نِرمل لائبريري انتظاميا پينل</h1>
+            <p class="mt-2 text-gray-600">انتظاميه لاءِ وقف ٿيل صفحو.</p>
         </header>
         
         <div class="max-w-4xl mx-auto mb-6 flex justify-between items-center">
-             <a href="index.html" id="back-to-portal-link" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start">← مکيه ويبسائيٽ ڏانهن واپس وڃو</a>
-             <button onclick="window.manualAdd()" id="admin-manual-add-btn" class="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 transition-colors">نئون ممبر شامل ڪريو (Manual)</button>
+             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start">← مکيه ويبسائيٽ ڏانهن واپس وڃو</a>
+             <button onclick="window.manualAdd()" class="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 transition-colors">نئون ممبر شامل ڪريو (Manual)</button>
         </div>
 
         <!-- Navigation Tabs -->
@@ -1116,26 +676,27 @@
 
         <!-- View 1: Book Inventory Management -->
         <div id="book-inventory" class="admin-view max-w-4xl mx-auto">
-             <h2 id="inv-main-header" class="text-3xl font-bold text-center mb-6 text-amber-700">ڪتاب شامل ڪريو ۽ فهرست منظم ڪريو</h2>
+             <h2 class="text-3xl font-bold text-center mb-6 text-amber-700">ڪتاب شامل ڪريو ۽ فهرست منظم ڪريو</h2>
              
             <!-- Add/Edit Book Form -->
             <div id="add-book-form-card" class="bg-white p-6 rounded-lg shadow-xl max-w-2xl mx-auto mb-10 border-t-4 border-amber-500">
-                <h3 id="inv-add-header" class="text-2xl font-bold mb-4 text-center">نئون ڪتاب شامل ڪريو</h3>
+                <h3 class="text-2xl font-bold mb-4 text-center">نئون ڪتاب شامل ڪريو</h3>
                 
                 <div class="mb-4">
-                    <label for="book-title" id="inv-title-label" class="block text-right mb-2 font-medium">ڪتاب جو نالو</label>
-                    <input type="text" id="book-title" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned" placeholder="مثال: انگريزي گرامر جا بنيادي اصول">
+                    <label for="book-title" class="block text-right mb-2 font-medium">ڪتاب جو نالو</label>
+                    <input type="text" id="book-title" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: انگريزي گرامر جا بنيادي اصول">
                 </div>
                 
                 <div class="mb-4">
-                    <label for="book-author" id="inv-author-label" class="block text-right mb-2 font-medium">ليکڪ جو نالو</label>
-                    <input type="text" id="book-author" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned" placeholder="مثال: ڊاڪٽر علي گوهر آزاد منگي">
+                    <label for="book-author" class="block text-right mb-2 font-medium">ليکڪ جو نالو</label>
+                    <input type="text" id="book-author" class="w-full p-2 border border-gray-300 rounded-md" placeholder="مثال: ڊاڪٽر علي گوهر آزاد منگي">
                 </div>
 
                 <div class="mb-6">
-                    <label for="book-category" id="inv-category-label" class="block text-right mb-2 font-medium">ڪيٽيگري</label>
-                    <select id="book-category" class="w-full p-2 border border-gray-300 rounded-md bg-white text-right-aligned">
-                        <option value="category-placeholder" id="category-placeholder" disabled selected>ڪيٽيگري چونڊيو</option>
+                    <label for="book-category" class="block text-right mb-2 font-medium">ڪيٽيگري</label>
+                    <select id="book-category" class="w-full p-2 border border-gray-300 rounded-md bg-white">
+                        <option value="ٻيا (Other)" disabled selected>ڪيٽيگري چونڊيو</option>
+                        <!-- Options populated by JS: BOOK_CATEGORIES -->
                     </select>
                 </div>
                 
@@ -1148,22 +709,22 @@
             </div>
 
             <!-- Book List Table -->
-            <h3 id="inv-list-header" class="text-3xl font-bold text-center mb-6 text-teal-700">موجوده ڪتابن جي فهرست</h3>
+            <h3 class="text-3xl font-bold text-center mb-6 text-teal-700">موجوده ڪتابن جي فهرست</h3>
             
             <div class="max-w-4xl mx-auto mb-4">
-                <input type="text" id="admin-search" onkeyup="window.filterBookList()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors text-right-aligned" placeholder="ڪتاب، ليکڪ، يا ڪيٽيگري ڳوليو">
+                <input type="text" id="admin-search" onkeyup="window.filterBookList()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors" placeholder="ڪتاب، ليکڪ، يا ڪيٽيگري ڳوليو">
             </div>
             
             <div class="overflow-x-auto bg-white rounded-lg shadow-xl">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead>
                         <tr>
-                            <th id="inv-table-no" class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شمار</th>
-                            <th id="inv-table-title" class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪتاب جو نالو</th>
-                            <th id="inv-table-author" class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ليکڪ</th>
-                            <th id="inv-table-category" class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪيٽيگري</th>
-                            <th id="inv-table-date" class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شامل ٿيڻ جي تاريخ</th>
-                            <th id="inv-table-action" class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عمل</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شمار</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪتاب جو نالو</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ليکڪ</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ڪيٽيگري</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شامل ٿيڻ جي تاريخ</th>
+                            <th class="p-4 bg-teal-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عمل</th>
                         </tr>
                     </thead>
                     <tbody id="book-list" class="bg-white divide-y divide-gray-200">
@@ -1175,7 +736,7 @@
 
         <!-- View 2: Membership Requests Management (UPDATED) -->
         <div id="membership-requests" class="admin-view max-w-4xl mx-auto hidden">
-             <h2 id="mem-main-header" class="text-3xl font-bold text-center mb-6 text-amber-700">ممبرشپ درخواستون (Moderation)</h2>
+             <h2 class="text-3xl font-bold text-center mb-6 text-amber-700">ممبرشپ درخواستون (Moderation)</h2>
              
              <div class="bg-white p-4 rounded-lg shadow-md mb-6">
                  <p id="membership-requests-status" class="text-center font-semibold text-sm text-gray-600">سڀئي درخواستون ڏيکاريون وينديون (التوا، منظور ٿيل، منسوخ).</p>
@@ -1185,12 +746,12 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead>
                         <tr>
-                            <th id="mem-table-no" class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شمار</th>
-                            <th id="mem-table-photo" class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تصوير</th>
-                            <th id="mem-table-name" class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شاگرد جو نالو (ID)</th>
-                            <th id="mem-table-occupation" class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">پيشو</th>
-                            <th id="mem-table-date" class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تاريخ درخواست</th>
-                            <th id="mem-table-action" class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عمل</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شمار</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تصوير</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شاگرد جو نالو (ID)</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">پيشو</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تاريخ درخواست</th>
+                            <th class="p-4 bg-amber-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عمل</th>
                         </tr>
                     </thead>
                     <tbody id="membership-list" class="bg-white divide-y divide-gray-200">
@@ -1204,16 +765,16 @@
     <!-- Cancellation Modal -->
     <div id="cancel-modal" class="modal-backdrop hidden">
         <div class="modal-content text-right">
-            <h3 id="cancel-modal-header" class="text-xl font-bold mb-4 text-red-700">ممبرشپ رد ڪرڻ جو سبب</h3>
-            <p id="cancel-modal-text-dynamic" class="mb-3 text-sm text-gray-600">ڇا توھان <strong id="cancel-member-name" class="font-bold">...</strong> جي ممبرشپ رد ڪري رھيا آھيو؟ مھرباني ڪري سبب لکو جيڪو شاگرد کي اسٽيٽس ٽريڪنگ دوران ڏيکاريو ويندو.</p>
+            <h3 class="text-xl font-bold mb-4 text-red-700">ممبرشپ رد ڪرڻ جو سبب</h3>
+            <p class="mb-3 text-sm text-gray-600">ڇا توھان <strong id="cancel-member-name" class="font-bold">...</strong> جي ممبرشپ رد ڪري رھيا آھيو؟ مھرباني ڪري سبب لکو جيڪو شاگرد کي اسٽيٽس ٽريڪنگ دوران ڏيکاريو ويندو.</p>
             
             <input type="hidden" id="cancel-member-id">
             
             <textarea id="cancellation-reason" rows="3" class="w-full p-2 border border-red-300 rounded-md focus:ring-red-500 focus:border-red-500 mb-4 text-right-aligned" placeholder="ممبرشپ رد ڪرڻ جو سبب... مثال: نا مڪمل دستاويز يا جعلي معلومات."></textarea>
             
             <div class="flex justify-end space-x-2 space-x-reverse">
-                <button onclick="window.closeCancelModal()" id="cancel-modal-btn-cancel" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">منسوخ ڪريو</button>
-                <button onclick="window.processCancellation()" id="cancel-modal-btn-process" class="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-colors">رد ڪريو ۽ سبب محفوظ ڪريو</button>
+                <button onclick="window.closeCancelModal()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">منسوخ ڪريو</button>
+                <button onclick="window.processCancellation()" class="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-colors">رد ڪريو ۽ سبب محفوظ ڪريو</button>
             </div>
         </div>
     </div>
@@ -1221,23 +782,23 @@
     <!-- Member Edit Modal (NEW) -->
     <div id="edit-modal" class="modal-backdrop hidden">
         <div class="modal-content text-right max-w-lg w-full">
-            <h3 id="edit-modal-header" class="text-xl font-bold mb-4 text-amber-700">ميمبرشپ تفصيل ايڊٽ ڪريو</h3>
-            <p class="mb-3 text-sm text-gray-600"><span id="edit-modal-id-label">ميمبر ID:</span> <strong id="edit-member-id-display" class="latin text-teal-700">...</strong></p>
+            <h3 class="text-xl font-bold mb-4 text-amber-700">ميمبرشپ تفصيل ايڊٽ ڪريو</h3>
+            <p class="mb-3 text-sm text-gray-600">ميمبر ID: <strong id="edit-member-id-display" class="latin text-teal-700">...</strong></p>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="mb-3">
-                    <label for="edit-name" id="edit-name-label" class="block text-right mb-1 font-medium text-sm">پورو نالو</label>
+                    <label for="edit-name" class="block text-right mb-1 font-medium text-sm">پورو نالو</label>
                     <input type="text" id="edit-name" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned">
                 </div>
                  <div class="mb-3">
-                    <label for="edit-fatherName" id="edit-fatherName-label" class="block text-right mb-1 font-medium text-sm">پيءُ جو نالو</label>
+                    <label for="edit-fatherName" class="block text-right mb-1 font-medium text-sm">پيءُ جو نالو</label>
                     <input type="text" id="edit-fatherName" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned">
                 </div>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="mb-3">
-                    <label for="edit-gender" id="edit-gender-label" class="block text-right mb-1 font-medium text-sm">جنس</label>
+                    <label for="edit-gender" class="block text-right mb-1 font-medium text-sm">جنس</label>
                     <select id="edit-gender" class="w-full p-2 border border-gray-300 rounded-md bg-white">
                         <option value="placeholder" disabled>جنس چونڊيو</option>
                         <option value="مرد">مرد (Male)</option>
@@ -1246,37 +807,37 @@
                     </select>
                 </div>
                  <div class="mb-3">
-                    <label for="edit-dob" id="edit-dob-label" class="block text-right mb-1 font-medium text-sm">پيدائش جي تاريخ</label>
+                    <label for="edit-dob" class="block text-right mb-1 font-medium text-sm">پيدائش جي تاريخ</label>
                     <input type="date" id="edit-dob" class="w-full p-2 border border-gray-300 rounded-md latin">
                 </div>
             </div>
             
             <div class="mb-3">
-                <label for="edit-occupation" id="edit-occupation-label" class="block text-right mb-1 font-medium text-sm">پيشو / تعليم</label>
+                <label for="edit-occupation" class="block text-right mb-1 font-medium text-sm">پيشو / تعليم</label>
                 <input type="text" id="edit-occupation" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned">
             </div>
             
             <div class="mb-3">
-                <label for="edit-address" id="edit-address-label" class="block text-right mb-1 font-medium text-sm">مڪمل ايڊريس</label>
+                <label for="edit-address" class="block text-right mb-1 font-medium text-sm">مڪمل ايڊريس</label>
                 <textarea id="edit-address" rows="1" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned"></textarea>
             </div>
             
             <div class="mb-3">
-                <label for="edit-contact" id="edit-contact-label" class="block text-right mb-1 font-medium text-sm">رابطو نمبر</label>
+                <label for="edit-contact" class="block text-right mb-1 font-medium text-sm">رابطو نمبر</label>
                 <input type="text" id="edit-contact" class="w-full p-2 border border-gray-300 rounded-md latin">
             </div>
 
             <!-- Photo Preview (Photo can only be changed via re-application) -->
             <div class="mb-4 text-center">
                  <img id="edit-member-photo" src="https://placehold.co/80x80/0d3b38/fff?text=N/A" alt="Member Photo" class="member-photo-admin mx-auto mb-2 w-16 h-16 rounded-lg">
-                 <p id="edit-photo-note" class="text-xs text-gray-500">نوٽ: تصوير تبديل نٿي ڪري سگھجي. نئين تصوير لاءِ نئين درخواست داخل ڪريو.</p>
+                 <p class="text-xs text-gray-500">نوٽ: تصوير تبديل نٿي ڪري سگھجي. نئين تصوير لاءِ نئين درخواست داخل ڪريو.</p>
             </div>
             
             <div id="edit-status" class="text-center font-semibold text-sm mb-4"></div>
 
             <div class="flex justify-end space-x-2 space-x-reverse">
-                <button onclick="window.closeEditModal()" id="edit-modal-btn-cancel" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">منسوخ ڪريو</button>
-                <button onclick="window.processMemberUpdate()" id="edit-modal-btn-save" class="bg-teal-600 text-white font-bold py-2 px-4 rounded-md hover:bg-teal-700 transition-colors">تبديليون محفوظ ڪريو</button>
+                <button onclick="window.closeEditModal()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">منسوخ ڪريو</button>
+                <button onclick="window.processMemberUpdate()" class="bg-teal-600 text-white font-bold py-2 px-4 rounded-md hover:bg-teal-700 transition-colors">تبديليون محفوظ ڪريو</button>
             </div>
         </div>
     </div>

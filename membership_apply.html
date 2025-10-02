@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="page-title">ممبرشپ درخواست فارم</title>
+    <title>ممبرشپ درخواست فارم</title>
     <!-- NEW: Favicon (Updated URL) -->
     <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" type="image/png">
     
@@ -27,7 +27,7 @@
         .text-right-aligned {
              text-align: right;
         }
-        /* Consolidated Logo Style */
+        /* Consolidated Logo Style - FIX APPLIED */
         .nirmal-logo-header {
             width: 55px;
             height: 55px; 
@@ -36,7 +36,6 @@
             background-color: #fcd34d;
             padding: 2px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-left: 1rem; /* Added margin for RTL layout */
         }
         /* Photo/Preview Styling */
         #photo-preview {
@@ -102,174 +101,6 @@
         let auth;
         let photoBase64 = null;
         let cardId = null;
-        let currentLang = 'sd';
-
-        // --- TRANSLATION DATA ---
-        const TRANSLATIONS = {
-            sd: {
-                title: "ممبرشپ درخواست فارم", subtitle: "نِرمل جيوتاڻي لائبريري، ٿرڙي محبت", 
-                nav_apply: "درخواست فارم", nav_directory: "ممبرز جي ڊائريڪٽري", nav_inventory: "ڪتابن جي فهرست", 
-                nav_feedback: "راءِ", nav_about: "اسان جي باري ۾", nav_admin: "لائبريرين جي رسائي", lang_btn: "English",
-                fee: "ممبرشپ فيس: مفت (Free)", duration: "مدي پڄاڻي: 6 مھينا", 
-                back_to_portal: "← مکيه پورٽل ڏانهن واپس",
-                
-                // Form Fields
-                section_title: "شاگرد جي ذاتي معلومات",
-                photo_header: "پاسپورٽ سائيز تصوير (Passport Size Photo)",
-                photo_upload_text: "مھرباني ڪري گيلري مان تصوير چونڊيو. (ڪئميرا بند آھي). سائيز حد: 3MB (تصوير فائر اسٽور ۾ محفوظ ڪرڻ لاءِ خودڪار طريقي سان گھٽائي ويندي.)",
-                name_label: "پورو نالو (Name)", name_placeholder: "شاگرد جو پورو نالو",
-                father_label: "پيءُ جو نالو (Father Name)", father_placeholder: "پيءُ جو نالو",
-                gender_label: "جنس (Gender)", gender_placeholder: "جنس چونڊيو", male: "مرد (Male)", female: "عورت (Female)", other: "ٻيا (Other)",
-                dob_label: "پيدائش جي تاريخ (Date of Birth)",
-                occupation_label: "پيشو / تعليم (Occupation)", occupation_placeholder: "مثال: شاگرد، ڪاليج شاگرد، استاد، وغيره",
-                address_label: "مڪمل ايڊريس (Address)", address_placeholder: "گھر جو پتو ۽ شھر/ڳوٺ",
-                contact_label: "رابطو نمبر (Contact Number)", contact_placeholder: "مثال: 03001234567",
-                submit_btn: "درخواست جمع ڪريو",
-                
-                // Status Messages
-                status_loading: "ڊيٽابيس لوڊ ٿي رهيو آهي...",
-                status_ready: "درخواست فارم لوڊ ٿي چڪو آهي. مھرباني ڪري ڀريو.",
-                status_error: "ڊيٽابيس لوڊ ڪرڻ ۾ غلطي.",
-                status_missing: "مھرباني ڪري سڀ معلومات ۽ پنھنجي تصوير شامل ڪريو.",
-                status_duplicate: "هي رابطو نمبر اڳ ۾ ئي رجسٽر ٿيل آهي. هڪ کان وڌيڪ درخواستون جمع نه ٿيون ٿي سگهن.",
-                status_check_duplicate: "ڊپلڪيٽ انٽري چيڪ ڪئي پئي وڃي...",
-                status_submitting: "درخواست جمع ڪري رهيو آهي...",
-                status_photo_loading: "تصوير لوڊ ڪري رهيو آهي...",
-                status_photo_too_large: "تصوير جي سائيز 3MB کان وڌيڪ آھي. مھرباني ڪري ننڍي تصوير استعمال ڪريو.",
-                status_photo_compressed_large: "تصوير جي سائيز گھٽائڻ کان پوءِ بہ $1MB$ جي حد کان وڌيڪ آھي. (مھرباني ڪري گھٽ تفصيل واري تصوير استعمال ڪريو)",
-                status_photo_success: "تصوير ڪاميابي سان لوڊ ۽ گھٽائي وئي! هاڻي درخواست جمع ڪريو.",
-                status_submit_error: "درخواست جمع ڪرائڻ ۾ غلطي ٿي:",
-                
-                // Success Message
-                success_header: "توهان جي درخواست ڪاميابي سان موصول ٿي چڪي آهي!",
-                success_text: "توهان جي درخواست جائزي هيٺ آهي. هيٺ ڏنل ID محفوظ ڪريو ته جيئن توهان ان جو اسٽيٽس ٽريڪ ڪري سگهو.",
-                id_label: "ميمبرشپ ID نمبر:",
-                copy_btn: "ID ڪاپي ڪريو",
-                copy_success: "ڪاپي ٿي ويو!",
-                track_status_text: "اسٽيٽس چيڪ ڪرڻ لاءِ هن لنک تي ڪلڪ ڪريو:",
-                track_btn: "درخواست جي حيثيت ٽريڪ ڪريو",
-                status_final_success: "درخواست ڪاميابي سان جمع ٿي وئي ۽ جائزي هيٺ آهي.",
-            },
-            en: {
-                title: "Membership Application Form", subtitle: "Nirmal Jewtani Library, Tharri Mohabbat", 
-                nav_apply: "Apply for Membership", nav_directory: "Members Directory", nav_inventory: "Book Inventory", 
-                nav_feedback: "Feedback", nav_about: "About Us", nav_admin: "Librarian Access", lang_btn: "سنڌي",
-                fee: "Membership Fee: Free", duration: "Expiry: 6 Months",
-                back_to_portal: "← Back to Main Portal",
-                
-                // Form Fields
-                section_title: "Student Personal Information",
-                photo_header: "Passport Size Photo",
-                photo_upload_text: "Please select a photo from the gallery. (Camera is disabled). Size limit: 3MB (Image will be automatically compressed for storage.)",
-                name_label: "Full Name (Name)", name_placeholder: "Full name of the student",
-                father_label: "Father Name", father_placeholder: "Father's Name",
-                gender_label: "Gender", gender_placeholder: "Select Gender", male: "Male", female: "Female", other: "Other",
-                dob_label: "Date of Birth",
-                occupation_label: "Occupation / Education", occupation_placeholder: "Example: Student, College Student, Teacher, etc.",
-                address_label: "Full Address", address_placeholder: "Home address and city/village",
-                contact_label: "Contact Number", contact_placeholder: "Example: 03001234567",
-                submit_btn: "Submit Application",
-                
-                // Status Messages
-                status_loading: "Database is loading...",
-                status_ready: "Application form loaded. Please fill it out.",
-                status_error: "Error loading database.",
-                status_missing: "Please provide all information and your photo.",
-                status_duplicate: "This contact number is already registered. Multiple applications cannot be submitted.",
-                status_check_duplicate: "Checking for duplicate entry...",
-                status_submitting: "Submitting application...",
-                status_photo_loading: "Loading photo...",
-                status_photo_too_large: "Photo size exceeds 3MB. Please use a smaller photo.",
-                status_photo_compressed_large: "Image size is still above the $1MB$ limit after compression. (Please use a lower detail image)",
-                status_photo_success: "Photo successfully loaded and compressed! You can now submit the application.",
-                status_submit_error: "Error submitting application:",
-                
-                // Success Message
-                success_header: "Your application has been received successfully!",
-                success_text: "Your application is under review. Save the ID below so you can track its status.",
-                id_label: "Membership ID Number:",
-                copy_btn: "Copy ID",
-                copy_success: "Copied!",
-                track_status_text: "Click this link to check the status:",
-                track_btn: "Track Application Status",
-                status_final_success: "Application submitted successfully and is under review.",
-            }
-        };
-
-        // --- GLOBAL LANGUAGE TOGGLE FUNCTION (Copied from index.html) ---
-        window.toggleLanguage = function() {
-            currentLang = (currentLang === 'sd' ? 'en' : 'sd');
-            localStorage.setItem('nirmalLang', currentLang);
-            updateContent();
-        };
-
-        function updateContent() {
-            const t = TRANSLATIONS[currentLang];
-            document.documentElement.lang = currentLang;
-            document.documentElement.dir = (currentLang === 'sd' ? 'rtl' : 'ltr');
-            document.querySelectorAll('.text-right-aligned').forEach(el => el.style.textAlign = currentLang === 'sd' ? 'right' : 'left');
-            
-            // Header/Navigation Updates
-            document.getElementById('page-title').textContent = t.title;
-            document.getElementById('header-title').textContent = t.title;
-            document.getElementById('header-subtitle').textContent = t.subtitle;
-            document.getElementById('back-to-portal-link').textContent = t.back_to_portal;
-            document.getElementById('nav-apply').textContent = t.nav_apply;
-            document.getElementById('nav-directory').textContent = t.nav_directory;
-            document.getElementById('nav-inventory').textContent = t.nav_inventory;
-            document.getElementById('nav-feedback').textContent = t.nav_feedback;
-            document.getElementById('nav-about').textContent = t.nav_about;
-            document.getElementById('mobile-nav-apply').textContent = t.nav_apply;
-            document.getElementById('mobile-nav-directory').textContent = t.nav_directory;
-            document.getElementById('mobile-nav-inventory').textContent = t.nav_inventory;
-            document.getElementById('mobile-nav-feedback').textContent = t.nav_feedback;
-            document.getElementById('mobile-nav-about').textContent = t.nav_about;
-            document.getElementById('mobile-nav-admin').textContent = t.nav_admin;
-            document.getElementById('lang-toggle-btn').textContent = t.lang_btn;
-            
-            // Form Specific Updates
-            document.getElementById('fee-display').textContent = t.fee;
-            document.getElementById('duration-display').textContent = t.duration;
-            document.getElementById('form-section-title').textContent = t.section_title;
-            
-            // Photo Section
-            document.getElementById('photo-header').textContent = t.photo_header;
-            document.getElementById('photo-upload-hint').textContent = t.photo_upload_text;
-
-            // Input Labels and Placeholders
-            document.getElementById('label-name').textContent = t.name_label;
-            document.getElementById('name').placeholder = t.name_placeholder;
-            document.getElementById('label-fatherName').textContent = t.father_label;
-            document.getElementById('fatherName').placeholder = t.father_placeholder;
-            document.getElementById('label-gender').textContent = t.gender_label;
-            document.getElementById('gender-placeholder').textContent = t.gender_placeholder;
-            document.getElementById('option-male').textContent = t.male;
-            document.getElementById('option-female').textContent = t.female;
-            document.getElementById('option-other').textContent = t.other;
-            document.getElementById('label-dob').textContent = t.dob_label;
-            document.getElementById('label-occupation').textContent = t.occupation_label;
-            document.getElementById('occupation').placeholder = t.occupation_placeholder;
-            document.getElementById('label-address').textContent = t.address_label;
-            document.getElementById('address').placeholder = t.address_placeholder;
-            document.getElementById('label-contact').textContent = t.contact_label;
-            document.getElementById('contact').placeholder = t.contact_placeholder;
-            
-            document.getElementById('submit-btn').textContent = t.submit_btn;
-
-            // Success Messages
-            document.getElementById('success-header').textContent = t.success_header;
-            document.getElementById('success-text').textContent = t.success_text;
-            document.getElementById('id-label').textContent = t.id_label;
-            document.getElementById('copy-button').innerHTML = t.copy_btn; // Only update text, leave SVG out for simplicity
-            document.getElementById('track-status-text').textContent = t.track_status_text;
-            document.getElementById('track-btn').textContent = t.track_btn;
-
-            // Update status message if it is currently displaying a standard message
-            const currentStatus = document.getElementById('status');
-            if (currentStatus.textContent.includes('ڊيٽابيس لوڊ ٿي رهيو آهي') || currentStatus.textContent.includes('Database is loading')) {
-                 currentStatus.textContent = t.status_loading;
-            }
-        }
         
         async function initFirebaseAndAuth() {
             try {
@@ -278,12 +109,12 @@
                 auth = getAuth(app);
                 await signInAnonymously(auth);
                 const statusElement = document.getElementById('status');
-                statusElement.textContent = TRANSLATIONS[currentLang].status_ready;
+                statusElement.textContent = 'درخواست فارم لوڊ ٿي چڪو آهي. مھرباني ڪري ڀريو.';
                 statusElement.classList.remove('text-amber-500');
                 statusElement.classList.add('text-green-600');
             } catch (error) {
                 const statusElement = document.getElementById('status');
-                statusElement.textContent = `${TRANSLATIONS[currentLang].status_error} (${error.code})`;
+                statusElement.textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
                 statusElement.classList.add('text-red-600');
                 console.error("Firebase Auth Error:", error);
             }
@@ -323,14 +154,13 @@
             const preview = document.getElementById('photo-preview');
             const reader = new FileReader();
             const statusElement = document.getElementById('status');
-            const t = TRANSLATIONS[currentLang];
             
-            statusElement.textContent = t.status_photo_loading;
+            statusElement.textContent = 'تصوير لوڊ ڪري رهيو آهي...';
             statusElement.className = 'text-center mb-4 font-semibold text-sm text-amber-500';
 
             if (file) {
                 if (file.size > MAX_RAW_FILE_SIZE_BYTES) {
-                    statusElement.textContent = t.status_photo_too_large;
+                    statusElement.textContent = 'تصوير جي سائيز 3MB کان وڌيڪ آھي. مھرباني ڪري ننڍي تصوير استعمال ڪريو.';
                     statusElement.classList.remove('text-amber-500', 'text-green-600');
                     statusElement.classList.add('text-red-600');
                     event.target.value = ''; 
@@ -348,14 +178,14 @@
                         
                         const compressedSize = (compressedBase64.length * 0.75) - 2;
                         if (compressedSize > MAX_FIRESTORE_PAYLOAD_SIZE) {
-                            statusElement.textContent = t.status_photo_compressed_large;
+                            statusElement.textContent = 'تصوير جي سائيز گھٽائڻ کان پوءِ بہ $1MB$ جي حد کان وڌيڪ آھي. (مھرباني ڪري گھٽ تفصيل واري تصوير استعمال ڪريو)';
                             statusElement.classList.remove('text-amber-500', 'text-green-600');
                             statusElement.classList.add('text-red-600');
                             photoBase64 = null;
                             return;
                         }
 
-                        statusElement.textContent = t.status_photo_success;
+                        statusElement.textContent = 'تصوير ڪاميابي سان لوڊ ۽ گھٽائي وئي! هاڻي درخواست جمع ڪريو.';
                         statusElement.classList.remove('text-red-600', 'text-amber-500');
                         statusElement.classList.add('text-green-600');
                     });
@@ -370,7 +200,6 @@
         window.copyCardId = function() {
             const idToCopy = document.getElementById('display-card-id').textContent;
             const copyButton = document.getElementById('copy-button');
-            const t = TRANSLATIONS[currentLang];
 
             if (idToCopy) {
                 const tempInput = document.createElement('input');
@@ -380,14 +209,11 @@
                 document.execCommand('copy');
                 document.body.removeChild(tempInput);
 
-                copyButton.textContent = t.copy_success;
+                copyButton.textContent = 'ڪاپي ٿي ويو!';
                 copyButton.classList.remove('bg-teal-500', 'hover:bg-teal-600');
                 copyButton.classList.add('bg-green-500');
                 setTimeout(() => {
-                    copyButton.innerHTML = `<svg class="copy-icon ml-2" viewBox="0 0 24 24">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                    </svg> ${t.copy_btn}`;
+                    copyButton.innerHTML = '<svg class="copy-icon ml-2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> ID ڪاپي ڪريو';
                     copyButton.classList.remove('bg-green-500');
                     copyButton.classList.add('bg-teal-500', 'hover:bg-teal-600');
                 }, 2000);
@@ -403,16 +229,15 @@
             const address = document.getElementById('address').value.trim();
             const contact = document.getElementById('contact').value.trim();
             const statusElement = document.getElementById('status');
-            const t = TRANSLATIONS[currentLang];
             
             if (!name || !fatherName || !dob || !occupation || !address || !contact || !photoBase64 || gender === "placeholder") {
-                statusElement.textContent = t.status_missing;
+                statusElement.textContent = 'مھرباني ڪري سڀ معلومات ۽ پنھنجي تصوير شامل ڪريو.';
                 statusElement.classList.remove('text-green-600', 'text-amber-500');
                 statusElement.classList.add('text-red-600');
                 return;
             }
             
-            statusElement.textContent = t.status_check_duplicate;
+            statusElement.textContent = 'ڊپلڪيٽ انٽري چيڪ ڪئي پئي وڃي...';
             statusElement.classList.remove('text-red-600', 'text-green-600');
             statusElement.classList.add('text-amber-500');
 
@@ -422,20 +247,20 @@
                 const querySnapshot = await getDocs(q);
                 
                 if (!querySnapshot.empty) {
-                    statusElement.textContent = t.status_duplicate;
+                    statusElement.textContent = 'هي رابطو نمبر اڳ ۾ ئي رجسٽر ٿيل آهي. هڪ کان وڌيڪ درخواستون جمع نه ٿيون ٿي سگهن.';
                     statusElement.classList.remove('text-amber-500', 'text-green-600');
                     statusElement.classList.add('text-red-600');
                     return;
                 }
             } catch (error) {
                 console.error("Duplicate check error:", error);
-                statusElement.textContent = `${t.status_error} (${error.message})`;
+                statusElement.textContent = `ڊيٽابيس چيڪ ڪرڻ ۾ غلطي ٿي. (${error.message})`;
                 statusElement.classList.remove('text-amber-500', 'text-green-600');
                 statusElement.classList.add('text-red-600');
                 return;
             }
 
-            statusElement.textContent = t.status_submitting;
+            statusElement.textContent = 'درخواست جمع ڪري رهيو آهي...';
             statusElement.classList.remove('text-red-600', 'text-green-600');
             statusElement.classList.add('text-amber-500');
 
@@ -466,113 +291,48 @@
                 document.getElementById('success-message').classList.remove('hidden');
                 document.getElementById('display-card-id').textContent = cardId;
                 
-                statusElement.textContent = t.status_final_success;
+                statusElement.textContent = 'درخواست ڪاميابي سان جمع ٿي وئي ۽ جائزي هيٺ آهي.';
                 statusElement.classList.remove('text-amber-500', 'text-red-600');
                 statusElement.classList.add('text-green-700');
 
             } catch (e) {
                 console.error("Error submitting membership: ", e);
-                statusElement.textContent = `${t.status_submit_error}: ${e.message}`;
+                statusElement.textContent = `درخواست جمع ڪرائڻ ۾ غلطي ٿي: ${e.message}`;
                 statusElement.classList.remove('text-amber-500', 'text-green-600');
                 statusElement.classList.add('text-red-600');
             }
         };
 
-        function startAppLogic() {
-            // Initialize language from localStorage
-            currentLang = localStorage.getItem('nirmalLang') || 'sd';
-            updateContent(); 
-
-            // Mobile Menu Toggle Logic
-            document.getElementById('mobile-menu-button').addEventListener('click', () => { document.getElementById('mobile-menu').classList.toggle('hidden'); });
-            
-            initFirebaseAndAuth();
-        }
-
-        document.addEventListener('DOMContentLoaded', startAppLogic);
+        document.addEventListener('DOMContentLoaded', initFirebaseAndAuth);
     </script>
 </head>
-<body class="bg-stone-50 text-gray-800">
-
-    <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50">
-        <!-- Main Header Line: Logo/Title | Controls (Language Switcher, Admin Icon, Menu Toggle) -->
-        <div class="container mx-auto flex justify-between items-center">
-            
-            <!-- Logo/Title block -->
-            <div class="flex items-center">
-                 <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
-                     alt="Nirmal Library Logo" 
-                     class="nirmal-logo-header border-white ml-3">
-                <div>
-                    <h1 id="header-title" class="text-3xl md:text-4xl font-bold">نرمل جيوتاڻي لائبريري، ٿرڙي محبت</h1>
-                    <p id="header-subtitle" class="text-sm text-amber-300 mt-1">نِرمل جيوتاڻي لائبريري، ٿرڙي محبت</p>
-                </div>
-            </div>
-
-            <!-- Right Side Controls: Language Toggle & Admin Icon & Menu Button (Always visible on mobile) -->
-            <div class="flex items-center space-x-3 space-x-reverse">
-                
-                <!-- Admin Login Button/Icon (Visible on all screens) -->
-                <a href="librarian_admin.html" 
-                   class="bg-red-500 hover:bg-red-600 transition-colors p-2 rounded-full shadow-lg text-white group"
-                   title="لائبريرين جي رسائي">
-                   <!-- Icon representing admin/login (Lock/Key) -->
-                   <svg class="w-6 h-6 transform group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                   </svg>
-                </a>
-                
-                <!-- Language Toggle (Always visible, responsive) -->
-                <button id="lang-toggle-btn" onclick="window.toggleLanguage()" 
-                        class="bg-amber-500 text-white text-sm font-semibold py-2 px-3 rounded-full shadow-lg hover:bg-amber-600 transition-colors whitespace-nowrap">
-                    English
-                </button>
-                
-                <!-- Mobile Menu Toggle -->
-                <button id="mobile-menu-button" class="md:hidden text-2xl p-1">☰</button>
-            </div>
-        </div>
-        
-        <!-- Desktop Navigation Links (Only visible on MD screens and above) -->
-        <nav class="hidden md:flex container mx-auto space-x-reverse space-x-6 items-center justify-end mt-2 border-t border-teal-700 pt-2">
-            <a id="nav-apply" href="membership_apply.html" class="hover:text-amber-300 font-bold text-green-300">درخواست فارم</a>
-            <a id="nav-directory" href="members_directory.html" class="hover:text-amber-300">ممبرز جي ڊائريڪٽري</a>
-            <a id="nav-inventory" href="index.html#inventory" class="hover:text-amber-300">ڪتابن جي فهرست</a>
-            <a id="nav-feedback" href="index.html#feedback" class="hover:text-amber-300">راءِ</a>
-            <a id="nav-about" href="index.html#about" class="hover:text-amber-300">اسان جي باري ۾</a>
-        </nav>
-
-        <!-- Mobile Navigation (Hidden until toggled, Admin link remains for accessibility) -->
-        <nav id="mobile-menu" class="md:hidden hidden bg-teal-700 text-center mt-2">
-            <a id="mobile-nav-apply" href="membership_apply.html" class="block py-2 font-bold text-green-300 hover:bg-teal-600">درخواست فارم</a>
-            <a id="mobile-nav-directory" href="members_directory.html" class="block py-2 hover:bg-teal-600">ممبرز جي ڊائريڪٽري</a>
-            <a id="mobile-nav-inventory" href="index.html#inventory" class="block py-2 hover:bg-teal-600">ڪتابن جي فهرست</a>
-            <a id="mobile-nav-feedback" href="index.html#feedback" class="block py-2 hover:bg-teal-600">راءِ</a>
-            <a id="mobile-nav-about" href="index.html#about" class="block py-2 hover:bg-teal-600">اسان جي باري ۾</a>
-            <a id="mobile-nav-admin" href="librarian_admin.html" class="block py-2 text-red-300 font-bold hover:bg-teal-600">لائبريرين جي رسائي</a>
-        </nav>
-    </header>
+<body class="bg-stone-50 text-gray-800 p-4 md:p-8">
 
     <div class="container mx-auto max-w-2xl">
-        <header class="text-center mb-8 pt-4 pb-4 border-b-2 border-teal-500">
-            <a href="index.html" id="back-to-portal-link" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
+        <header class="text-center mb-8 pb-4 border-b-2 border-teal-500">
+            <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
             
+            <!-- UPDATED: Header with Nirmal Image and Raw URL -->
             <div class="flex items-center justify-center">
-                <h1 id="form-header-title" class="text-3xl font-bold text-teal-700">ممبرشپ درخواست فارم</h1>
+                 <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
+                     alt="Nirmal Library Logo" 
+                     class="nirmal-logo-header border-teal-600">
+                <div>
+                    <h1 class="text-3xl font-bold text-teal-700">ممبرشپ درخواست فارم</h1>
+                    <p class="mt-1 text-gray-600 text-sm">نِرمل جيوتاڻي لائبريري، ٿرڙي محبت</p>
+                </div>
             </div>
             
-            <p class="mt-2 font-semibold text-amber-600">
-                <span id="fee-display">ممبرشپ فيس: مفت (Free)</span> - <span id="duration-display">مدي پڄاڻي: 6 مھينا</span>
-            </p>
+            <p class="mt-2 font-semibold text-amber-600">ممبرشپ فيس: مفت (Free) - مدي پڄاڻي: 6 مھينا</p>
         </header>
 
         <!-- Success Message -->
         <div id="success-message" class="hidden bg-green-100 p-6 rounded-lg shadow-xl border-t-4 border-green-500 text-center">
-            <p id="success-header" class="text-2xl font-bold text-green-700 mb-4">توهان جي درخواست ڪاميابي سان موصول ٿي چڪي آهي!</p>
-            <p id="success-text" class="text-lg text-gray-700 mb-6">توهان جي درخواست جائزي هيٺ آهي. هيٺ ڏنل ID محفوظ ڪريو ته جيئن توهان ان جو اسٽيٽس ٽريڪ ڪري سگهو.</p>
+            <p class="text-2xl font-bold text-green-700 mb-4">توهان جي درخواست ڪاميابي سان موصول ٿي چڪي آهي!</p>
+            <p class="text-lg text-gray-700 mb-6">توهان جي درخواست جائزي هيٺ آهي. هيٺ ڏنل ID محفوظ ڪريو ته جيئن توهان ان جو اسٽيٽس ٽريڪ ڪري سگهو.</p>
             
             <div class="mb-6">
-                <p id="id-label" class="text-lg font-bold text-teal-800 mb-2">ميمبرشپ ID نمبر:</p>
+                <p class="text-lg font-bold text-teal-800 mb-2">ميمبرشپ ID نمبر:</p>
                 <div class="bg-white p-3 rounded-md inline-block border-2 border-green-400 w-full md:w-auto">
                     <strong id="display-card-id" class="latin text-2xl font-mono text-gray-900 tracking-wider">...</strong>
                 </div>
@@ -588,8 +348,8 @@
             </div>
             
             <div class="mt-6 border-t pt-4 border-gray-200">
-                <p id="track-status-text" class="text-sm text-gray-500 mb-3">اسٽيٽس چيڪ ڪرڻ لاءِ هن لنک تي ڪلڪ ڪريو:</p>
-                <a href="membership_track.html" id="track-btn" class="bg-amber-600 text-white font-bold py-3 px-6 rounded-md hover:bg-amber-700 transition-colors">
+                <p class="text-sm text-gray-500 mb-3">اسٽيٽس چيڪ ڪرڻ لاءِ هن لنک تي ڪلڪ ڪريو:</p>
+                <a href="membership_track.html" class="bg-amber-600 text-white font-bold py-3 px-6 rounded-md hover:bg-amber-700 transition-colors">
                     درخواست جي حيثيت ٽريڪ ڪريو
                 </a>
             </div>
@@ -597,63 +357,63 @@
 
         <!-- Application Form -->
         <div id="application-form" class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500">
-            <h2 id="form-section-title" class="text-2xl font-bold mb-6 text-center text-teal-700">شاگرد جي ذاتي معلومات</h2>
+            <h2 class="text-2xl font-bold mb-6 text-center text-teal-700">شاگرد جي ذاتي معلومات</h2>
             
             <!-- Photo/Selfie Section -->
             <div class="mb-6 border p-4 rounded-lg text-center bg-teal-50">
-                <h3 id="photo-header" class="font-semibold mb-3 text-lg">پاسپورٽ سائيز تصوير (Passport Size Photo)</h3>
+                <h3 class="font-semibold mb-3 text-lg">پاسپورٽ سائيز تصوير (Passport Size Photo)</h3>
                 <img id="photo-preview" src="https://placehold.co/150x150/e0f2f1/115e59?text=Photo" alt="Photo Preview" class="mx-auto mb-4">
                 
                 <input type="file" accept="image/*" id="photo-upload" onchange="window.handlePhotoChange(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
                 
-                <p id="photo-upload-hint" class="text-xs mt-2 text-gray-500">مھرباني ڪري گيلري مان تصوير چونڊيو. (ڪئميرا بند آھي). سائيز حد: 3MB (تصوير فائر اسٽور ۾ محفوظ ڪرڻ لاءِ خودڪار طريقي سان گھٽائي ويندي.)</p>
+                <p class="text-xs mt-2 text-gray-500">مھرباني ڪري گيلري مان تصوير چونڊيو. (ڪئميرا بند آھي). سائيز حد: 3MB (تصوير فائر اسٽور ۾ محفوظ ڪرڻ لاءِ خودڪار طريقي سان گھٽائي ويندي.)</p>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="mb-4">
-                    <label for="name" id="label-name" class="block text-right mb-2 font-medium">پورو نالو (Name)</label>
+                    <label for="name" class="block text-right mb-2 font-medium">پورو نالو (Name)</label>
                     <input type="text" id="name" class="input-field text-right-aligned" placeholder="شاگرد جو پورو نالو">
                 </div>
                 <div class="mb-4">
-                    <label for="fatherName" id="label-fatherName" class="block text-right mb-2 font-medium">پيءُ جو نالو (Father Name)</label>
+                    <label for="fatherName" class="block text-right mb-2 font-medium">پيءُ جو نالو (Father Name)</label>
                     <input type="text" id="fatherName" class="input-field text-right-aligned" placeholder="پيءُ جو نالو">
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div class="mb-4">
-                    <label for="gender" id="label-gender" class="block text-right mb-2 font-medium">جنس (Gender)</label>
+                    <label for="gender" class="block text-right mb-2 font-medium">جنس (Gender)</label>
                     <select id="gender" class="input-field bg-white">
-                        <option value="placeholder" id="gender-placeholder" disabled selected>جنس چونڊيو</option>
-                        <option value="مرد" id="option-male">مرد (Male)</option>
-                        <option value="عورت" id="option-female">عورت (Female)</option>
-                        <option value="ٻيا" id="option-other">ٻيا (Other)</option>
+                        <option value="placeholder" disabled selected>جنس چونڊيو</option>
+                        <option value="مرد">مرد (Male)</option>
+                        <option value="عورت">عورت (Female)</option>
+                        <option value="ٻيا">ٻيا (Other)</option>
                     </select>
                 </div>
                 <div class="mb-4">
-                    <label for="dob" id="label-dob" class="block text-right mb-2 font-medium">پيدائش جي تاريخ (Date of Birth)</label>
+                    <label for="dob" class="block text-right mb-2 font-medium">پيدائش جي تاريخ (Date of Birth)</label>
                     <input type="date" id="dob" class="input-field latin">
                 </div>
             </div>
 
             <div class="mb-4">
-                <label for="occupation" id="label-occupation" class="block text-right mb-2 font-medium">پيشو / تعليم (Occupation)</label>
+                <label for="occupation" class="block text-right mb-2 font-medium">پيشو / تعليم (Occupation)</label>
                 <input type="text" id="occupation" class="input-field text-right-aligned" placeholder="مثال: شاگرد، ڪاليج شاگرد، استاد، وغيره">
             </div>
 
             <div class="mb-4">
-                <label for="address" id="label-address" class="block text-right mb-2 font-medium">مڪمل ايڊريس (Address)</label>
+                <label for="address" class="block text-right mb-2 font-medium">مڪمل ايڊريس (Address)</label>
                 <textarea id="address" rows="2" class="input-field text-right-aligned" placeholder="گھر جو پتو ۽ شھر/ڳوٺ"></textarea>
             </div>
             
              <div class="mb-6">
-                <label for="contact" id="label-contact" class="block text-right mb-2 font-medium">رابطو نمبر (Contact Number)</label>
+                <label for="contact" class="block text-right mb-2 font-medium">رابطو نمبر (Contact Number)</label>
                 <input type="text" id="contact" class="input-field latin" placeholder="مثال: 03001234567">
             </div>
             
             <div id="status" class="text-center mb-4 font-semibold text-sm text-amber-500">ڊيٽابيس لوڊ ٿي رهيو آهي...</div>
 
-            <button onclick="window.submitMembership()" id="submit-btn" class="w-full bg-teal-600 text-white font-bold py-3 rounded-md hover:bg-teal-700 transition-colors">درخواست جمع ڪريو</button>
+            <button onclick="window.submitMembership()" class="w-full bg-teal-600 text-white font-bold py-3 rounded-md hover:bg-teal-700 transition-colors">درخواست جمع ڪريو</button>
         </div>
         
     </div>
