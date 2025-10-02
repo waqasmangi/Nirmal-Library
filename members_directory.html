@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لائبريري ميمبرز جي ڊائريڪٽري</title>
+    <!-- NEW: Favicon (Updated URL) -->
+    <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" type="image/png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Custom Font: MB Lateefi.otf -->
     <style>
+        /* Custom Font */
         @font-face {
             font-family: 'MBLateefi';
             src: url('MB Lateefi.otf') format('opentype');
@@ -23,12 +26,23 @@
         .text-right-aligned {
              text-align: right;
         }
+        /* Consolidated Logo Style - FIX APPLIED */
+        .nirmal-logo-header {
+            width: 55px;
+            height: 55px; 
+            object-fit: contain; 
+            margin-left: 1rem;
+            border-radius: 9999px;
+            background-color: #fcd34d;
+            padding: 2px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
         .member-photo {
             width: 80px;
             height: 80px;
             object-fit: cover;
             border-radius: 50%;
-            border: 3px solid #fcd34d; /* Amber */
+            border: 3px solid #fcd34d;
         }
     </style>
 
@@ -36,7 +50,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // REMOVED orderBy from imports
         import { getFirestore, collection, query, onSnapshot, where, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         setLogLevel('Debug');
@@ -56,25 +69,20 @@
         let db;
         let auth;
         
-        // Helper function to format date
         const formatDate = (timestamp) => {
             if (!timestamp) return 'نامعلوم';
             const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
             return date.toLocaleDateString('sd-PK');
         };
 
-        // Function to sort members by approvedDate (newest first)
         function sortMembers(members) {
              return members.sort((a, b) => {
                  const dateA = a.approvedDate ? a.approvedDate.toDate().getTime() : 0;
                  const dateB = b.approvedDate ? b.approvedDate.toDate().getTime() : 0;
-                 // Sort descending (newest member first)
                  return dateB - dateA; 
              });
         }
 
-
-        // --- Firebase Initialization and Auth ---
         async function initFirebaseAndAuth() {
             try {
                 const app = initializeApp(firebaseConfig);
@@ -90,7 +98,6 @@
 
         function listenForApprovedMembers(db, appId) {
             const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
-            // CRITICAL FIX: Only include the WHERE clause. Removed the problematic ORDER BY clause.
             const q = query(membersRef, where('status', '==', 'Approved')); 
             
             onSnapshot(q, (snapshot) => {
@@ -102,13 +109,9 @@
                      return;
                 }
 
-                // 1. Map data
                 let approvedMembers = snapshot.docs.map(doc => doc.data());
-
-                // 2. Sort data in JavaScript
                 approvedMembers = sortMembers(approvedMembers);
 
-                // 3. Render sorted data
                 approvedMembers.forEach(data => {
                     const approvedDate = formatDate(data.approvedDate || data.memberSince);
 
@@ -138,12 +141,21 @@
     <div class="container mx-auto max-w-4xl">
         <header class="text-center mb-10 pb-4 border-b-2 border-teal-500">
             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
-            <h1 class="text-4xl font-bold text-teal-700">نِرمل جيوتاڻي لائبريري ميمبرز جي ڊائريڪٽري</h1>
-            <p class="mt-2 text-gray-600">آزاد منگي فائونڊيشن | منظور ٿيل لائبريري ميمبرز جي فهرست.</p>
+            
+             <!-- UPDATED: Header with Nirmal Image and Raw URL -->
+            <div class="flex items-center justify-center">
+                 <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
+                     alt="Nirmal Library Logo" 
+                     class="nirmal-logo-header border-teal-600">
+                <div>
+                    <h1 class="text-4xl font-bold text-teal-700">نِرمل جيوتاڻي لائبريري ميمبرز جي ڊائريڪٽري</h1>
+                    <p class="mt-2 text-gray-600">آزاد منگي فائونڊيشن | منظور ٿيل لائبريري ميمبرز جي فهرست.</p>
+                </div>
+            </div>
+            
         </header>
 
         <div id="directory-list" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-            <!-- Approved member cards will be loaded here -->
             <p class="text-center text-gray-500 col-span-full">لوڊ ٿي رهيو آهي...</p>
         </div>
         

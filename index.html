@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نرمل جيوتاڻي لائبريري، ٿرڙي محبت</title>
-    <!-- NEW: Favicon -->
-    <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/7962aea5f7f31320cec9566bb5ba8b9a0c3f83b/1000359794-removebg-preview.png" type="image/png">
+    <!-- NEW: Favicon (Updated URL) -->
+    <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" type="image/png">
     
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Custom Font: MB Lateefi.otf -->
     <style>
+        /* Custom Font */
         @font-face {
             font-family: 'MBLateefi';
             src: url('MB Lateefi.otf') format('opentype');
@@ -23,39 +23,33 @@
         }
         .latin {
             font-family: Inter, sans-serif;
-            text-align: left; /* Keep Latin text aligned left */
+            text-align: left;
         }
         .text-right-aligned {
-             text-align: right; /* Specific class for right alignment in rtl context */
-        }
-        .speaker-icon {
-            cursor: pointer;
-            color: #115e59; /* Teal-700 */
-            margin-right: 0.5rem;
+             text-align: right;
         }
         .max-h-96 {
             max-height: 24rem;
         }
-        /* New: Responsive Placeholder Styling for better mobile visibility */
-        .responsive-placeholder::placeholder {
-            font-size: 0.8rem; /* Default small size on mobile */
+        /* Consolidated Logo Style - FIX APPLIED */
+        .nirmal-logo-header {
+            width: 55px;
+            height: 55px; 
+            object-fit: contain; 
+            border-radius: 9999px; 
+            background-color: #fcd34d;
+            padding: 2px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        @media (min-width: 640px) {
-            .responsive-placeholder::placeholder {
-                font-size: 1rem; /* Larger size on desktop */
-            }
-        }
-        /* Star Rating Styles (NEW) */
+        /* Star Rating Styles */
         .star-rating {
             display: flex;
             justify-content: center;
-            direction: rtl; /* For displaying stars in RTL order */
+            direction: rtl; 
         }
-        .star-rating input {
-            display: none;
-        }
+        .star-rating input { display: none; }
         .star-rating label {
-            font-size: 2.5rem; /* Large touch target */
+            font-size: 2.5rem;
             color: #ccc;
             cursor: pointer;
             padding: 0 0.1rem;
@@ -64,18 +58,7 @@
         .star-rating input:checked ~ label,
         .star-rating label:hover,
         .star-rating label:hover ~ label {
-            color: #fbbf24; /* Amber-400 */
-        }
-        /* FIX: Ensure the image displays fully */
-        .nirmal-logo-header {
-            width: 55px;
-            height: 55px; 
-            object-fit: contain; /* CRITICAL FIX: Use object-contain */
-            margin-left: 0.75rem;
-            border-radius: 9999px; /* Full circle */
-            background-color: #fcd34d; /* Amber */
-            padding: 2px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            color: #fbbf24;
         }
     </style>
     
@@ -87,9 +70,7 @@
         
         setLogLevel('Debug');
         
-        // =========================================================================
-        // !!! CRITICAL: FIREBASE CONFIGURATION SETUP (UPDATED WITH YOUR KEYS) !!!
-        // =========================================================================
+        // --- Shared Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyBxgOhd3y5L7Xl_IzWkuJ02PBlswR9lt5k",
             authDomain: "nirmal-library.firebaseapp.com",
@@ -99,40 +80,24 @@
             appId: "1:157338670869:web:f44c9b0a3d9e9ebedcfb1c"
         };
         const appId = firebaseConfig.projectId;
-        // =========================================================================
+        // --- END Shared Firebase Config ---
 
         let userId = ''; 
         let db;
         let auth;
         let bookInventoryData = []; 
-        
-        // --- NEW: Star Rating Logic ---
-        let currentRating = 5; // Default rating
-        // --- FORM SPREE ENDPOINT FOR EMAIL NOTIFICATION ---
-        const FORMSPREE_URL = "https://formspree.io/f/mqayqjpz"; // YOUR PROVIDED ENDPOINT
+        const FORMSPREE_URL = "https://formspree.io/f/mqayqjpz";
+        let currentRating = 5;
 
         window.setRating = function(rating) {
             currentRating = rating;
-            // Visually update the displayed stars if needed, although the CSS handles the checked state
-            console.log("Selected Rating:", currentRating);
         };
         
         window.toggleLike = async function(docId, currentLikes) {
-            if (!userId) {
-                // Simplified error handling
-                console.error("System not ready or authorized.");
-                return;
-            }
-            
+            if (!userId) return;
             const reviewRef = doc(db, `artifacts/${appId}/public/data/reviews`, docId);
-            
-            try {
-                await updateDoc(reviewRef, {
-                    likes: currentLikes + 1
-                });
-            } catch (e) {
-                console.error("Error updating document (Like): ", e);
-            }
+            try { await updateDoc(reviewRef, { likes: currentLikes + 1 }); } 
+            catch (e) { console.error("Error updating document (Like): ", e); }
         };
         
         window.shareOnWhatsApp = function(message) {
@@ -147,23 +112,17 @@
             window.shareOnWhatsApp(message);
         };
         
-        // --- Firebase Initialization and Auth (Simplified) ---
         async function initFirebaseAndAuth() {
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                
                 await signInAnonymously(auth);
                 userId = auth.currentUser?.uid || crypto.randomUUID();
-                
-                // Start listeners
                 listenForReviews(db, appId);
                 listenForBookInventory(db, appId);
-
             } catch (error) {
                 console.error("Firebase Auth Error:", error);
-                userId = crypto.randomUUID();
                 const statusElement = document.getElementById('review-status');
                 if(statusElement) {
                      statusElement.textContent = `ڊيٽابيس لوڊ نه ٿي سگھيو. (غلطي: ${error.code}).`;
@@ -180,16 +139,12 @@
              return collection(db, `artifacts/${appId}/public/data/book_inventory`);
         }
         
-        // --- Book Inventory Logic ---
         function listenForBookInventory(db, appId) {
             const booksRef = getBookInventoryCollectionRef(db, appId);
             const q = query(booksRef, orderBy('timestamp', 'desc')); 
             
             onSnapshot(q, (snapshot) => {
-                bookInventoryData = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
+                bookInventoryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 window.filterInventory(); 
             }, (error) => {
                  console.error("Error listening to book inventory: ", error);
@@ -216,7 +171,6 @@
             filteredData.forEach((data, index) => {
                 const row = document.createElement('tr');
                 row.className = index % 2 === 0 ? 'bg-white' : 'bg-stone-50';
-                
                 row.innerHTML = `
                     <td class="p-4">${index + 1}</td>
                     <td class="p-4 font-semibold text-right-aligned">${data.title}</td>
@@ -226,13 +180,11 @@
                 list.appendChild(row);
             });
         };
-        // --- End Book Inventory Logic ---
         
-        // --- Review Submission Logic (Refactored for dual submission) ---
         window.submitReview = async function() {
-            const rating = currentRating; // Use the value from the new star rating
+            const rating = currentRating;
             const text = document.getElementById('review-text').value.trim();
-            const name = document.getElementById('reviewer-name').value.trim() || 'اڻڄاتل'; // NEW: Get name
+            const name = document.getElementById('reviewer-name').value.trim() || 'اڻڄاتل';
             const reviewStatus = document.getElementById('review-status');
             
             if (!rating || !text) { reviewStatus.textContent = 'مھرباني ڪري ريٽنگ ۽ راءِ ٻئي ڏيو.'; return; }
@@ -242,33 +194,21 @@
             reviewStatus.classList.add('text-amber-600');
             
             try {
-                // 1. Save to Firestore (for persistent display)
                 const firestorePromise = addDoc(getReviewsCollectionRef(db, appId), {
                     userName: name, rating: parseInt(rating, 10), text: text, likes: 0, timestamp: serverTimestamp()
                 });
 
-                // 2. Submit to Formspree (for immediate email notification)
                 const formData = new FormData();
                 formData.append("Reviewer_Name", name);
                 formData.append("Rating", `${rating} Stars`);
                 formData.append("Review_Text", text);
-                formData.append("Source_Page", window.location.href);
 
                 const formspreePromise = fetch(FORMSPREE_URL, {
                     method: 'POST',
                     body: formData,
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                }).then(response => {
-                    if (response.ok) {
-                        console.log("Formspree notification sent successfully.");
-                    } else {
-                        console.error("Formspree notification failed.");
-                    }
-                }).catch(error => console.error("Error sending Formspree notification:", error));
+                    headers: { 'Accept': 'application/json' }
+                }).catch(error => console.error("Formspree notification error:", error));
                 
-                // Wait for both operations to complete (although Formspree failure won't stop Firestore save)
                 await Promise.allSettled([firestorePromise, formspreePromise]);
                 
                 const safeText = text.replace(/'/g, "\\'").replace(/"/g, '\\"');
@@ -284,19 +224,17 @@
                 
                 document.getElementById('review-text').value = '';
                 document.getElementById('reviewer-name').value = '';
-                // Reset star rating visual
                 document.getElementById('star-5').checked = true;
                 currentRating = 5; 
 
             } catch (e) {
                 console.error("Error adding document: ", e);
-                reviewStatus.textContent = `راءِ موڪلڻ ۾ غلطي ٿي. (غلطي: Permissions Denied يا Firebase ڪنيڪشن). مھرباني ڪري چيڪ ڪريو.`;
+                reviewStatus.textContent = `راءِ موڪلڻ ۾ غلطي ٿي: ${e.message}`;
                 reviewStatus.classList.remove('text-green-600', 'text-amber-600');
                 reviewStatus.classList.add('text-red-600');
             }
         };
         
-        // --- Review Display Logic (Updated 'رائون' to 'رايہ') ---
         function listenForReviews(db, appId) {
             const reviewsRef = getReviewsCollectionRef(db, appId);
             const q = query(reviewsRef, orderBy('timestamp', 'desc')); 
@@ -304,14 +242,12 @@
             onSnapshot(q, (snapshot) => {
                 const reviewsList = document.getElementById('reviews-list');
                 reviewsList.innerHTML = '';
-                
                 let totalRating = 0;
                 let reviewCount = 0;
 
                 snapshot.docs.forEach(doc => {
                     const data = doc.data();
                     const reviewElement = document.createElement('div');
-                    
                     const stars = '★'.repeat(data.rating) + '☆'.repeat(5 - data.rating);
                     const userNameDisplay = data.userName || "اڻڄاتل";
                     const likesCount = data.likes || 0;
@@ -330,51 +266,34 @@
                         </div>
                     `;
                     reviewsList.appendChild(reviewElement);
-
                     totalRating += data.rating;
                     reviewCount++;
                 });
 
                 const avgRating = reviewCount > 0 ? (totalRating / reviewCount).toFixed(1) : 0;
-                
-                // CRITICAL CHANGE 1: Display 'توھاڻ جون تجويزون'
                 document.getElementById('average-rating').textContent = `توھاڻ جون تجويزون`; 
-                
-                // CRITICAL CHANGE 2: Updated the count text from 'رائون' to 'رايہ' in JS
                 const secondaryStatus = document.getElementById('review-status-details');
-                if (secondaryStatus) {
-                    secondaryStatus.textContent = `(${avgRating} ستارا - ${reviewCount} رايہ)`;
-                }
+                if (secondaryStatus) secondaryStatus.textContent = `(${avgRating} ستارا - ${reviewCount} رايہ)`;
                 
-                if (reviewCount === 0) {
-                    reviewsList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪا رايہ ناهي. پھريون رايہ شامل ڪريو!</p>';
-                }
+                if (reviewCount === 0) reviewsList.innerHTML = '<p class="text-center text-gray-500 mt-4">هتي اڃا تائين ڪا رايہ ناهي. پھريون رايہ شامل ڪريو!</p>';
             }, (error) => {
                 console.error("Error listening to reviews: ", error);
-                document.getElementById('reviews-list').innerHTML = `<p class="text-center text-red-600 mt-4">رايہ لوڊ نه ٿي سگھيو (انٽرنيٽ/رول چيڪ ڪريو): ${error.message}</p>`;
+                document.getElementById('reviews-list').innerHTML = `<p class="text-center text-red-600 mt-4">رايہ لوڊ نه ٿي سگھيو: ${error.message}</p>`;
             });
         }
         
-        // --- Structural Logic Refactor ---
         function startAppLogic() {
             const mobileMenuButton = document.getElementById('mobile-menu-button');
             const mobileMenu = document.getElementById('mobile-menu');
-            mobileMenuButton.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
-            });
+            mobileMenuButton.addEventListener('click', () => { mobileMenu.classList.toggle('hidden'); });
 
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 anchor.addEventListener('click', function (e) {
                     e.preventDefault();
-                    document.querySelector(this.getAttribute('href')).scrollIntoView({
-                        behavior: 'smooth'
-                    });
-                    if (!mobileMenu.classList.contains('hidden')) {
-                         mobileMenu.classList.add('hidden');
-                    }
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+                    if (!mobileMenu.classList.contains('hidden')) mobileMenu.classList.add('hidden');
                 });
             });
-
             initFirebaseAndAuth();
         }
 
@@ -386,8 +305,8 @@
     <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
             <div class="flex items-center justify-center md:justify-end text-center md:text-right mb-2 md:mb-0">
-                <!-- UPDATED: Nirmal Logo/Icon with new class -->
-                <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/7962aea5f7f31320cec9566bb5ba8b9a0c3f83b/1000359794-removebg-preview.png" 
+                <!-- UPDATED: Nirmal Logo/Icon with new class & Raw URL -->
+                <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
                      alt="Nirmal Library Logo" 
                      class="nirmal-logo-header border-white">
                 <div>
@@ -396,7 +315,6 @@
                 </div>
             </div>
             <nav class="hidden md:flex space-x-reverse space-x-6">
-                <!-- NEW LINKS ADDED -->
                 <a href="membership_apply.html" class="hover:text-amber-300 font-bold text-green-300">ممبرشپ لاءِ درخواست ڏيو</a>
                 <a href="members_directory.html" class="hover:text-amber-300">ممبرز جي ڊائريڪٽري</a>
                 <a href="#inventory" class="hover:text-amber-300">ڪتابن جي فهرست</a>
@@ -405,10 +323,8 @@
             <button id="mobile-menu-button" class="md:hidden text-2xl">☰</button>
         </div>
         <nav id="mobile-menu" class="md:hidden hidden bg-teal-700 text-center mt-2">
-            <!-- NEW LINKS ADDED -->
             <a href="membership_apply.html" class="block py-2 font-bold text-green-300 hover:bg-teal-600">ممبرشپ لاءِ درخواست ڏيو</a>
             <a href="members_directory.html" class="block py-2 hover:bg-teal-600">ممبرز جي ڊائريڪٽري</a>
-            
             <a href="#inventory" class="block py-2 hover:bg-teal-600">ڪتابن جي فهرست</a>
             <a href="#feedback" class="block py-2 hover:bg-teal-600">راءِ</a>
             <a href="#about" class="block py-2 hover:bg-teal-600">اسان جي باري ۾</a>
@@ -418,14 +334,13 @@
 
     <main class="container mx-auto p-4 md:p-8">
 
-        <!-- UPDATED: Simple Android App Download Banner -->
+        <!-- UPDATED: Simple Android App Download Banner (New Link) -->
         <div class="bg-green-600 text-white p-4 md:p-6 shadow-2xl mb-10 max-w-4xl mx-auto rounded-lg border-b-8 border-lime-300 flex flex-col items-center justify-center text-center transform transition duration-500 hover:scale-[1.01]">
             <h2 class="text-xl md:text-3xl font-extrabold mb-3 text-center">
                 لائبريري جي اينڊرائيڊ ايپ ڊائونلوڊ ڪريو! 📲
             </h2>
             <p class="text-sm md:text-lg mb-4">هِن پورٽل جي آسان ۽ تيز رسائي لاءِ اسان جي موبائيل ايپ ڊائونلوڊ ڪريو.</p>
             
-            <!-- UPDATED: New APK Link -->
             <a href="https://drive.google.com/uc?export=download&id=1owjskeM2S3nbkbrZIV6z4JjOq-AU-AWW" 
                target="_blank" 
                class="inline-flex items-center justify-center bg-amber-400 text-teal-900 font-bold py-3 px-8 rounded-full shadow-lg hover:bg-amber-500 transition-colors text-lg w-full sm:w-auto">
@@ -443,22 +358,19 @@
                 <a href="membership_apply.html" class="bg-green-500 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-600 transition-colors">
                     <span class="text-lg">ممبرشپ فارم ڀريو</span>
                 </a>
-                <!-- Updated Button Text -->
                 <a href="membership_track.html" class="bg-amber-500 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-amber-600 transition-colors">
                      <span class="text-lg">ميمبرشب اسٽيٽس چيڪ ڪريو</span>
                 </a>
             </div>
         </div>
         
-
-
-        <!-- Library Inventory Section (TOP PRIORITY) -->
+        <!-- Library Inventory Section -->
         <section id="inventory" class="py-12 bg-stone-100 rounded-lg p-6 mb-12">
             <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">لائبريري ڪتابن جي فهرست (Book Inventory)</h2>
             <p class="text-center text-lg text-gray-600 mb-8">ھي لائبريريءَ ۾ موجود ڪتابن جي لائيو فهرست آھي، جنھن کي لائبريرين طرفان شامل ڪيو ويو آھي. ھتي سرچ ڪريو ته ڪھڙا ڪتاب اسان وٽ موجود آھن.</p>
             
             <div class="max-w-4xl mx-auto mb-4">
-                 <input type="text" id="inventory-search" onkeyup="window.filterInventory()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors text-right-aligned responsive-placeholder" placeholder="ڪتاب جو نالو، ليکڪ، يا ڪيٽيگري ڳوليو (Search by Title, Author, or Category)...">
+                 <input type="text" id="inventory-search" onkeyup="window.filterInventory()" class="w-full p-3 border-2 border-amber-300 rounded-lg focus:border-teal-500 transition-colors text-right-aligned" placeholder="ڪتاب جو نالو، ليکڪ، يا ڪيٽيگري ڳوليو (Search by Title, Author, or Category)...">
             </div>
 
             <div class="overflow-x-auto max-w-4xl mx-auto bg-white rounded-lg shadow-xl border-t-4 border-amber-500 max-h-96 overflow-y-auto">
@@ -479,21 +391,18 @@
         </section>
 
 
-        <!-- Feedback Section (Updated Heading & Form) -->
+        <!-- Feedback Section -->
         <section id="feedback" class="py-12 bg-teal-50 rounded-lg p-6 mb-12">
-            <!-- Updated Heading -->
             <h2 class="text-3xl font-bold text-center mb-6 text-teal-700">ويب سائيٽ جي باري ۾ پنھنجي قيمتي راءِ ڏيو</h2>
             <p class="text-center text-lg text-gray-600 mb-8">ويب سائيٽ جي باري ۾ پنھنجي راءِ ڏيو. توهان جي راءِ سڀني شاگردن کي نظر ايندي.</p>
 
-            <!-- Submission Form (Refactored) -->
+            <!-- Submission Form -->
             <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 max-w-3xl mx-auto mb-10 text-right-aligned">
                 <h3 class="text-2xl font-semibold mb-4 text-center">پنھنجي راءِ ڏيو</h3>
                 
-                <!-- NEW: Name Field -->
                 <label for="reviewer-name" class="block text-right mb-4 font-medium">پنهنجو نالو (Optional)</label>
-                <input type="text" id="reviewer-name" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50 text-right-aligned responsive-placeholder" placeholder="توهان جو نالو (مثال: علي احمد)">
+                <input type="text" id="reviewer-name" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-stone-50 text-right-aligned" placeholder="توهان جو نالو (مثال: علي احمد)">
                 
-                <!-- NEW: Star Rating Control -->
                 <label class="block text-right mb-2 font-medium">درجه بندي (1 کان 5 ستارا)</label>
                 <div class="star-rating mb-6">
                     <input type="radio" id="star-5" name="rating" value="5" checked onclick="window.setRating(5)" /><label for="star-5" title="5 ستارا">★</label>
@@ -504,7 +413,7 @@
                 </div>
 
                 <label for="review-text" class="block text-right mb-2 font-medium">توهان جي راءِ (Opinion)</label>
-                <textarea id="review-text" rows="4" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned responsive-placeholder" placeholder="هتي لکو ته توهان کي ھي ويبسائيٽ ڪيئن لڳي..."></textarea>
+                <textarea id="review-text" rows="4" class="w-full p-2 border border-gray-300 rounded-md mb-4 bg-white text-right-aligned" placeholder="هتي لکو ته توهان کي ھي ويبسائيٽ ڪيئن لڳي..."></textarea>
                 
                 <div id="review-status" class="text-center mb-4 font-semibold text-sm"></div>
 
@@ -513,41 +422,33 @@
 
             <!-- Live Reviews Display -->
             <div class="max-w-3xl mx-auto">
-                <!-- CRITICAL CHANGE 1: Changed "اوسط درجه بندي" to "توھاڻ جون تجويزون" -->
                 <h3 class="text-2xl font-semibold mb-4 text-center text-teal-700" id="average-rating">توھاڻ جون تجويزون</h3>
-                <!-- CRITICAL CHANGE 2: Updated the count text from 'رائون' to 'رايہ' in JS -->
                 <p id="review-status-details" class="text-center text-sm text-gray-500 mb-4"></p> 
 
                 <div id="reviews-list" class="max-h-96 overflow-y-auto p-2 bg-white rounded-lg shadow-inner">
-                    <!-- Reviews will be loaded here by Firestore -->
                     <p class="text-center text-gray-500">لوڊ ٿي رهيو آهي...</p>
                 </div>
             </div>
         </section>
         
-        <!-- About Section (Updated Content & Alignment) -->
+        <!-- About Section -->
         <section id="about" class="py-12 bg-teal-800 text-white rounded-lg p-6">
             <div class="text-center">
                 <h2 class="text-3xl font-bold mb-4">اسان جي باري ۾</h2>
                 <div class="max-w-3xl mx-auto">
-                    <!-- Text alignment centered -->
                     <div class="mb-8 text-center">
                         <h3 class="text-2xl font-semibold text-amber-300">پيشڪش</h3>
-                        <!-- NEW TEXT ADDED -->
                         <p class="mt-4 text-center leading-relaxed">
                             ھي نرمل جيوتاڻي لائبريري جو آنلائن پورٽل آھي، جتي اوھان لائبريري ۾ موجود ڪتابن جي فھرست چيڪ ڪري سگھو ٿا، لائبريري جي ميمبرشب اپلائي ڪري سگھو ٿا ۽ ھن کي وڌيڪ بھتر بنائڻ لاءِ راءِ بہ ڏئي سگھو ٿا.
                         </p>
                         <div class="mt-4">
                             <p class="font-semibold">جن جي ڪوششن سان ھي لائبريري قائم ٿي:</p>
-                            <!-- Cleaned Name -->
                             <p>ڊاڪٽر علي گوهر آزاد منگي</p> 
                         </div>
                         <div class="mt-6 border-t border-teal-500 pt-4">
                             <p class="font-semibold text-amber-300">پيش ڪندڙ ۽ مددگار:</p>
-                            <!-- Cleaned Names -->
                             <p>جناب وقاص احمد منگي</p>
                             <p class="text-sm mt-3">حوصله افزائي ۽ مدد:</p>
-                            <!-- Cleaned Names -->
                             <p>جناب گلاب گن</p>
                             <p>چاچا حميد چنه</p>
                         </div>
@@ -558,7 +459,7 @@
 
     </main>
 
-    <!-- Footer Alignment changed to Center -->
+    <!-- Footer -->
     <footer class="text-center p-4 bg-stone-200 text-gray-600">
         <p>&copy; 2025 نرمل جيوتاڻي لائبريري. سڀ حق محفوظ آھن.</p>
         <p class="text-sm mt-1 latin">Website Version 1.0</p>

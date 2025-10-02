@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ميمبرشپ اسٽيٽس ٽريڪر</title>
+    <!-- NEW: Favicon (Updated URL) -->
+    <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" type="image/png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Reverting to html2pdf for stable formatting/font rendering -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
-    <!-- Custom Font: MB Lateefi.otf -->
     <style>
+        /* Custom Font */
         @font-face {
             font-family: 'MBLateefi';
             src: url('MB Lateefi.otf') format('opentype');
@@ -26,13 +28,22 @@
         .text-right-aligned {
              text-align: right;
         }
-        
-        /* --- CARD STYLES --- */
+        /* Consolidated Logo Style - FIX APPLIED (Used for the card) */
+        .card-header-logo {
+            width: 30px;
+            height: 30px;
+            object-fit: contain; 
+            margin-left: 5px; 
+            background-color: #fcd34d; 
+            border-radius: 9999px;
+            padding: 1px;
+        }
+        /* Card Styles */
         .card-container {
-            width: 350px; /* Fixed width for standard card size */
-            height: 250px; /* Fixed height to keep it on one page/image */
+            width: 350px; 
+            height: 250px; 
             margin: 20px auto;
-            border: 3px solid #115e59; /* Teal-700 */
+            border: 3px solid #115e59;
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
@@ -41,24 +52,23 @@
             flex-direction: column;
             position: relative; 
         }
-        
         .card-header {
-            background-color: #0d9488; /* Teal-600 */
+            background-color: #0d9488;
             color: white;
             padding: 4px 8px;
             text-align: center;
             line-height: 1.1;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
         }
-        
         .card-body {
             display: flex; 
-            background-color: #f0fdf4; /* Teal-50 */
-            padding: 8px 5px 35px 5px; /* Added bottom padding for footer space */
+            background-color: #f0fdf4;
+            padding: 8px 5px 35px 5px; 
             flex-grow: 1;
             align-items: flex-start;
         }
-        
-        /* 1. Photo Section (Right Side in RTL, Fixed width) */
         .card-photo-section {
             width: 100px; 
             display: flex;
@@ -73,17 +83,15 @@
             height: 95px;
             border-radius: 4px;
             object-fit: cover;
-            border: 2px solid #fbbf24; /* Amber-400 */
+            border: 2px solid #fbbf24;
         }
         .card-id-display {
             font-size: 11px;
             font-weight: 800;
-            color: #b91c1c; /* Red-700 */
+            color: #b91c1c; 
             margin-top: 3px;
             letter-spacing: 0.5px;
         }
-
-        /* 2. Details and Signature Section (Left Side in RTL, Flexible width) */
         .card-details-wrapper {
             flex-grow: 1;
             display: flex;
@@ -92,19 +100,12 @@
             padding-right: 5px;
             font-size: 10px;
         }
-
-        .card-details-section {
-            padding-top: 0px; 
-        }
-        
-        /* Clean Details Grid */
         .card-details-grid {
             display: grid;
             grid-template-columns: max-content 1fr; 
             gap: 1px 4px; 
             line-height: 1.3;
         }
-        
         .detail-label {
             font-weight: 600;
             color: #115e59; 
@@ -119,8 +120,6 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-
-        /* Signature Row */
         .signature-row {
             display: flex;
             justify-content: space-between;
@@ -129,19 +128,16 @@
             font-size: 8px;
             line-height: 1.1;
         }
-        
         .signature-box {
             text-align: center;
-            width: 48%; /* Ensure two columns */
+            width: 48%; 
         }
-
         .signature-line {
             border-top: 1px dashed #4b5563;
             width: 100%;
             margin-top: 20px; 
             margin-bottom: 1px;
         }
-
         .card-footer {
              background-color: #115e59; 
              color: #a7f3d0; 
@@ -152,10 +148,6 @@
              bottom: 0;
              width: 100%;
         }
-        /* --- END: CARD STYLES --- */
-
-
-        /* Styling for PDF Print Button */
         @media print {
             body * { visibility: hidden; }
             #card-area, #card-area * { visibility: visible; }
@@ -167,7 +159,6 @@
             }
             .no-print { display: none; }
         }
-        
     </style>
 
     <!-- Firebase SDK Imports -->
@@ -192,23 +183,20 @@
 
         let db;
         let auth;
-        let currentMemberData = null; // Store fetched data here
+        let currentMemberData = null; 
         
-        // Helper function to format date
         const formatDate = (dateValue) => {
             if (!dateValue) return 'نامعلوم';
             const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
             return date.toLocaleDateString('sd-PK', { year: 'numeric', month: '2-digit', day: '2-digit' });
         };
         
-        // --- Firebase Initialization and Auth ---
         async function initFirebaseAndAuth() {
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 await signInAnonymously(auth);
-                // Check for ID in URL if coming from the apply page
                 const urlParams = new URLSearchParams(window.location.search);
                 const idFromUrl = urlParams.get('id');
                 if (idFromUrl) {
@@ -223,7 +211,6 @@
             }
         }
         
-        // --- Status Check Logic ---
         window.checkStatus = async function() {
             const cardId = document.getElementById('card-id-input').value.trim().toUpperCase();
             const statusElement = document.getElementById('status-message');
@@ -251,7 +238,6 @@
             try {
                 const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
                 const q = query(membersRef, where('cardId', '==', cardId));
-                
                 const querySnapshot = await getDocs(q);
                 
                 if (querySnapshot.empty) {
@@ -259,10 +245,8 @@
                     return;
                 }
                 
-                // Assuming cardId is unique, there should be only one result
-                const memberDoc = querySnapshot.docs[0];
-                const data = memberDoc.data();
-                currentMemberData = data; // Store data globally
+                const data = querySnapshot.docs[0].data();
+                currentMemberData = data;
                 
                 if (resultArea) resultArea.classList.remove('hidden');
 
@@ -270,7 +254,6 @@
                     if (statusElement) statusElement.innerHTML = `<span class="text-amber-600 font-bold">توهان جي درخواست جائزي هيٺ آهي. مهرباني ڪري صبر ڪيو.</span>`;
                 
                 } else if (data.status === 'Cancelled' || data.status === 'Rejected') {
-                    // Check for cancellation reason added by librarian
                     const reason = data.cancellationReason || 'سبب نامعلوم آهي. وڌيڪ معلومات لاءِ لائبريرين سان رابطو ڪريو.';
                     if (statusElement) statusElement.innerHTML = `
                         <span class="text-red-600 font-bold">توهان جي ميمبرشپ درخواست رد ڪئي وئي آهي.</span><br>
@@ -280,7 +263,7 @@
                 } else if (data.status === 'Approved') {
                     if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ميمبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ پرنٽ ڪريو.</span>`;
                     if (printButton) printButton.classList.remove('hidden');
-                    window.renderCard(data); // Render the card immediately
+                    window.renderCard(data); 
                 }
 
             } catch (error) {
@@ -289,7 +272,6 @@
             }
         };
 
-        // --- Card Rendering Logic (UPDATED) ---
         window.renderCard = function(data) {
             const cardArea = document.getElementById('card-area');
             if (!cardArea) return;
@@ -301,53 +283,45 @@
             cardArea.innerHTML = `
                 <div class="card-container" id="membership-card-to-print">
                     
-                    <!-- Card Header -->
+                    <!-- Card Header (UPDATED: Raw URL) -->
                     <div class="card-header">
-                        <h2 class="text-lg font-extrabold leading-none">نِرمل جيوتاڻي لائبريري ٿرڙي محبت</h2>
-                        <p class="text-sm">ميمبرشپ ڪارڊ</p>
+                         <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
+                            alt="Nirmal Logo" 
+                            class="card-header-logo">
+                        <div>
+                            <h2 class="text-lg font-extrabold leading-none">نِرمل جيوتاڻي لائبريري ٿرڙي محبت</h2>
+                            <p class="text-sm">ميمبرشپ ڪارڊ</p>
+                        </div>
                     </div>
                     
-                    <!-- Card Body (Photo/ID Right, Details/Signatures Left - in RTL) -->
+                    <!-- Card Body -->
                     <div class="card-body">
                         
-                        <!-- Details and Signature Wrapper (Left side, takes most space) -->
                         <div class="card-details-wrapper">
                             <div class="card-details-section">
                                 <h3 class="text-sm font-bold text-teal-800 mb-1">شاگرد جي تفصيل</h3>
                                 <div class="card-details-grid">
-                                    
                                     <div class="detail-label">نالو</div>
                                     <div class="detail-value text-teal-800 font-extrabold">${data.name}</div>
-                                    
                                     <div class="detail-label">پيءُ جو نالو</div>
                                     <div class="detail-value">${data.fatherName}</div>
-                                    
                                     <div class="detail-label">پيشو</div>
                                     <div class="detail-value">${data.occupation}</div>
-                                    
-                                    <!-- REMOVED: Mobile Number Field -->
-                                    
                                     <div class="detail-label">پيدائش جي تاريخ</div>
                                     <div class="detail-value latin">${dobStr}</div>
-                                    
                                     <div class="detail-label">جاري ٿيڻ جي تاريخ</div>
                                     <div class="detail-value latin">${approvedDateStr}</div>
-                                    
                                     <div class="detail-label text-red-600">مدت ختم</div>
                                     <div class="detail-value latin text-red-600 font-extrabold">${expiryDateStr}</div>
-                                    
                                 </div>
                             </div>
                             
-                            <!-- Signature Row (Bottom of the left section) -->
                             <div class="signature-row">
-                                <!-- Issuer Signature -->
                                 <div class="signature-box">
                                     <div class="signature-line mr-auto"></div>
                                     <p>لائبريرين جا دستخط</p>
                                     <p class="latin text-gray-700">(Issuer/Librarian)</p>
                                 </div>
-                                <!-- Student Signature -->
                                 <div class="signature-box">
                                     <div class="signature-line ml-auto"></div>
                                     <p>شاگرد جا دستخط</p>
@@ -356,17 +330,14 @@
                             </div>
                         </div>
 
-                        <!-- Photo/ID Section (Right Side) -->
                         <div class="card-photo-section">
                             <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
-                            
                             <p class="card-id-display latin">${data.cardId}</p>
                             <p class="text-[8px] text-gray-500 mt-0.5">ميمبرشپ ID نمبر</p>
                         </div>
 
                     </div>
                     
-                    <!-- Card Footer (Positioned absolutely at the bottom for visibility) -->
                     <div class="card-footer">
                         آزاد منگي فائونڊيشن جي طرفان
                     </div>
@@ -374,7 +345,6 @@
             `;
         };
 
-        // --- PDF Generation Logic (The Final Fix for One Page) ---
         window.printCard = function() {
             const cardElement = document.getElementById('membership-card-to-print');
             if (!cardElement) {
@@ -382,8 +352,6 @@
                 return;
             }
 
-            // 1. Temporarily scale down the element for safe rendering
-            // This is the most crucial step to prevent overflow.
             cardElement.style.transform = 'scale(0.95)'; 
             cardElement.style.transformOrigin = 'top right'; 
 
@@ -392,18 +360,15 @@
                 filename: `Nirmal_Jevtani_Library_Card_${currentMemberData.cardId}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 3 },
-                // Use A4 Landscape, the largest standard format, combined with the scale fix.
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
                 pagebreak: { mode: 'avoid-all' }
             };
 
             html2pdf().from(cardElement).set(opt).save().then(() => {
-                // 2. IMPORTANT: Remove the scaling transformation after saving
                 cardElement.style.transform = ''; 
                 cardElement.style.transformOrigin = ''; 
             });
         };
-
 
         document.addEventListener('DOMContentLoaded', initFirebaseAndAuth);
     </script>
@@ -428,15 +393,13 @@
             <div id="status-message" class="text-center mt-4 font-semibold text-sm text-gray-600"></div>
         </div>
 
-        <!-- Result Area (Hidden until status is Approved) -->
+        <!-- Result Area -->
         <div id="result-area" class="hidden text-center">
             
-            <!-- Card Display Area -->
             <div id="card-area">
-                <!-- Membership Card will be rendered here by renderCard(data) -->
+                <!-- Membership Card will be rendered here -->
             </div>
             
-            <!-- Print Button (Visible only if Approved) -->
             <button id="print-card-button" onclick="window.printCard()" class="hidden mt-6 bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-amber-700 transition-colors no-print">
                 <span class="mr-2">ڊائونلوڊ / پرنٽ ڪارڊ (PDF)</span>
                 <span class="latin">🖨️</span>

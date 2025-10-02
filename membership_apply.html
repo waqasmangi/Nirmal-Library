@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ممبرشپ درخواست فارم</title>
+    <!-- NEW: Favicon (Updated URL) -->
+    <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" type="image/png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Custom Font: MB Lateefi.otf -->
     <style>
+        /* Custom Font */
         @font-face {
             font-family: 'MBLateefi';
             src: url('MB Lateefi.otf') format('opentype');
@@ -19,35 +22,44 @@
         }
         .latin {
             font-family: Inter, sans-serif;
-            direction: ltr; /* Ensure DOB and Contact appear left-to-right */
+            direction: ltr;
         }
         .text-right-aligned {
              text-align: right;
         }
-        /* --- Photo/Preview Styling --- */
+        /* Consolidated Logo Style - FIX APPLIED */
+        .nirmal-logo-header {
+            width: 55px;
+            height: 55px; 
+            object-fit: contain; 
+            border-radius: 9999px; 
+            background-color: #fcd34d;
+            padding: 2px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        /* Photo/Preview Styling */
         #photo-preview {
             width: 150px;
             height: 150px;
             object-fit: cover;
             border-radius: 8px;
             margin: 0 auto 1rem;
-            border: 2px solid #38bdf8; /* Sky-400 */
+            border: 2px solid #38bdf8;
         }
-        /* Ensure input fields have enough space and DOB is readable */
+        /* Input Styles */
         .input-field {
             width: 100%;
             padding: 12px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
             box-sizing: border-box;
-            line-height: 1.5; /* Increased line-height for better visibility */
+            line-height: 1.5;
         }
-        /* Fix for date input alignment and visibility */
         input[type="date"] {
             text-align: right;
-            direction: ltr; /* Force LTR direction for date formatting */
+            direction: ltr;
         }
-        /* Custom styles for the copy button icon */
+        /* Copy Button Icon */
         .copy-icon {
             display: inline-block;
             width: 1em;
@@ -69,7 +81,7 @@
         
         setLogLevel('Debug');
         
-        // --- Shared Firebase Config (Must Match index.html) ---
+        // --- Shared Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyBxgOhd3y5L7Xl_IzWkuJ02PBlswR9lt5k",
             authDomain: "nirmal-library.firebaseapp.com",
@@ -81,44 +93,39 @@
         const appId = firebaseConfig.projectId;
         // --- End Shared Firebase Config ---
         
-        // --- Formspree Endpoint ---
-        const FORMSPREE_URL = "https://formspree.io/f/mqayqjpz"; // Your provided endpoint
+        const FORMSPREE_URL = "https://formspree.io/f/mqayqjpz";
+        const MAX_RAW_FILE_SIZE_BYTES = 3 * 1024 * 1024; 
+        const MAX_FIRESTORE_PAYLOAD_SIZE = 1000 * 1024; 
 
         let db;
         let auth;
         let photoBase64 = null;
         let cardId = null;
         
-        // Max limit is 3MB for the raw file, but Firestore document limit is ~1MB (1048487 bytes)
-        // We will compress the image to ensure the final Base64 string is under this limit.
-        const MAX_RAW_FILE_SIZE_BYTES = 3 * 1024 * 1024; 
-        const MAX_FIRESTORE_PAYLOAD_SIZE = 1000 * 1024; // Target compressed size slightly under 1MB
-
-        // --- Firebase Initialization and Auth ---
         async function initFirebaseAndAuth() {
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 await signInAnonymously(auth);
-                document.getElementById('status').textContent = 'درخواست فارم لوڊ ٿي چڪو آهي. مھرباني ڪري ڀريو.';
-                document.getElementById('status').classList.remove('text-amber-500');
-                document.getElementById('status').classList.add('text-green-600');
+                const statusElement = document.getElementById('status');
+                statusElement.textContent = 'درخواست فارم لوڊ ٿي چڪو آهي. مھرباني ڪري ڀريو.';
+                statusElement.classList.remove('text-amber-500');
+                statusElement.classList.add('text-green-600');
             } catch (error) {
-                document.getElementById('status').textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
-                document.getElementById('status').classList.add('text-red-600');
+                const statusElement = document.getElementById('status');
+                statusElement.textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
+                statusElement.classList.add('text-red-600');
                 console.error("Firebase Auth Error:", error);
             }
         }
 
-        // --- Image Compression/Resizing Logic (NEW) ---
         function compressImage(base64Image, maxWidth, maxHeight, quality, callback) {
             const img = new Image();
             img.onload = function() {
                 let width = img.width;
                 let height = img.height;
 
-                // Calculate new dimensions to fit constraints (optional, but good for large photos)
                 if (width > height) {
                     if (width > maxWidth) {
                         height = Math.round((height * maxWidth) / width);
@@ -131,21 +138,17 @@
                     }
                 }
                 
-                // Create a canvas element
                 const canvas = document.createElement('canvas');
                 canvas.width = width;
                 canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
 
-                // Export the canvas content as a JPEG with lower quality (compression)
                 const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
                 callback(compressedBase64);
             };
             img.src = base64Image;
         }
 
-        // --- Photo Handling Logic ---
         window.handlePhotoChange = function(event) {
             const file = event.target.files[0];
             const preview = document.getElementById('photo-preview');
@@ -155,9 +158,7 @@
             statusElement.textContent = 'تصوير لوڊ ڪري رهيو آهي...';
             statusElement.className = 'text-center mb-4 font-semibold text-sm text-amber-500';
 
-
             if (file) {
-                // Check against MAX_RAW_FILE_SIZE (3MB)
                 if (file.size > MAX_RAW_FILE_SIZE_BYTES) {
                     statusElement.textContent = 'تصوير جي سائيز 3MB کان وڌيڪ آھي. مھرباني ڪري ننڍي تصوير استعمال ڪريو.';
                     statusElement.classList.remove('text-amber-500', 'text-green-600');
@@ -170,17 +171,12 @@
 
                 reader.onload = function(e) {
                     const rawBase64 = e.target.result;
-                    
-                    // 1. Show raw preview immediately
                     preview.src = rawBase64; 
 
-                    // 2. Compress the image before storing it in photoBase64
-                    // Target quality 70% and max dimensions 400px (standard passport size photo needs)
                     compressImage(rawBase64, 400, 400, 0.7, (compressedBase64) => {
                         photoBase64 = compressedBase64; 
                         
-                        // Check final compressed size (approximate byte length of Base64 string)
-                        const compressedSize = (compressedBase64.length * 0.75) - 2; // Rough Base64 size conversion
+                        const compressedSize = (compressedBase64.length * 0.75) - 2;
                         if (compressedSize > MAX_FIRESTORE_PAYLOAD_SIZE) {
                             statusElement.textContent = 'تصوير جي سائيز گھٽائڻ کان پوءِ بہ $1MB$ جي حد کان وڌيڪ آھي. (مھرباني ڪري گھٽ تفصيل واري تصوير استعمال ڪريو)';
                             statusElement.classList.remove('text-amber-500', 'text-green-600');
@@ -201,14 +197,11 @@
             }
         };
         
-        // --- Copy to Clipboard Function (NEW) ---
         window.copyCardId = function() {
-            const cardIdElement = document.getElementById('display-card-id');
-            const idToCopy = cardIdElement.textContent;
+            const idToCopy = document.getElementById('display-card-id').textContent;
             const copyButton = document.getElementById('copy-button');
 
             if (idToCopy) {
-                // Use document.execCommand('copy') for compatibility in some environments (like iframes)
                 const tempInput = document.createElement('input');
                 tempInput.value = idToCopy;
                 document.body.appendChild(tempInput);
@@ -216,7 +209,6 @@
                 document.execCommand('copy');
                 document.body.removeChild(tempInput);
 
-                // Update button text/style temporarily
                 copyButton.textContent = 'ڪاپي ٿي ويو!';
                 copyButton.classList.remove('bg-teal-500', 'hover:bg-teal-600');
                 copyButton.classList.add('bg-green-500');
@@ -225,11 +217,9 @@
                     copyButton.classList.remove('bg-green-500');
                     copyButton.classList.add('bg-teal-500', 'hover:bg-teal-600');
                 }, 2000);
-
             }
         }
         
-        // --- Form Submission Logic (UPDATED FOR DUAL SUBMISSION) ---
         window.submitMembership = async function() {
             const name = document.getElementById('name').value.trim();
             const fatherName = document.getElementById('fatherName').value.trim();
@@ -240,7 +230,6 @@
             const contact = document.getElementById('contact').value.trim();
             const statusElement = document.getElementById('status');
             
-            // Simple validation
             if (!name || !fatherName || !dob || !occupation || !address || !contact || !photoBase64 || gender === "placeholder") {
                 statusElement.textContent = 'مھرباني ڪري سڀ معلومات ۽ پنھنجي تصوير شامل ڪريو.';
                 statusElement.classList.remove('text-green-600', 'text-amber-500');
@@ -252,7 +241,6 @@
             statusElement.classList.remove('text-red-600', 'text-green-600');
             statusElement.classList.add('text-amber-500');
 
-            // --- CRITICAL: DUPLICATE CHECK (By Contact Number) ---
             try {
                 const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
                 const q = query(membersRef, where('contact', '==', contact));
@@ -271,66 +259,38 @@
                 statusElement.classList.add('text-red-600');
                 return;
             }
-            // --- END DUPLICATE CHECK ---
 
             statusElement.textContent = 'درخواست جمع ڪري رهيو آهي...';
             statusElement.classList.remove('text-red-600', 'text-green-600');
             statusElement.classList.add('text-amber-500');
 
             try {
-                // Generate Unique Card ID (Simple UUID prefix)
                 cardId = 'NJL-' + crypto.randomUUID().substring(0, 8).toUpperCase();
 
                 const applicationData = {
                     name, fatherName, gender, dob, occupation, address, contact,
-                    photoBase64, // COMPRESSED Base64 string
-                    cardId,
-                    status: 'Pending', // Initial status
-                    memberSince: serverTimestamp(), // Submission Date
-                    // approvedDate and expiryDate will be set by admin
+                    photoBase64, cardId, status: 'Pending', memberSince: serverTimestamp(),
                     userId: auth.currentUser?.uid || 'anonymous-user'
                 };
 
-                // 1. Submit to Firestore
                 const firestorePromise = addDoc(collection(db, `artifacts/${appId}/public/data/members`), applicationData);
 
-                // 2. Submit to Formspree for email notification (Non-blocking)
                 const formData = new FormData();
                 formData.append("Applicant_Name", name);
-                formData.append("Father_Name", fatherName);
                 formData.append("Contact_Number", contact);
-                formData.append("Occupation", occupation);
-                formData.append("Address", address);
                 formData.append("Generated_Card_ID", cardId);
-                formData.append("Application_Status", "New Submission (Pending)");
-                formData.append("Notification_Type", "New Membership Application");
                 
                 const formspreePromise = fetch(FORMSPREE_URL, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                }).then(response => {
-                    if (response.ok) {
-                        console.log("Formspree notification sent successfully for membership.");
-                    } else {
-                        console.error("Formspree notification failed for membership.");
-                    }
-                }).catch(error => console.error("Error sending Formspree notification for membership:", error));
+                    method: 'POST', body: formData, headers: { 'Accept': 'application/json' }
+                }).catch(error => console.error("Formspree notification error:", error));
                 
-                // Wait for Firestore to complete before showing success
                 await firestorePromise;
-                
-                // Note: The Formspree promise is intentionally not awaited to keep the UI fast.
                 Promise.resolve(formspreePromise); 
 
-                // Show success message and hide form
                 document.getElementById('application-form').classList.add('hidden');
                 document.getElementById('success-message').classList.remove('hidden');
                 document.getElementById('display-card-id').textContent = cardId;
                 
-                // FINAL SUCCESS MESSAGE
                 statusElement.textContent = 'درخواست ڪاميابي سان جمع ٿي وئي ۽ جائزي هيٺ آهي.';
                 statusElement.classList.remove('text-amber-500', 'text-red-600');
                 statusElement.classList.add('text-green-700');
@@ -351,26 +311,32 @@
     <div class="container mx-auto max-w-2xl">
         <header class="text-center mb-8 pb-4 border-b-2 border-teal-500">
             <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
-            <h1 class="text-3xl font-bold text-teal-700">ممبرشپ درخواست فارم</h1>
-            <p class="mt-1 text-gray-600">نِرمل جيوتاڻي لائبريري، ٿرڙي محبت (آزاد منگي فائونڊيشن جي طرفان)</p>
+            
+            <!-- UPDATED: Header with Nirmal Image and Raw URL -->
+            <div class="flex items-center justify-center">
+                 <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
+                     alt="Nirmal Library Logo" 
+                     class="nirmal-logo-header border-teal-600">
+                <div>
+                    <h1 class="text-3xl font-bold text-teal-700">ممبرشپ درخواست فارم</h1>
+                    <p class="mt-1 text-gray-600 text-sm">نِرمل جيوتاڻي لائبريري، ٿرڙي محبت</p>
+                </div>
+            </div>
+            
             <p class="mt-2 font-semibold text-amber-600">ممبرشپ فيس: مفت (Free) - مدي پڄاڻي: 6 مھينا</p>
         </header>
 
-        <!-- Success Message (Initially Hidden) -->
+        <!-- Success Message -->
         <div id="success-message" class="hidden bg-green-100 p-6 rounded-lg shadow-xl border-t-4 border-green-500 text-center">
-            <!-- UPDATED SUCCESS MESSAGE BLOCK -->
             <p class="text-2xl font-bold text-green-700 mb-4">توهان جي درخواست ڪاميابي سان موصول ٿي چڪي آهي!</p>
             <p class="text-lg text-gray-700 mb-6">توهان جي درخواست جائزي هيٺ آهي. هيٺ ڏنل ID محفوظ ڪريو ته جيئن توهان ان جو اسٽيٽس ٽريڪ ڪري سگهو.</p>
             
-            <!-- NEW ID DISPLAY BLOCK -->
             <div class="mb-6">
                 <p class="text-lg font-bold text-teal-800 mb-2">ميمبرشپ ID نمبر:</p>
-                <!-- This block holds the ID number on its own line -->
                 <div class="bg-white p-3 rounded-md inline-block border-2 border-green-400 w-full md:w-auto">
                     <strong id="display-card-id" class="latin text-2xl font-mono text-gray-900 tracking-wider">...</strong>
                 </div>
 
-                <!-- NEW Copy Button -->
                 <button id="copy-button" onclick="window.copyCardId()" 
                         class="mt-3 w-full md:w-auto md:inline-flex items-center justify-center bg-teal-500 text-white font-bold py-3 px-6 rounded-md shadow-md hover:bg-teal-600 transition-colors transform active:scale-95">
                     <svg class="copy-icon ml-2" viewBox="0 0 24 24">
@@ -389,7 +355,7 @@
             </div>
         </div>
 
-        <!-- Application Form (Initially Visible) -->
+        <!-- Application Form -->
         <div id="application-form" class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500">
             <h2 class="text-2xl font-bold mb-6 text-center text-teal-700">شاگرد جي ذاتي معلومات</h2>
             
@@ -398,10 +364,8 @@
                 <h3 class="font-semibold mb-3 text-lg">پاسپورٽ سائيز تصوير (Passport Size Photo)</h3>
                 <img id="photo-preview" src="https://placehold.co/150x150/e0f2f1/115e59?text=Photo" alt="Photo Preview" class="mx-auto mb-4">
                 
-                <!-- CAPTURE ATTRIBUTE REMOVED -->
                 <input type="file" accept="image/*" id="photo-upload" onchange="window.handlePhotoChange(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200">
                 
-                <!-- INSTRUCTION UPDATED -->
                 <p class="text-xs mt-2 text-gray-500">مھرباني ڪري گيلري مان تصوير چونڊيو. (ڪئميرا بند آھي). سائيز حد: 3MB (تصوير فائر اسٽور ۾ محفوظ ڪرڻ لاءِ خودڪار طريقي سان گھٽائي ويندي.)</p>
             </div>
             
@@ -428,7 +392,6 @@
                 </div>
                 <div class="mb-4">
                     <label for="dob" class="block text-right mb-2 font-medium">پيدائش جي تاريخ (Date of Birth)</label>
-                    <!-- Apply LTR and adequate size for date picker -->
                     <input type="date" id="dob" class="input-field latin">
                 </div>
             </div>
@@ -445,7 +408,6 @@
             
              <div class="mb-6">
                 <label for="contact" class="block text-right mb-2 font-medium">رابطو نمبر (Contact Number)</label>
-                <!-- Apply LTR for contact number -->
                 <input type="text" id="contact" class="input-field latin" placeholder="مثال: 03001234567">
             </div>
             
