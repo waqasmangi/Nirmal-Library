@@ -148,9 +148,9 @@
              bottom: 0;
              width: 100%;
         }
-        /* NEW: WhatsApp Button Style */
-        .whatsapp-button {
-            background-color: #25d366;
+        /* UPDATED: Download Image Button Style */
+        .download-image-button {
+            background-color: #3b82f6; /* Blue for download */
             color: white;
             font-weight: bold;
             padding: 12px 32px;
@@ -161,8 +161,8 @@
             align-items: center;
             justify-content: center;
         }
-        .whatsapp-button:hover {
-            background-color: #1ebe58;
+        .download-image-button:hover {
+            background-color: #2563eb;
         }
         @media print {
             body * { visibility: hidden; }
@@ -233,7 +233,7 @@
             const resultArea = document.getElementById('result-area');
             const cardArea = document.getElementById('card-area');
             const printButton = document.getElementById('print-card-button');
-            const shareButton = document.getElementById('share-card-button'); // NEW
+            const downloadImageButton = document.getElementById('download-image-button'); // UPDATED ID
 
             if (statusElement) {
                  statusElement.textContent = '';
@@ -242,7 +242,7 @@
             if (resultArea) resultArea.classList.add('hidden');
             if (cardArea) cardArea.innerHTML = '';
             if (printButton) printButton.classList.add('hidden');
-            if (shareButton) shareButton.classList.add('hidden'); // NEW
+            if (downloadImageButton) downloadImageButton.classList.add('hidden'); // UPDATED ID
             
             currentMemberData = null;
 
@@ -281,7 +281,7 @@
                 } else if (data.status === 'Approved') {
                     if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ميمبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ پرنٽ ڪريو.</span>`;
                     if (printButton) printButton.classList.remove('hidden');
-                    if (shareButton) shareButton.classList.remove('hidden'); // NEW
+                    if (downloadImageButton) downloadImageButton.classList.remove('hidden'); // UPDATED
                     window.renderCard(data); 
                 }
 
@@ -387,11 +387,11 @@
             html2pdf().from(cardElement).set(opt).save();
         };
         
-        // NEW Function for Sharing as Image
-        window.shareCardAsImage = function() {
+        // UPDATED Function: Renamed and logic changed to just download image
+        window.downloadCardAsImage = function() {
             const cardElement = document.getElementById('membership-card-to-print');
             const statusElement = document.getElementById('status-message');
-            const shareButton = document.getElementById('share-card-button');
+            const downloadImageButton = document.getElementById('download-image-button'); // UPDATED ID
 
             if (!cardElement) {
                 statusElement.textContent = 'ڪارڊ شيئر ڪرڻ لاءِ دستياب ناهي.';
@@ -399,7 +399,7 @@
             }
             
             statusElement.innerHTML = `<span class="text-amber-600 font-bold">تصوير تيار ڪري رهيو آهي... مھرباني ڪري انتظار ڪريو.</span>`;
-            shareButton.disabled = true;
+            downloadImageButton.disabled = true;
 
             // Use html2canvas part of the bundle to convert the card to a canvas
             const html2canvas = window.html2pdf.require('html2canvas');
@@ -421,22 +421,14 @@
                 a.click();
                 document.body.removeChild(a);
 
-                statusElement.innerHTML = `<span class="text-green-600 font-bold">تصوير ڊائونلوڊ ٿي وئي!</span> مھرباني ڪري ڊائونلوڊ ڪيل PNG فائل WhatsApp تي شيئر ڪريو.`;
-                shareButton.disabled = false;
+                // Set final success status message
+                statusElement.innerHTML = `<span class="text-green-600 font-bold">تصوير ڪاميابي سان ڊائونلوڊ ٿي وئي!</span> توهان جي ڊوائيس تي چيڪ ڪريو.`;
+                downloadImageButton.disabled = false;
                 
-                // Provide a direct WhatsApp link for text/URL sharing as a fallback/alternative
-                const cardLink = window.location.href.split('?')[0]; 
-                const shareText = encodeURIComponent(`منهنجو نرمل لائبريري ميمبرشپ ڪارڊ ${currentMemberData.cardId} لاءِ! 📚 تصوير ڊائونلوڊ ڪري شيئر ڪريو. وڌيڪ ڄاڻ لاءِ: ${cardLink}`);
-                
-                setTimeout(() => {
-                    statusElement.innerHTML += `<br><span class="text-blue-600 text-sm mt-1 block">يا هي پيغام سڌو WhatsApp تي شيئر ڪريو:</span> 
-                                                <a href="whatsapp://send?text=${shareText}" target="_blank" class="text-blue-600 underline">WhatsApp تي لنڪ شيئر ڪريو</a>`;
-                }, 1500);
-
             }).catch(error => {
                 console.error("Error converting card to image:", error);
                 statusElement.textContent = `تصوير ٺاهڻ ۾ غلطي ٿي. (${error.message})`;
-                shareButton.disabled = false;
+                downloadImageButton.disabled = false;
             });
         };
 
@@ -478,12 +470,14 @@
                     <span class="latin">🖨️</span>
                 </button>
                 
-                <!-- NEW: WhatsApp Share Button -->
-                <button id="share-card-button" onclick="window.shareCardAsImage()" class="hidden whatsapp-button">
-                    <svg class="w-6 h-6 ml-2" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12.0003 2C6.48028 2 2 6.48028 2 12C2 14.195 2.72 16.205 3.96 17.84L2.09038 22.0996L6.50028 21.0196C8.075 22.0496 9.94028 22.56 12.0003 22.56C17.5203 22.56 22.0003 18.08 22.0003 12.56C22.0003 7.04028 17.5203 2.56028 12.0003 2.56028V2ZM17.1503 16.29C16.8903 16.71 14.8503 17.75 14.4903 17.89C14.1303 18.03 13.7703 18.15 13.4103 17.97C13.0503 17.79 11.8503 17.37 10.1103 15.81C8.75028 14.61 7.85028 13.11 7.59028 12.69C7.33028 12.27 8.01028 11.97 8.19028 11.79C8.34028 11.64 8.52028 11.4 8.70028 11.16C8.88028 10.92 8.94028 10.8 9.06028 10.56C9.18028 10.32 9.12028 10.2 9.06028 10.08C8.97028 9.87 8.35028 8.31 8.08028 7.77C7.81028 7.23 7.55028 7.35 7.37028 7.35C7.19028 7.35 6.95028 7.35 6.71028 7.35C6.47028 7.35 6.11028 7.44 5.75028 7.8C5.39028 8.16 4.79028 8.7 4.79028 9.84C4.79028 10.98 5.66028 12.18 5.79028 12.36C5.92028 12.54 7.45028 14.85 9.77028 16.89C11.6703 18.39 13.2303 18.99 13.7403 19.14C14.2503 19.29 15.0603 19.23 15.6303 18.9C16.2003 18.57 16.8603 18.06 17.0703 17.7C17.2803 17.34 17.3703 17.16 17.1503 16.29Z"/>
+                <!-- UPDATED: Download Image Button -->
+                <button id="download-image-button" onclick="window.downloadCardAsImage()" class="hidden download-image-button">
+                    <svg class="w-6 h-6 ml-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
                     </svg>
-                    WhatsApp تي شيئر ڪريو
+                    تصوير طور ڊائونلوڊ ڪريو (PNG)
                 </button>
             </div>
         </div>
