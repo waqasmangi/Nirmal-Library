@@ -281,11 +281,12 @@
             const expiryDateStr = formatDate(data.expiryDate);
             const dobStr = formatDate(data.dob);
 
-            // --- Simplified: Use primary fields only ---
-            const displayName = data.name || 'نامعلوم شاگرد';
-            const displayFatherName = data.fatherName || 'نامعلوم پيءُ جو نالو';
-            const displayOccupation = data.occupation || 'نامعلوم پيشو';
-            // --- END Simplified ---
+            // --- UPDATED: Use Sindhi translation fields with fallbacks ---
+            // Priority: Sindhi -> English -> Legacy (Old structure)
+            const displayName = data.nameSindhi || data.nameEnglish || data.name || 'نامعلوم شاگرد';
+            const displayFatherName = data.fatherNameSindhi || data.fatherNameEnglish || data.fatherName || 'نامعلوم پيءُ جو نالو';
+            const displayOccupation = data.occupationSindhi || data.occupationEnglish || data.occupation || 'نامعلوم پيشو';
+            // --- END UPDATED ---
 
             cardArea.innerHTML = `
                 <div class="card-container" id="membership-card-to-print">
