@@ -19,7 +19,6 @@
         }
         .latin {
             font-family: Inter, sans-serif;
-            direction: ltr;
         }
         .text-right-aligned {
              text-align: right;
@@ -58,7 +57,7 @@
             padding: 24px;
             border-radius: 8px;
             max-width: 90%;
-            width: 600px; /* Increased width to accommodate new fields */
+            width: 400px; 
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
         }
     </style>
@@ -89,103 +88,12 @@
             "مذهب (Religion)", "ٻولي (Language)", "ٻيا (Other)"
         ];
         
-        const API_KEY = ""; // Using empty string for Canvas auto-injection
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
-        
         let db;
         let auth;
         let inventoryData = []; 
         let currentBookIdToEdit = null; 
         let pendingMembersData = []; 
         let currentMemberDataToEdit = null; 
-
-
-        // --- NEW: Translation Function (Reused from apply form) ---
-        async function fetchTranslate(englishData, statusElement) {
-            statusElement.textContent = 'نالو، پيءُ جو نالو ۽ پيشو سنڌي ۾ ترجمو ڪيو پيو وڃي...';
-            statusElement.classList.remove('text-red-600', 'text-green-600');
-            statusElement.classList.add('text-amber-500');
-            
-            const prompt = `Translate the following user details into Sindhi (Nastaliq script) and return them strictly in the provided JSON schema. Ensure names are phonetically accurate.
-            Name: ${englishData.name}
-            Father Name: ${englishData.fatherName}
-            Occupation: ${englishData.occupation}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: {
-                    parts: [{ text: "You are a professional Sindhi (Nastaliq) translator. Your only task is to translate the provided English text into Sindhi and return the result strictly in JSON format as requested." }]
-                },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            "nameSindhi": { "type": "STRING", "description": "Translated name of the applicant in Sindhi." },
-                            "fatherNameSindhi": { "type": "STRING", "description": "Translated father's name in Sindhi." },
-                            "occupationSindhi": { "type": "STRING", "description": "Translated occupation in Sindhi." }
-                        }
-                    }
-                },
-            };
-
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (!jsonText) throw new Error("API returned an invalid or empty response structure.");
-
-                const parsedJson = JSON.parse(jsonText);
-                
-                return { 
-                    nameSindhi: parsedJson.nameSindhi || englishData.name, 
-                    fatherNameSindhi: parsedJson.fatherNameSindhi || englishData.fatherName, 
-                    occupationSindhi: parsedJson.occupationSindhi || englishData.occupation 
-                };
-                
-            } catch (error) {
-                console.error("Translation API Error:", error);
-                // Return fallback on failure
-                statusElement.textContent = `خودڪار ترجمي ۾ غلطي ٿي. (غلطي: ${error.message})`;
-                statusElement.classList.remove('text-amber-500', 'text-green-600');
-                statusElement.classList.add('text-red-600');
-                return { nameSindhi: englishData.name, fatherNameSindhi: englishData.fatherName, occupationSindhi: englishData.occupation }; 
-            }
-        }
-        
-        window.triggerTranslation = async function() {
-             const statusElement = document.getElementById('edit-status');
-             const englishData = { 
-                 name: document.getElementById('edit-name').value.trim() || currentMemberDataToEdit.nameEnglish || currentMemberDataToEdit.name || '',
-                 fatherName: document.getElementById('edit-fatherName').value.trim() || currentMemberDataToEdit.fatherNameEnglish || currentMemberDataToEdit.fatherName || '',
-                 occupation: document.getElementById('edit-occupation').value.trim() || currentMemberDataToEdit.occupationEnglish || currentMemberDataToEdit.occupation || ''
-             };
-             
-             if (!englishData.name || !englishData.fatherName) {
-                  statusElement.textContent = 'ترجمو ڪرڻ لاءِ نالو ۽ پيءُ جو نالو لازمي آهن.';
-                  statusElement.classList.add('text-red-600');
-                  return;
-             }
-
-             const translatedData = await fetchTranslate(englishData, statusElement);
-             
-             document.getElementById('edit-nameSindhi').value = translatedData.nameSindhi;
-             document.getElementById('edit-fatherNameSindhi').value = translatedData.fatherNameSindhi;
-             document.getElementById('edit-occupationSindhi').value = translatedData.occupationSindhi;
-
-             if (!statusElement.classList.contains('text-red-600')) {
-                statusElement.textContent = 'ترجمو ڪامياب! ھاڻي "تبديليون محفوظ ڪريو" تي ڪلڪ ڪريو.';
-                statusElement.classList.remove('text-amber-500');
-                statusElement.classList.add('text-green-600');
-             }
-        };
-
 
         // --- View Switching Logic ---
         window.switchView = function(viewId) {
@@ -442,7 +350,7 @@
             return pendingMembersData.find(m => m.id === memberId);
         };
 
-        // --- UPDATED: Open Member Edit Modal ---
+        // --- UPDATED: Open Member Edit Modal (Simplified) ---
         window.openEditModal = function(memberId) {
             const memberToEdit = findMemberData(memberId);
             if (!memberToEdit) {
@@ -453,23 +361,17 @@
             currentMemberDataToEdit = memberToEdit;
             document.getElementById('edit-status').textContent = '';
             
-            // Populate basic fields
+            // Populate basic fields (using primary fields, which should be Sindhi/Urdu now)
             document.getElementById('edit-member-id-display').textContent = memberToEdit.cardId;
+            document.getElementById('edit-name').value = memberToEdit.name || '';
+            document.getElementById('edit-fatherName').value = memberToEdit.fatherName || '';
+            document.getElementById('edit-occupation').value = memberToEdit.occupation || '';
+            
             document.getElementById('edit-dob').value = memberToEdit.dob || ''; 
             document.getElementById('edit-address').value = memberToEdit.address || '';
             document.getElementById('edit-contact').value = memberToEdit.contact || '';
             document.getElementById('edit-gender').value = memberToEdit.gender || 'placeholder';
             document.getElementById('edit-member-photo').src = memberToEdit.photoBase64 || 'https://placehold.co/80x80/0d3b38/fff?text=N/A';
-            
-            // Populate English fields (fallback to original fields for old records)
-            document.getElementById('edit-nameEnglish').value = memberToEdit.nameEnglish || memberToEdit.name || '';
-            document.getElementById('edit-fatherNameEnglish').value = memberToEdit.fatherNameEnglish || memberToEdit.fatherName || '';
-            document.getElementById('edit-occupationEnglish').value = memberToEdit.occupationEnglish || memberToEdit.occupation || '';
-            
-            // Populate Sindhi fields (will be empty for old untranslated records)
-            document.getElementById('edit-nameSindhi').value = memberToEdit.nameSindhi || '';
-            document.getElementById('edit-fatherNameSindhi').value = memberToEdit.fatherNameSindhi || '';
-            document.getElementById('edit-occupationSindhi').value = memberToEdit.occupationSindhi || '';
             
             document.getElementById('edit-modal').classList.remove('hidden');
         };
@@ -480,19 +382,14 @@
             currentMemberDataToEdit = null;
         };
 
-        // --- UPDATED: Process Member Update ---
+        // --- UPDATED: Process Member Update (Simplified) ---
         window.processMemberUpdate = async function() {
             const memberId = currentMemberDataToEdit.id;
             
-            // English/Original Fields (LTR input)
-            const nameEnglish = document.getElementById('edit-nameEnglish').value.trim();
-            const fatherNameEnglish = document.getElementById('edit-fatherNameEnglish').value.trim();
-            const occupationEnglish = document.getElementById('edit-occupationEnglish').value.trim();
-            
-            // Sindhi Translated Fields (RTL input)
-            const nameSindhi = document.getElementById('edit-nameSindhi').value.trim();
-            const fatherNameSindhi = document.getElementById('edit-fatherNameSindhi').value.trim();
-            const occupationSindhi = document.getElementById('edit-occupationSindhi').value.trim();
+            // Primary Fields (RTL input expected from now on)
+            const name = document.getElementById('edit-name').value.trim();
+            const fatherName = document.getElementById('edit-fatherName').value.trim();
+            const occupation = document.getElementById('edit-occupation').value.trim();
             
             // Other Fields
             const dob = document.getElementById('edit-dob').value;
@@ -501,8 +398,8 @@
             const gender = document.getElementById('edit-gender').value;
             const statusElement = document.getElementById('edit-status');
 
-            if (!nameEnglish || !fatherNameEnglish || !dob || !occupationEnglish || !address || !contact || gender === "placeholder") {
-                statusElement.textContent = 'مهرباني ڪري سڀ ضروري جايون ڀريو (بشمول انگريزي نالا).';
+            if (!name || !fatherName || !dob || !occupation || !address || !contact || gender === "placeholder") {
+                statusElement.textContent = 'مهرباني ڪري سڀ ضروري جايون ڀريو.';
                 statusElement.classList.add('text-red-600');
                 return;
             }
@@ -513,18 +410,14 @@
 
             try {
                 const updatePayload = {
-                    nameEnglish, fatherNameEnglish, occupationEnglish,
-                    nameSindhi, fatherNameSindhi, occupationSindhi, // Store Sindhi even if manually typed or empty
+                    name, fatherName, occupation,
                     dob, address, contact, gender,
-                    // Remove old fields for cleaner data model (only for old entries)
-                    name: nameEnglish,
-                    fatherName: fatherNameEnglish,
-                    occupation: occupationEnglish
+                    // Note: Removed all *English and *Sindhi fields for simplicity
                 };
                 
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), updatePayload);
 
-                statusElement.textContent = `${nameSindhi || nameEnglish} جو رڪارڊ ڪاميابي سان اپڊيٽ ٿي ويو!`;
+                statusElement.textContent = `${name} جو رڪارڊ ڪاميابي سان اپڊيٽ ٿي ويو!`;
                 statusElement.classList.remove('text-amber-600');
                 statusElement.classList.add('text-green-600');
 
@@ -587,9 +480,9 @@
 
                 const photo = member.photoBase64 ? `<img src="${member.photoBase64}" class="member-photo-admin" alt="Member Photo">` : 'تصوير ناهي';
                 
-                // Display name preference: Sindhi -> English -> Original Name
-                const displayName = member.nameSindhi || member.nameEnglish || member.name || 'نامعلوم';
-                const displayOccupation = member.occupationSindhi || member.occupationEnglish || member.occupation || 'نامعلوم';
+                // Display name preference: Primary field only
+                const displayName = member.name || 'نامعلوم';
+                const displayOccupation = member.occupation || 'نامعلوم';
                 
                 let actionButtons = '';
                 if (member.status === 'Pending') {
@@ -899,13 +792,28 @@
         </div>
     </div>
 
-    <!-- Member Edit Modal (UPDATED with Translation Fields) -->
+    <!-- Member Edit Modal (Simplified) -->
     <div id="edit-modal" class="modal-backdrop hidden">
-        <div class="modal-content text-right max-w-xl w-full">
+        <div class="modal-content text-right max-w-lg w-full">
             <h3 class="text-xl font-bold mb-4 text-amber-700">ميمبرشپ تفصيل ايڊٽ ڪريو</h3>
             <p class="mb-3 text-sm text-gray-600">ميمبر ID: <strong id="edit-member-id-display" class="latin text-teal-700">...</strong></p>
             
-            <!-- Shared Fields -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="mb-3">
+                    <label for="edit-name" class="block text-right mb-1 font-medium text-sm">پورو نالو</label>
+                    <input type="text" id="edit-name" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned">
+                </div>
+                 <div class="mb-3">
+                    <label for="edit-fatherName" class="block text-right mb-1 font-medium text-sm">پيءُ جو نالو</label>
+                    <input type="text" id="edit-fatherName" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned">
+                </div>
+            </div>
+            
+             <div class="mb-3">
+                <label for="edit-occupation" class="block text-right mb-1 font-medium text-sm">پيشو / تعليم</label>
+                <input type="text" id="edit-occupation" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned">
+            </div>
+            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="mb-3">
                     <label for="edit-gender" class="block text-right mb-1 font-medium text-sm">جنس</label>
@@ -927,51 +835,9 @@
                 <textarea id="edit-address" rows="1" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned"></textarea>
             </div>
             
-            <div class="mb-4">
+            <div class="mb-3">
                 <label for="edit-contact" class="block text-right mb-1 font-medium text-sm">رابطو نمبر</label>
                 <input type="text" id="edit-contact" class="w-full p-2 border border-gray-300 rounded-md latin">
-            </div>
-            
-            <hr class="my-4 border-teal-200">
-
-            <!-- English (Primary/Editable) Fields -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div class="col-span-1">
-                    <label for="edit-nameEnglish" class="block text-right mb-1 font-medium text-sm text-blue-600">نالو (English)</label>
-                    <input type="text" id="edit-nameEnglish" class="w-full p-2 border border-blue-300 rounded-md latin">
-                </div>
-                 <div class="col-span-1">
-                    <label for="edit-fatherNameEnglish" class="block text-right mb-1 font-medium text-sm text-blue-600">پيءُ جو نالو (English)</label>
-                    <input type="text" id="edit-fatherNameEnglish" class="w-full p-2 border border-blue-300 rounded-md latin">
-                </div>
-                 <div class="col-span-1">
-                    <label for="edit-occupationEnglish" class="block text-right mb-1 font-medium text-sm text-blue-600">پيشو (English)</label>
-                    <input type="text" id="edit-occupationEnglish" class="w-full p-2 border border-blue-300 rounded-md latin">
-                </div>
-            </div>
-            
-            <!-- Translation Button -->
-            <div class="flex justify-center mb-4">
-                 <button onclick="window.triggerTranslation()" class="bg-amber-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-amber-600 transition-colors text-sm flex items-center">
-                    <span class="mr-2">سنڌي ۾ ترجمو ڪريو ۽ پُر ڪريو </span> 🔃
-                </button>
-            </div>
-
-
-            <!-- Sindhi (Translation/Editable) Fields -->
-             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div class="col-span-1">
-                    <label for="edit-nameSindhi" class="block text-right mb-1 font-medium text-sm text-teal-600">نالو (سنڌي)</label>
-                    <input type="text" id="edit-nameSindhi" class="w-full p-2 border border-teal-300 rounded-md text-right-aligned">
-                </div>
-                 <div class="col-span-1">
-                    <label for="edit-fatherNameSindhi" class="block text-right mb-1 font-medium text-sm text-teal-600">پيءُ جو نالو (سنڌي)</label>
-                    <input type="text" id="edit-fatherNameSindhi" class="w-full p-2 border border-teal-300 rounded-md text-right-aligned">
-                </div>
-                 <div class="col-span-1">
-                    <label for="edit-occupationSindhi" class="block text-right mb-1 font-medium text-sm text-teal-600">پيشو (سنڌي)</label>
-                    <input type="text" id="edit-occupationSindhi" class="w-full p-2 border border-teal-300 rounded-md text-right-aligned">
-                </div>
             </div>
 
             <!-- Photo Preview (Photo can only be changed via re-application) -->
