@@ -57,7 +57,7 @@
             padding: 24px;
             border-radius: 8px;
             max-width: 90%;
-            width: 600px; /* Increased width for better layout */
+            width: 400px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
         }
     </style>
@@ -90,10 +90,11 @@
         
         let db;
         let auth;
-        let inventoryData = []; 
-        let currentBookIdToEdit = null; 
-        let pendingMembersData = []; 
-        let currentMemberDataToEdit = null; 
+        let inventoryData = []; // Global storage for all books
+        let currentBookIdToEdit = null; // State to track which book is being edited
+        let pendingMembersData = []; // Global storage for pending member applications
+        let currentMemberDataToEdit = null; // State to track which member is being edited (NEW)
+
 
         // --- View Switching Logic ---
         window.switchView = function(viewId) {
@@ -350,7 +351,7 @@
             return pendingMembersData.find(m => m.id === memberId);
         };
 
-        // --- UPDATED: Open Member Edit Modal (Includes Sindhi fields for manual correction) ---
+        // --- NEW: Open Member Edit Modal ---
         window.openEditModal = function(memberId) {
             const memberToEdit = findMemberData(memberId);
             if (!memberToEdit) {
@@ -359,24 +360,15 @@
             }
             
             currentMemberDataToEdit = memberToEdit;
-            document.getElementById('edit-status').textContent = '';
-            
-            // Populate English fields (source of truth for translation)
-            document.getElementById('edit-nameEnglish').value = memberToEdit.nameEnglish || memberToEdit.name || '';
-            document.getElementById('edit-fatherNameEnglish').value = memberToEdit.fatherNameEnglish || memberToEdit.fatherName || '';
-            document.getElementById('edit-occupationEnglish').value = memberToEdit.occupationEnglish || memberToEdit.occupation || '';
-            
-            // Populate Sindhi fields (translation result/manual correction field)
-            document.getElementById('edit-nameSindhi').value = memberToEdit.nameSindhi || memberToEdit.name || '';
-            document.getElementById('edit-fatherNameSindhi').value = memberToEdit.fatherNameSindhi || memberToEdit.fatherName || '';
-            document.getElementById('edit-occupationSindhi').value = memberToEdit.occupationSindhi || memberToEdit.occupation || '';
-            
-            // Other fields
             document.getElementById('edit-member-id-display').textContent = memberToEdit.cardId;
-            document.getElementById('edit-dob').value = memberToEdit.dob || ''; 
+            document.getElementById('edit-name').value = memberToEdit.name || '';
+            document.getElementById('edit-fatherName').value = memberToEdit.fatherName || '';
+            document.getElementById('edit-dob').value = memberToEdit.dob || ''; // Date format should match input[type=date]
+            document.getElementById('edit-occupation').value = memberToEdit.occupation || '';
             document.getElementById('edit-address').value = memberToEdit.address || '';
             document.getElementById('edit-contact').value = memberToEdit.contact || '';
             document.getElementById('edit-gender').value = memberToEdit.gender || 'placeholder';
+            
             document.getElementById('edit-member-photo').src = memberToEdit.photoBase64 || 'https://placehold.co/80x80/0d3b38/fff?text=N/A';
             
             document.getElementById('edit-modal').classList.remove('hidden');
@@ -388,51 +380,35 @@
             currentMemberDataToEdit = null;
         };
 
-        // --- UPDATED: Process Member Update (Saves both English and Sindhi fields) ---
+        // --- NEW: Process Member Update ---
         window.processMemberUpdate = async function() {
             const memberId = currentMemberDataToEdit.id;
-            
-            // English/Original Fields (LTR input)
-            const nameEnglish = document.getElementById('edit-nameEnglish').value.trim();
-            const fatherNameEnglish = document.getElementById('edit-fatherNameEnglish').value.trim();
-            const occupationEnglish = document.getElementById('edit-occupationEnglish').value.trim();
-            
-            // Sindhi Translated Fields (RTL input)
-            const nameSindhi = document.getElementById('edit-nameSindhi').value.trim();
-            const fatherNameSindhi = document.getElementById('edit-fatherNameSindhi').value.trim();
-            const occupationSindhi = document.getElementById('edit-occupationSindhi').value.trim();
-            
-            // Other Fields
+            const name = document.getElementById('edit-name').value.trim();
+            const fatherName = document.getElementById('edit-fatherName').value.trim();
             const dob = document.getElementById('edit-dob').value;
+            const occupation = document.getElementById('edit-occupation').value.trim();
             const address = document.getElementById('edit-address').value.trim();
             const contact = document.getElementById('edit-contact').value.trim();
             const gender = document.getElementById('edit-gender').value;
             const statusElement = document.getElementById('edit-status');
 
-            if (!nameEnglish || !fatherNameEnglish || !dob || !occupationEnglish || !address || !contact || gender === "placeholder") {
+            if (!name || !fatherName || !dob || !occupation || !address || !contact || gender === "placeholder") {
                 statusElement.textContent = 'مهرباني ڪري سڀ ضروري جايون ڀريو.';
                 statusElement.classList.add('text-red-600');
                 return;
             }
 
             statusElement.textContent = 'تبديليون محفوظ ڪري رهيو آهي...';
-            statusElement.classList.remove('text-red-600', 'text-green-600');
+            statusElement.classList.remove('text-red-600');
             statusElement.classList.add('text-amber-600');
 
             try {
-                const updatePayload = {
-                    nameEnglish, fatherNameEnglish, occupationEnglish,
-                    nameSindhi, fatherNameSindhi, occupationSindhi, 
-                    dob, address, contact, gender,
-                    // Legacy fields (for backward compatibility, storing Sindhi name as main name if possible)
-                    name: nameSindhi || nameEnglish,
-                    fatherName: fatherNameSindhi || fatherNameEnglish,
-                    occupation: occupationSindhi || occupationEnglish
-                };
-                
-                await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), updatePayload);
+                // Note: We don't allow photoBase64 or cardId to be edited here directly
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/members`, memberId), {
+                    name, fatherName, dob, occupation, address, contact, gender
+                });
 
-                statusElement.textContent = `${nameSindhi || nameEnglish} جو رڪارڊ ڪاميابي سان اپڊيٽ ٿي ويو!`;
+                statusElement.textContent = `${name} جو رڪارڊ ڪاميابي سان اپڊيٽ ٿي ويو!`;
                 statusElement.classList.remove('text-amber-600');
                 statusElement.classList.add('text-green-600');
 
@@ -495,21 +471,17 @@
 
                 const photo = member.photoBase64 ? `<img src="${member.photoBase64}" class="member-photo-admin" alt="Member Photo">` : 'تصوير ناهي';
                 
-                // Display name preference: Sindhi -> English -> Legacy Name
-                const displayName = member.nameSindhi || member.nameEnglish || member.name || 'نامعلوم';
-                const displayOccupation = member.occupationSindhi || member.occupationEnglish || member.occupation || 'نامعلوم';
-                
                 let actionButtons = '';
                 if (member.status === 'Pending') {
                     actionButtons = `
-                        <button onclick="window.approveMember('${member.id}', '${displayName}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منظور ڪريو</button>
-                        <button onclick="window.openCancelModal('${member.id}', '${displayName}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منسوخ ڪريو (Reason)</button>
+                        <button onclick="window.approveMember('${member.id}', '${member.name}')" class="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منظور ڪريو</button>
+                        <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">منسوخ ڪريو (Reason)</button>
                     `;
                 } else if (member.status === 'Approved') {
                     actionButtons = `
                         <span class="${statusColor} font-semibold text-sm">${statusText}</span>
                         <a href="membership_track.html?id=${member.cardId}" target="_blank" class="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ڪارڊ پرنٽ ڪريو</a>
-                        <button onclick="window.openCancelModal('${member.id}', '${displayName}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ممبرشپ رد ڪريو</button>
+                        <button onclick="window.openCancelModal('${member.id}', '${member.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap mb-1 md:mb-0">ممبرشپ رد ڪريو</button>
                     `;
                 } else {
                      actionButtons = `<span class="${statusColor} font-semibold text-sm">${statusText}</span>`;
@@ -518,15 +490,15 @@
                 // Add Edit and Delete buttons to all rows
                 actionButtons += `
                     <button onclick="window.openEditModal('${member.id}')" class="bg-amber-500 text-white px-3 py-1 rounded-md hover:bg-amber-600 transition-colors text-sm whitespace-nowrap mt-1 md:mt-0">ايڊٽ ڪريو</button>
-                    <button onclick="window.deleteMemberRecord('${member.id}', '${displayName}')" class="bg-gray-400 text-white px-3 py-1 rounded-md hover:bg-gray-500 transition-colors text-sm whitespace-nowrap mt-1 md:mt-0">حذف ڪريو</button>
+                    <button onclick="window.deleteMemberRecord('${member.id}', '${member.name}')" class="bg-gray-400 text-white px-3 py-1 rounded-md hover:bg-gray-500 transition-colors text-sm whitespace-nowrap mt-1 md:mt-0">حذف ڪريو</button>
                 `;
 
 
                 row.innerHTML = `
                     <td class="p-4">${index + 1}</td>
                     <td class="p-4">${photo}</td>
-                    <td class="p-4 font-semibold">${displayName} (${member.cardId})</td>
-                    <td class="p-4 text-sm">${displayOccupation}</td>
+                    <td class="p-4 font-semibold">${member.name} (${member.cardId})</td>
+                    <td class="p-4 text-sm">${member.occupation}</td>
                     <td class="p-4 text-sm text-gray-500">${member.submissionTime}</td>
                     <td class="p-4 space-y-1 space-x-2 space-x-reverse flex flex-col md:flex-row md:justify-end items-end md:items-center">
                         ${actionButtons}
@@ -792,7 +764,7 @@
     
     <!-- Cancellation Modal -->
     <div id="cancel-modal" class="modal-backdrop hidden">
-        <div class="modal-content text-right max-w-md w-full">
+        <div class="modal-content text-right">
             <h3 class="text-xl font-bold mb-4 text-red-700">ممبرشپ رد ڪرڻ جو سبب</h3>
             <p class="mb-3 text-sm text-gray-600">ڇا توھان <strong id="cancel-member-name" class="font-bold">...</strong> جي ممبرشپ رد ڪري رھيا آھيو؟ مھرباني ڪري سبب لکو جيڪو شاگرد کي اسٽيٽس ٽريڪنگ دوران ڏيکاريو ويندو.</p>
             
@@ -807,49 +779,25 @@
         </div>
     </div>
 
-    <!-- Member Edit Modal (UPDATED for manual Sindhi correction) -->
+    <!-- Member Edit Modal (NEW) -->
     <div id="edit-modal" class="modal-backdrop hidden">
-        <div class="modal-content text-right max-w-xl w-full">
+        <div class="modal-content text-right max-w-lg w-full">
             <h3 class="text-xl font-bold mb-4 text-amber-700">ميمبرشپ تفصيل ايڊٽ ڪريو</h3>
             <p class="mb-3 text-sm text-gray-600">ميمبر ID: <strong id="edit-member-id-display" class="latin text-teal-700">...</strong></p>
             
-            <!-- English (Original Input) Fields -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 border-b pb-4 border-blue-200">
-                <h4 class="col-span-3 text-lg font-bold text-blue-700">اصل انگريزي ان پٽ (ترجمي جو بنياد)</h4>
-                <div class="col-span-1">
-                    <label for="edit-nameEnglish" class="block text-right mb-1 font-medium text-sm">نالو (English)</label>
-                    <input type="text" id="edit-nameEnglish" class="w-full p-2 border border-blue-300 rounded-md latin">
-                </div>
-                 <div class="col-span-1">
-                    <label for="edit-fatherNameEnglish" class="block text-right mb-1 font-medium text-sm">پيءُ جو نالو (English)</label>
-                    <input type="text" id="edit-fatherNameEnglish" class="w-full p-2 border border-blue-300 rounded-md latin">
-                </div>
-                 <div class="col-span-1">
-                    <label for="edit-occupationEnglish" class="block text-right mb-1 font-medium text-sm">پيشو (English)</label>
-                    <input type="text" id="edit-occupationEnglish" class="w-full p-2 border border-blue-300 rounded-md latin">
-                </div>
-            </div>
-
-            <!-- Sindhi (Correction/Display) Fields -->
-             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 border-b pb-4 border-teal-200">
-                 <h4 class="col-span-3 text-lg font-bold text-teal-700">سندھی ڪارڊ تي ڏيکاريل نالا (جيڪڏهن ضروري هجي ته درست ڪريو)</h4>
-                <div class="col-span-1">
-                    <label for="edit-nameSindhi" class="block text-right mb-1 font-medium text-sm">نالو (سنڌي)</label>
-                    <input type="text" id="edit-nameSindhi" class="w-full p-2 border border-teal-300 rounded-md text-right-aligned">
-                </div>
-                 <div class="col-span-1">
-                    <label for="edit-fatherNameSindhi" class="block text-right mb-1 font-medium text-sm">پيءُ جو نالو (سنڌي)</label>
-                    <input type="text" id="edit-fatherNameSindhi" class="w-full p-2 border border-teal-300 rounded-md text-right-aligned">
-                </div>
-                 <div class="col-span-1">
-                    <label for="edit-occupationSindhi" class="block text-right mb-1 font-medium text-sm">پيشو (سنڌي)</label>
-                    <input type="text" id="edit-occupationSindhi" class="w-full p-2 border border-teal-300 rounded-md text-right-aligned">
-                </div>
-            </div>
-
-            <!-- Other Shared Fields -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="mb-3">
+                    <label for="edit-name" class="block text-right mb-1 font-medium text-sm">پورو نالو</label>
+                    <input type="text" id="edit-name" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned">
+                </div>
                  <div class="mb-3">
+                    <label for="edit-fatherName" class="block text-right mb-1 font-medium text-sm">پيءُ جو نالو</label>
+                    <input type="text" id="edit-fatherName" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned">
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="mb-3">
                     <label for="edit-gender" class="block text-right mb-1 font-medium text-sm">جنس</label>
                     <select id="edit-gender" class="w-full p-2 border border-gray-300 rounded-md bg-white">
                         <option value="placeholder" disabled>جنس چونڊيو</option>
@@ -862,6 +810,11 @@
                     <label for="edit-dob" class="block text-right mb-1 font-medium text-sm">پيدائش جي تاريخ</label>
                     <input type="date" id="edit-dob" class="w-full p-2 border border-gray-300 rounded-md latin">
                 </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="edit-occupation" class="block text-right mb-1 font-medium text-sm">پيشو / تعليم</label>
+                <input type="text" id="edit-occupation" class="w-full p-2 border border-gray-300 rounded-md text-right-aligned">
             </div>
             
             <div class="mb-3">

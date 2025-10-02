@@ -96,11 +96,6 @@
         const FORMSPREE_URL = "https://formspree.io/f/mqayqjpz";
         const MAX_RAW_FILE_SIZE_BYTES = 3 * 1024 * 1024; 
         const MAX_FIRESTORE_PAYLOAD_SIZE = 1000 * 1024; 
-        
-        // --- Gemini API Configuration ---
-        const API_KEY = ""; // Using empty string for Canvas auto-injection
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
-        // --- End Gemini API Configuration ---
 
         let db;
         let auth;
@@ -124,68 +119,6 @@
                 console.error("Firebase Auth Error:", error);
             }
         }
-        
-        // --- NEW/UPDATED: Translation Function ---
-        async function fetchTranslate(englishData, statusElement) {
-            statusElement.textContent = 'نالو، پيءُ جو نالو ۽ پيشو سنڌي ۾ ترجمو ڪيو پيو وڃي...';
-            statusElement.classList.remove('text-red-600', 'text-green-600');
-            statusElement.classList.add('text-amber-500');
-            
-            const prompt = `Translate the following user details into Sindhi (Nastaliq script) and return them strictly in the provided JSON schema. Ensure names are phonetically accurate:
-            Name: ${englishData.name}
-            Father Name: ${englishData.fatherName}
-            Occupation: ${englishData.occupation}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: {
-                    parts: [{ text: "You are a professional Sindhi (Nastaliq) translator. Your only task is to translate the provided English text into Sindhi and return the result strictly in JSON format as requested." }]
-                },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            "nameSindhi": { "type": "STRING", "description": "Translated name of the applicant in Sindhi." },
-                            "fatherNameSindhi": { "type": "STRING", "description": "Translated father's name in Sindhi." },
-                            "occupationSindhi": { "type": "STRING", "description": "Translated occupation in Sindhi." }
-                        }
-                    }
-                },
-            };
-
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (!jsonText) throw new Error("API returned an invalid or empty response structure.");
-
-                const parsedJson = JSON.parse(jsonText);
-                
-                return { 
-                    nameSindhi: parsedJson.nameSindhi || englishData.name, 
-                    fatherNameSindhi: parsedJson.fatherNameSindhi || englishData.fatherName, 
-                    occupationSindhi: parsedJson.occupationSindhi || englishData.occupation 
-                };
-                
-            } catch (error) {
-                console.error("Translation API Error:", error);
-                // On critical failure, use English data as a fallback for the Sindhi fields
-                statusElement.textContent = `خودڪار ترجمي ۾ غلطي ٿي. اسان صرف انگريزي نالا محفوظ ڪري رهيا آهيون. مھرباني ڪري لائبريرين کي آگاھ ڪريو.`;
-                statusElement.classList.remove('text-amber-500', 'text-green-600');
-                statusElement.classList.add('text-red-600');
-                // Return null so the calling function can use the English data as Sindhi fallback
-                return { nameSindhi: englishData.name, fatherNameSindhi: englishData.fatherName, occupationSindhi: englishData.occupation }; 
-            }
-        }
-        // --- End NEW/UPDATED: Translation Function ---
-
 
         function compressImage(base64Image, maxWidth, maxHeight, quality, callback) {
             const img = new Image();
@@ -288,7 +221,6 @@
         }
         
         window.submitMembership = async function() {
-            // Fields now encourage LTR/English input for best translation results
             const name = document.getElementById('name').value.trim();
             const fatherName = document.getElementById('fatherName').value.trim();
             const gender = document.getElementById('gender').value;
@@ -327,13 +259,6 @@
                 statusElement.classList.add('text-red-600');
                 return;
             }
-            
-            // --- Step 1: Translate to Sindhi ---
-            const englishData = { name, fatherName, occupation };
-            const translatedData = await fetchTranslate(englishData, statusElement);
-
-            // If translation failed critically, the status message will already be set to error.
-            // We continue, using the original English input as the Sindhi fallback.
 
             statusElement.textContent = 'درخواست جمع ڪري رهيو آهي...';
             statusElement.classList.remove('text-red-600', 'text-green-600');
@@ -343,31 +268,15 @@
                 cardId = 'NJL-' + crypto.randomUUID().substring(0, 8).toUpperCase();
 
                 const applicationData = {
-                    // Primary Data (Original/English Input)
-                    nameEnglish: name,
-                    fatherNameEnglish: fatherName,
-                    occupationEnglish: occupation,
-                    
-                    // Translated Data (Used for Card/Sindhi display)
-                    nameSindhi: translatedData.nameSindhi,
-                    fatherNameSindhi: translatedData.fatherNameSindhi,
-                    occupationSindhi: translatedData.occupationSindhi,
-                    
-                    // Other Required Fields
-                    gender, dob, address, contact,
+                    name, fatherName, gender, dob, occupation, address, contact,
                     photoBase64, cardId, status: 'Pending', memberSince: serverTimestamp(),
-                    userId: auth.currentUser?.uid || 'anonymous-user',
-
-                    // Legacy fields (for backward compatibility, storing English)
-                    name: name,
-                    fatherName: fatherName,
-                    occupation: occupation
+                    userId: auth.currentUser?.uid || 'anonymous-user'
                 };
 
                 const firestorePromise = addDoc(collection(db, `artifacts/${appId}/public/data/members`), applicationData);
 
                 const formData = new FormData();
-                formData.append("Applicant_Name (Sindhi)", translatedData.nameSindhi); // Use Sindhi name for notification
+                formData.append("Applicant_Name", name);
                 formData.append("Contact_Number", contact);
                 formData.append("Generated_Card_ID", cardId);
                 
@@ -460,16 +369,14 @@
                 <p class="text-xs mt-2 text-gray-500">مھرباني ڪري گيلري مان تصوير چونڊيو. (ڪئميرا بند آھي). سائيز حد: 3MB (تصوير فائر اسٽور ۾ محفوظ ڪرڻ لاءِ خودڪار طريقي سان گھٽائي ويندي.)</p>
             </div>
             
-            <!-- Removed the explicit English instruction -->
-            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="mb-4">
                     <label for="name" class="block text-right mb-2 font-medium">پورو نالو (Name)</label>
-                    <input type="text" id="name" class="input-field latin" dir="ltr" placeholder="Student's Full Name (e.g., Waqas Ahmed Mangi)">
+                    <input type="text" id="name" class="input-field text-right-aligned" placeholder="شاگرد جو پورو نالو">
                 </div>
                 <div class="mb-4">
                     <label for="fatherName" class="block text-right mb-2 font-medium">پيءُ جو نالو (Father Name)</label>
-                    <input type="text" id="fatherName" class="input-field latin" dir="ltr" placeholder="Father's Name (e.g., Ali Gohar Mangi)">
+                    <input type="text" id="fatherName" class="input-field text-right-aligned" placeholder="پيءُ جو نالو">
                 </div>
             </div>
 
@@ -491,7 +398,7 @@
 
             <div class="mb-4">
                 <label for="occupation" class="block text-right mb-2 font-medium">پيشو / تعليم (Occupation)</label>
-                <input type="text" id="occupation" class="input-field latin" dir="ltr" placeholder="e.g., Student, Designer, Teacher">
+                <input type="text" id="occupation" class="input-field text-right-aligned" placeholder="مثال: شاگرد، ڪاليج شاگرد، استاد، وغيره">
             </div>
 
             <div class="mb-4">

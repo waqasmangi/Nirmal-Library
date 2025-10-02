@@ -281,13 +281,6 @@
             const expiryDateStr = formatDate(data.expiryDate);
             const dobStr = formatDate(data.dob);
 
-            // --- UPDATED: Use Sindhi translation fields with fallbacks ---
-            // Priority: Sindhi -> English -> Legacy (Old structure)
-            const displayName = data.nameSindhi || data.nameEnglish || data.name || 'نامعلوم شاگرد';
-            const displayFatherName = data.fatherNameSindhi || data.fatherNameEnglish || data.fatherName || 'نامعلوم پيءُ جو نالو';
-            const displayOccupation = data.occupationSindhi || data.occupationEnglish || data.occupation || 'نامعلوم پيشو';
-            // --- END UPDATED ---
-
             cardArea.innerHTML = `
                 <div class="card-container" id="membership-card-to-print">
                     
@@ -310,11 +303,11 @@
                                 <h3 class="text-sm font-bold text-teal-800 mb-1">شاگرد جي تفصيل</h3>
                                 <div class="card-details-grid">
                                     <div class="detail-label">نالو</div>
-                                    <div class="detail-value text-teal-800 font-extrabold">${displayName}</div>
+                                    <div class="detail-value text-teal-800 font-extrabold">${data.name}</div>
                                     <div class="detail-label">پيءُ جو نالو</div>
-                                    <div class="detail-value">${displayFatherName}</div>
+                                    <div class="detail-value">${data.fatherName}</div>
                                     <div class="detail-label">پيشو</div>
-                                    <div class="detail-value">${displayOccupation}</div>
+                                    <div class="detail-value">${data.occupation}</div>
                                     <div class="detail-label">پيدائش جي تاريخ</div>
                                     <div class="detail-value latin">${dobStr}</div>
                                     <div class="detail-label">جاري ٿيڻ جي تاريخ</div>
@@ -339,7 +332,7 @@
                         </div>
 
                         <div class="card-photo-section">
-                            <img src="${data.photoBase64}" class="card-photo" alt="${displayName} Photo">
+                            <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
                             <p class="card-id-display latin">${data.cardId}</p>
                             <p class="text-[8px] text-gray-500 mt-0.5">ميمبرشپ ID نمبر</p>
                         </div>
@@ -375,6 +368,8 @@
 
             html2pdf().from(cardElement).set(opt).save();
         };
+
+        // Removed window.downloadCardAsImage function
 
         document.addEventListener('DOMContentLoaded', initFirebaseAndAuth);
     </script>
