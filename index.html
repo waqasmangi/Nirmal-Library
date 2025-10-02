@@ -371,9 +371,15 @@
 
     <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
-            <div class="text-center md:text-right mb-2 md:mb-0">
-                <h1 class="text-3xl md:text-4xl font-bold">نرمل جيوتاڻي لائبريري، ٿرڙي محبت</h1>
-                <p class="text-sm text-amber-300 mt-1">آزاد منگي فائونڊيشن جي طرفان</p>
+            <div class="flex items-center justify-center md:justify-end text-center md:text-right mb-2 md:mb-0">
+                <!-- NEW: Nirmal Logo/Icon -->
+                <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/7962aea5f7f31320cec9566bb5ba8b9a0c3f83b/1000359794-removebg-preview.png" 
+                     alt="Nirmal Library Logo" 
+                     class="w-12 h-12 ml-3 object-contain rounded-full bg-amber-500 p-1 shadow-lg border-2 border-white">
+                <div>
+                    <h1 class="text-3xl md:text-4xl font-bold">نرمل جيوتاڻي لائبريري، ٿرڙي محبت</h1>
+                    <p class="text-sm text-amber-300 mt-1">آزاد منگي فائونڊيشن جي طرفان</p>
+                </div>
             </div>
             <nav class="hidden md:flex space-x-reverse space-x-6">
                 <!-- NEW LINKS ADDED -->
@@ -397,6 +403,25 @@
     </header>
 
     <main class="container mx-auto p-4 md:p-8">
+
+        <!-- New: Android App Download Banner (Prominent Place) -->
+        <div class="bg-green-600 text-white p-4 md:p-6 shadow-2xl mb-10 max-w-4xl mx-auto rounded-lg border-b-8 border-lime-300 flex flex-col items-center justify-center text-center transform transition duration-500 hover:scale-[1.01]">
+            <h2 class="text-xl md:text-3xl font-extrabold mb-3 text-center">
+                لائبريري جي اينڊرائيڊ ايپ ڊائونلوڊ ڪريو! 📲
+            </h2>
+            
+            <a href="https://github.com/waqasmangi/Nirmal-Library/blob/8f63c4a4b38eebb4985b20f9620e218a644bde86/_Nirmal_Library_Portal_19154186%20(1)%20(1).apk" 
+               target="_blank" 
+               class="inline-flex items-center justify-center bg-amber-400 text-teal-900 font-bold py-3 px-8 rounded-full shadow-lg hover:bg-amber-500 transition-colors text-lg w-full sm:w-auto">
+                <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                APK ڊائونلوڊ ڪريو (سڌو لنڪ)
+            </a>
+
+            <!-- Security Note -->
+            <p class="text-center text-xs md:text-sm mt-4 p-2 bg-green-700/50 rounded-md max-w-lg">
+                <span class="font-bold text-amber-200">اھم نوٽ:</span> ھي ايپ پلي اسٽور کان ڊائونلوڊ نه پئي ٿئي، تنھنڪري ان کي انسٽال ڪرڻ لاءِ شايد سيڪيورٽي اجازتون (Permissions) گهربل هجن. مھرباني ڪري انھن کي اجازت ڏيو. ھي ايپ اينٽي وائرس سان چيڪ ٿيل ۽ استعمال لاءِ محفوظ آھي.
+            </p>
+        </div>
         
         <!-- Large Portal Title -->
         <div class="py-12 md:py-20 bg-teal-600 rounded-lg shadow-xl mb-10 border-b-8 border-amber-400">
@@ -452,8 +477,6 @@
             <!-- Submission Form (Refactored) -->
             <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 max-w-3xl mx-auto mb-10 text-right-aligned">
                 <h3 class="text-2xl font-semibold mb-4 text-center">پنھنجي راءِ ڏيو</h3>
-                
-                <!-- NOTE: Hidden Formspree form removed as submission is handled via fetch API in JS now -->
                 
                 <!-- NEW: Name Field -->
                 <label for="reviewer-name" class="block text-right mb-4 font-medium">پنهنجو نالو (Optional)</label>
