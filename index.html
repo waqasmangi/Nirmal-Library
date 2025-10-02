@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نرمل جيوتاڻي لائبريري، ٿرڙي محبت</title>
+    <!-- NEW: Favicon -->
+    <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/7962aea5f7f31320cec9566bb5ba8b9a0c3f83b/1000359794-removebg-preview.png" type="image/png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Custom Font: MB Lateefi.otf -->
@@ -62,6 +65,17 @@
         .star-rating label:hover,
         .star-rating label:hover ~ label {
             color: #fbbf24; /* Amber-400 */
+        }
+        /* FIX: Ensure the image displays fully */
+        .nirmal-logo-header {
+            width: 55px;
+            height: 55px; 
+            object-fit: contain; /* CRITICAL FIX: Use object-contain */
+            margin-left: 0.75rem;
+            border-radius: 9999px; /* Full circle */
+            background-color: #fcd34d; /* Amber */
+            padding: 2px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
     </style>
     
@@ -372,10 +386,10 @@
     <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
             <div class="flex items-center justify-center md:justify-end text-center md:text-right mb-2 md:mb-0">
-                <!-- NEW: Nirmal Logo/Icon -->
+                <!-- UPDATED: Nirmal Logo/Icon with new class -->
                 <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/7962aea5f7f31320cec9566bb5ba8b9a0c3f83b/1000359794-removebg-preview.png" 
                      alt="Nirmal Library Logo" 
-                     class="w-12 h-12 ml-3 object-contain rounded-full bg-amber-500 p-1 shadow-lg border-2 border-white">
+                     class="nirmal-logo-header border-white">
                 <div>
                     <h1 class="text-3xl md:text-4xl font-bold">نرمل جيوتاڻي لائبريري، ٿرڙي محبت</h1>
                     <p class="text-sm text-amber-300 mt-1">آزاد منگي فائونڊيشن جي طرفان</p>
@@ -404,23 +418,20 @@
 
     <main class="container mx-auto p-4 md:p-8">
 
-        <!-- New: Android App Download Banner (Prominent Place) -->
+        <!-- UPDATED: Simple Android App Download Banner -->
         <div class="bg-green-600 text-white p-4 md:p-6 shadow-2xl mb-10 max-w-4xl mx-auto rounded-lg border-b-8 border-lime-300 flex flex-col items-center justify-center text-center transform transition duration-500 hover:scale-[1.01]">
             <h2 class="text-xl md:text-3xl font-extrabold mb-3 text-center">
                 لائبريري جي اينڊرائيڊ ايپ ڊائونلوڊ ڪريو! 📲
             </h2>
+            <p class="text-sm md:text-lg mb-4">هِن پورٽل جي آسان ۽ تيز رسائي لاءِ اسان جي موبائيل ايپ ڊائونلوڊ ڪريو.</p>
             
-            <a href="https://github.com/waqasmangi/Nirmal-Library/blob/8f63c4a4b38eebb4985b20f9620e218a644bde86/_Nirmal_Library_Portal_19154186%20(1)%20(1).apk" 
+            <!-- UPDATED: New APK Link -->
+            <a href="https://drive.google.com/uc?export=download&id=1owjskeM2S3nbkbrZIV6z4JjOq-AU-AWW" 
                target="_blank" 
                class="inline-flex items-center justify-center bg-amber-400 text-teal-900 font-bold py-3 px-8 rounded-full shadow-lg hover:bg-amber-500 transition-colors text-lg w-full sm:w-auto">
                 <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                APK ڊائونلوڊ ڪريو (سڌو لنڪ)
+                APK ڊائونلوڊ ڪريو
             </a>
-
-            <!-- Security Note -->
-            <p class="text-center text-xs md:text-sm mt-4 p-2 bg-green-700/50 rounded-md max-w-lg">
-                <span class="font-bold text-amber-200">اھم نوٽ:</span> ھي ايپ پلي اسٽور کان ڊائونلوڊ نه پئي ٿئي، تنھنڪري ان کي انسٽال ڪرڻ لاءِ شايد سيڪيورٽي اجازتون (Permissions) گهربل هجن. مھرباني ڪري انھن کي اجازت ڏيو. ھي ايپ اينٽي وائرس سان چيڪ ٿيل ۽ استعمال لاءِ محفوظ آھي.
-            </p>
         </div>
         
         <!-- Large Portal Title -->
