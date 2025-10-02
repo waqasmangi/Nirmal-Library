@@ -4,65 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نرمل جيوتاڻي لائبريري، ٿرڙي محبت</title>
-    <!-- NEW: Favicon (Updated URL) -->
+    <!-- Favicon -->
     <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" type="image/png">
     
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
-        /* Custom Font */
         @font-face {
             font-family: 'MBLateefi';
             src: url('MB Lateefi.otf') format('opentype');
             font-weight: normal;
             font-style: normal;
         }
-        body {
-            font-family: 'MBLateefi', 'Noto Nastaliq Urdu', serif;
-            text-align: center;
-        }
-        .latin {
-            font-family: Inter, sans-serif;
-            text-align: left;
-        }
-        .text-right-aligned {
-             text-align: right;
-        }
-        .max-h-96 {
-            max-height: 24rem;
-        }
-        /* Consolidated Logo Style - FIX APPLIED */
+        body { font-family: 'MBLateefi', 'Noto Nastaliq Urdu', serif; text-align: center; }
+        .latin { font-family: Inter, sans-serif; text-align: left; }
+        .text-right-aligned { text-align: right; }
+        .max-h-96 { max-height: 24rem; }
+        /* Logo Styles */
         .nirmal-logo-header {
-            width: 55px;
-            height: 55px; 
-            object-fit: contain; 
-            border-radius: 9999px; 
-            background-color: #fcd34d;
-            padding: 2px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 55px; height: 55px; object-fit: contain; border-radius: 9999px; 
+            background-color: #fcd34d; padding: 2px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        /* Star Rating Styles */
-        .star-rating {
-            display: flex;
-            justify-content: center;
-            direction: rtl; 
+        /* UPDATED: Founder Photo Style (No Circle, Responsive, Shadow) */
+        .founder-photo {
+            /* Responsive Sizing: Use max-width for fluid resizing */
+            max-width: 200px; /* Max size on desktop */
+            width: 80%; /* Fluid on smaller screens */
+            height: auto; 
+            display: block;
+            margin: 0 auto 1rem;
+            object-fit: contain; /* Ensures the entire image is visible */
+            border: 4px solid #fcd34d; /* Amber border retained for visual flair */
+            border-radius: 8px; /* Slight rounding for softness */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Added shadow */
         }
+        /* Star Rating Styles (Compressed) */
+        .star-rating { display: flex; justify-content: center; direction: rtl; }
         .star-rating input { display: none; }
         .star-rating label {
-            font-size: 2.5rem;
-            color: #ccc;
-            cursor: pointer;
-            padding: 0 0.1rem;
-            transition: color 0.2s;
+            font-size: 2.5rem; color: #ccc; cursor: pointer; padding: 0 0.1rem; transition: color 0.2s;
         }
-        .star-rating input:checked ~ label,
-        .star-rating label:hover,
-        .star-rating label:hover ~ label {
+        .star-rating input:checked ~ label, .star-rating label:hover, .star-rating label:hover ~ label {
             color: #fbbf24;
         }
     </style>
     
-    <!-- Firebase SDK Imports for Live Feedback System -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -70,7 +56,6 @@
         
         setLogLevel('Debug');
         
-        // --- Shared Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyBxgOhd3y5L7Xl_IzWkuJ02PBlswR9lt5k",
             authDomain: "nirmal-library.firebaseapp.com",
@@ -80,8 +65,7 @@
             appId: "1:157338670869:web:f44c9b0a3d9e9ebedcfb1c"
         };
         const appId = firebaseConfig.projectId;
-        // --- END Shared Firebase Config ---
-
+        
         let userId = ''; 
         let db;
         let auth;
@@ -89,24 +73,21 @@
         const FORMSPREE_URL = "https://formspree.io/f/mqayqjpz";
         let currentRating = 5;
 
-        window.setRating = function(rating) {
-            currentRating = rating;
-        };
+        window.setRating = (rating) => { currentRating = rating; };
         
-        window.toggleLike = async function(docId, currentLikes) {
+        window.toggleLike = async (docId, currentLikes) => {
             if (!userId) return;
-            const reviewRef = doc(db, `artifacts/${appId}/public/data/reviews`, docId);
-            try { await updateDoc(reviewRef, { likes: currentLikes + 1 }); } 
+            try { await updateDoc(doc(db, `artifacts/${appId}/public/data/reviews`, docId), { likes: currentLikes + 1 }); } 
             catch (e) { console.error("Error updating document (Like): ", e); }
         };
         
-        window.shareOnWhatsApp = function(message) {
+        window.shareOnWhatsApp = (message) => {
             const websiteLink = window.location.href.split('?')[0]; 
             const fullMessage = encodeURIComponent(`${message}\n\n[نِرمل لائبريري ويبسائيٽ]\n${websiteLink}`);
             window.open(`whatsapp://send?text=${fullMessage}`, '_blank');
         };
 
-        window.shareReview = function(text, rating, name) {
+        window.shareReview = (text, rating, name) => {
             const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
             const message = `📚 نئين رايہ: ${name} طرفان\nدرجه بندي: ${stars}\nراءِ: ${text}\n`;
             window.shareOnWhatsApp(message);
@@ -124,23 +105,12 @@
             } catch (error) {
                 console.error("Firebase Auth Error:", error);
                 const statusElement = document.getElementById('review-status');
-                if(statusElement) {
-                     statusElement.textContent = `ڊيٽابيس لوڊ نه ٿي سگھيو. (غلطي: ${error.code}).`;
-                     statusElement.classList.add('text-red-600');
-                }
+                if(statusElement) { statusElement.textContent = `ڊيٽابيس لوڊ نه ٿي سگھيو. (غلطي: ${error.code}).`; statusElement.classList.add('text-red-600'); }
             }
         }
         
-        function getReviewsCollectionRef(db, appId) {
-            return collection(db, `artifacts/${appId}/public/data/reviews`);
-        }
-        
-        function getBookInventoryCollectionRef(db, appId) {
-             return collection(db, `artifacts/${appId}/public/data/book_inventory`);
-        }
-        
         function listenForBookInventory(db, appId) {
-            const booksRef = getBookInventoryCollectionRef(db, appId);
+            const booksRef = collection(db, `artifacts/${appId}/public/data/book_inventory`);
             const q = query(booksRef, orderBy('timestamp', 'desc')); 
             
             onSnapshot(q, (snapshot) => {
@@ -194,20 +164,12 @@
             reviewStatus.classList.add('text-amber-600');
             
             try {
-                const firestorePromise = addDoc(getReviewsCollectionRef(db, appId), {
+                const firestorePromise = addDoc(collection(db, `artifacts/${appId}/public/data/reviews`), {
                     userName: name, rating: parseInt(rating, 10), text: text, likes: 0, timestamp: serverTimestamp()
                 });
-
                 const formData = new FormData();
-                formData.append("Reviewer_Name", name);
-                formData.append("Rating", `${rating} Stars`);
-                formData.append("Review_Text", text);
-
-                const formspreePromise = fetch(FORMSPREE_URL, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'Accept': 'application/json' }
-                }).catch(error => console.error("Formspree notification error:", error));
+                formData.append("Reviewer_Name", name); formData.append("Rating", `${rating} Stars`); formData.append("Review_Text", text);
+                const formspreePromise = fetch(FORMSPREE_URL, { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } }).catch(error => console.error("Formspree notification error:", error));
                 
                 await Promise.allSettled([firestorePromise, formspreePromise]);
                 
@@ -226,7 +188,6 @@
                 document.getElementById('reviewer-name').value = '';
                 document.getElementById('star-5').checked = true;
                 currentRating = 5; 
-
             } catch (e) {
                 console.error("Error adding document: ", e);
                 reviewStatus.textContent = `راءِ موڪلڻ ۾ غلطي ٿي: ${e.message}`;
@@ -236,7 +197,7 @@
         };
         
         function listenForReviews(db, appId) {
-            const reviewsRef = getReviewsCollectionRef(db, appId);
+            const reviewsRef = collection(db, `artifacts/${appId}/public/data/reviews`);
             const q = query(reviewsRef, orderBy('timestamp', 'desc')); 
             
             onSnapshot(q, (snapshot) => {
@@ -305,10 +266,9 @@
     <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
             <div class="flex items-center justify-center md:justify-end text-center md:text-right mb-2 md:mb-0">
-                <!-- UPDATED: Nirmal Logo/Icon with new class & Raw URL -->
                 <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
                      alt="Nirmal Library Logo" 
-                     class="nirmal-logo-header border-white">
+                     class="nirmal-logo-header border-white ml-3">
                 <div>
                     <h1 class="text-3xl md:text-4xl font-bold">نرمل جيوتاڻي لائبريري، ٿرڙي محبت</h1>
                     <p class="text-sm text-amber-300 mt-1">آزاد منگي فائونڊيشن جي طرفان</p>
@@ -334,17 +294,15 @@
 
     <main class="container mx-auto p-4 md:p-8">
 
-        <!-- UPDATED: Simple Android App Download Banner (New Link) -->
+        <!-- Android App Download Banner -->
         <div class="bg-green-600 text-white p-4 md:p-6 shadow-2xl mb-10 max-w-4xl mx-auto rounded-lg border-b-8 border-lime-300 flex flex-col items-center justify-center text-center transform transition duration-500 hover:scale-[1.01]">
-            <h2 class="text-xl md:text-3xl font-extrabold mb-3 text-center">
-                لائبريري جي اينڊرائيڊ ايپ ڊائونلوڊ ڪريو! 📲
-            </h2>
+            <h2 class="text-xl md:text-3xl font-extrabold mb-3 text-center">لائبريري جي اينڊرائيڊ ايپ ڊائونلوڊ ڪريو! 📲</h2>
             <p class="text-sm md:text-lg mb-4">هِن پورٽل جي آسان ۽ تيز رسائي لاءِ اسان جي موبائيل ايپ ڊائونلوڊ ڪريو.</p>
             
             <a href="https://drive.google.com/uc?export=download&id=1owjskeM2S3nbkbrZIV6z4JjOq-AU-AWW" 
                target="_blank" 
                class="inline-flex items-center justify-center bg-amber-400 text-teal-900 font-bold py-3 px-8 rounded-full shadow-lg hover:bg-amber-500 transition-colors text-lg w-full sm:w-auto">
-                <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 APK ڊائونلوڊ ڪريو
             </a>
         </div>
@@ -384,7 +342,7 @@
                         </tr>
                     </thead>
                     <tbody id="inventory-list-body" class="bg-white divide-y divide-gray-200">
-                        <tr><td colspan="4" class="p-4 text-center text-gray-500">لائيو فهرست لوڊ ٿي رهي آهي...</td></tr>
+                        <tr><td colspan="4" class="p-4 text-center text-gray-500">لوڊ ٿي رهيو آهي...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -431,20 +389,30 @@
             </div>
         </section>
         
-        <!-- About Section -->
+        <!-- About Section (Removed $ signs) -->
         <section id="about" class="py-12 bg-teal-800 text-white rounded-lg p-6">
             <div class="text-center">
-                <h2 class="text-3xl font-bold mb-4">اسان جي باري ۾</h2>
+                <h2 class="text-3xl font-bold mb-8">اسان جي باري ۾</h2>
                 <div class="max-w-3xl mx-auto">
+                    <!-- Founder's Card (Fixed Image Style) -->
+                    <div class="bg-teal-700 p-6 rounded-xl shadow-2xl mb-10 border-b-8 border-amber-400">
+                        <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/d247bb8ce8710c53a9904947f428c297dc557c0d/1000359839-removebg-preview.png" 
+                             alt="ڊاڪٽر علي گوھر آزاد منگي" 
+                             class="founder-photo mx-auto">
+                        
+                        <h3 class="text-2xl font-extrabold text-amber-300 mb-4">لائبريري جا باني (Founder)</h3>
+                        <p class="text-3xl font-bold mb-4">ڊاڪٽر علي گوهر آزاد منگي</p> 
+                        <p class="text-lg font-semibold text-gray-200">
+                             "هن ننڍڙي ڪوشش جو مقصد علم جي روشني پکيڙڻ ۽ پنهنجي علائقي جي شاگردن کي جديد سهولتون مهيا ڪرڻ آهي."
+                        </p>
+                    </div>
+
                     <div class="mb-8 text-center">
                         <h3 class="text-2xl font-semibold text-amber-300">پيشڪش</h3>
                         <p class="mt-4 text-center leading-relaxed">
                             ھي نرمل جيوتاڻي لائبريري جو آنلائن پورٽل آھي، جتي اوھان لائبريري ۾ موجود ڪتابن جي فھرست چيڪ ڪري سگھو ٿا، لائبريري جي ميمبرشب اپلائي ڪري سگھو ٿا ۽ ھن کي وڌيڪ بھتر بنائڻ لاءِ راءِ بہ ڏئي سگھو ٿا.
                         </p>
-                        <div class="mt-4">
-                            <p class="font-semibold">جن جي ڪوششن سان ھي لائبريري قائم ٿي:</p>
-                            <p>ڊاڪٽر علي گوهر آزاد منگي</p> 
-                        </div>
+                        
                         <div class="mt-6 border-t border-teal-500 pt-4">
                             <p class="font-semibold text-amber-300">پيش ڪندڙ ۽ مددگار:</p>
                             <p>جناب وقاص احمد منگي</p>
