@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ميمبرشپ اسٽيٽس ٽريڪر</title>
+    <title id="page-title">ميمبرشپ اسٽيٽس ٽريڪر</title>
     <!-- NEW: Favicon (Updated URL) -->
     <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" type="image/png">
     
@@ -28,16 +28,18 @@
         .text-right-aligned {
              text-align: right;
         }
-        /* Consolidated Logo Style - FIX APPLIED (Used for the card) */
-        .card-header-logo {
-            width: 30px;
-            height: 30px;
+        /* Consolidated Logo Style */
+        .nirmal-logo-header {
+            width: 55px;
+            height: 55px; 
             object-fit: contain; 
-            margin-left: 5px; 
-            background-color: #fcd34d; 
-            border-radius: 9999px;
-            padding: 1px;
+            border-radius: 9999px; 
+            background-color: #fcd34d;
+            padding: 2px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-left: 1rem;
         }
+        
         /* Card Styles */
         .card-container {
             width: 350px; 
@@ -61,6 +63,15 @@
             display: flex; 
             align-items: center; 
             justify-content: center; 
+        }
+        .card-header-logo {
+            width: 30px;
+            height: 30px;
+            object-fit: contain; 
+            margin-left: 5px; 
+            background-color: #fcd34d; 
+            border-radius: 9999px;
+            padding: 1px;
         }
         .card-body {
             display: flex; 
@@ -184,12 +195,165 @@
         let db;
         let auth;
         let currentMemberData = null; 
+        let currentLang = 'sd';
         
-        const formatDate = (dateValue) => {
-            if (!dateValue) return 'نامعلوم';
-            const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
-            return date.toLocaleDateString('sd-PK', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        // --- TRANSLATION DATA ---
+        const TRANSLATIONS = {
+            sd: {
+                title: "ميمبرشپ اسٽيٽس ٽريڪر", subtitle: "پنھنجو ID داخل ڪريو ته جيئن درخواست جي حيثيت معلوم ڪري سگھجي.",
+                nav_apply: "درخواست فارم", nav_directory: "ممبرز جي ڊائريڪٽري", nav_inventory: "ڪتابن جي فهرست", 
+                nav_feedback: "راءِ", nav_about: "اسان جي باري ۾", nav_admin: "لائبريرين جي رسائي", lang_btn: "English",
+                back_to_portal: "← مکيه پورٽل ڏانهن واپس",
+                
+                // Checker Form
+                input_label: "پنهنجو منفرد ميمبرشپ ID نمبر داخل ڪريو", input_placeholder: "مثال: NJL-F4A5B6C7",
+                check_status_btn: "چيڪ اسٽيٽس",
+                
+                // Status Messages
+                status_initial: "ميمبرشپ ID داخل ڪريو.",
+                status_checking: "اسٽيٽس ڳولي رهيو آهي...",
+                status_missing_id: "مھرباني ڪري ميمبرشپ ID داخل ڪريو.",
+                status_not_found: "ڪابه درخواست يا ميمبرشپ ID نه ملي.",
+                status_pending: "توهان جي درخواست جائزي هيٺ آهي. مهرباني ڪري صبر ڪيو.",
+                status_rejected: "توهان جي ميمبرشپ درخواست رد ڪئي وئي آهي.",
+                status_reason: "سبب:",
+                status_contact: "سبب نامعلوم آهي. وڌيڪ معلومات لاءِ لائبريرين سان رابطو ڪريو.",
+                status_approved: "توهان جي ميمبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ پرنٽ ڪريو.",
+                status_fetch_error: "ڊيٽابيس مان ڊيٽا حاصل ڪرڻ ۾ غلطي ٿي.",
+                print_btn: "ڊائونلوڊ / پرنٽ ڪارڊ (PDF)",
+                print_error: "ڪارڊ پرنٽ ڪرڻ لاءِ دستياب ناهي.",
+                
+                // Card Details
+                card_title: "نِرمل جيوتاڻي لائبريري ٿرڙي محبت", card_subtitle: "ميمبرشپ ڪارڊ",
+                card_section_title: "شاگرد جي تفصيل",
+                card_name: "نالو", card_father: "پيءُ جو نالو", card_occupation: "پيشو", 
+                card_dob: "پيدائش جي تاريخ", card_issue_date: "جاري ٿيڻ جي تاريخ", card_expiry: "مدت ختم",
+                card_librarian_sign: "لائبريرين جا دستخط", card_librarian_label: "(Issuer/Librarian)",
+                card_student_sign: "شاگرد جا دستخط", card_student_label: "(Student Signature)",
+                card_id_label: "ميمبرشپ ID نمبر",
+                card_footer: "آزاد منگي فائونڊيشن جي طرفان",
+                unknown: "نامعلوم"
+            },
+            en: {
+                title: "Membership Status Tracker", subtitle: "Enter your ID to check the application status.",
+                nav_apply: "Apply for Membership", nav_directory: "Members Directory", nav_inventory: "Book Inventory", 
+                nav_feedback: "Feedback", nav_about: "About Us", nav_admin: "Librarian Access", lang_btn: "سنڌي",
+                back_to_portal: "← Back to Main Portal",
+                
+                // Checker Form
+                input_label: "Enter your unique Membership ID Number", input_placeholder: "Example: NJL-F4A5B6C7",
+                check_status_btn: "Check Status",
+                
+                // Status Messages
+                status_initial: "Enter Membership ID.",
+                status_checking: "Searching for status...",
+                status_missing_id: "Please enter a Membership ID.",
+                status_not_found: "No application or Membership ID found.",
+                status_pending: "Your application is currently under review. Please be patient.",
+                status_rejected: "Your membership application has been rejected.",
+                status_reason: "Reason:",
+                status_contact: "Reason unknown. Contact the librarian for more information.",
+                status_approved: "Your membership has been approved! Print the card below.",
+                status_fetch_error: "Error retrieving data from the database.",
+                print_btn: "Download / Print Card (PDF)",
+                print_error: "Card is not available for printing.",
+                
+                // Card Details
+                card_title: "Nirmal Jewtani Library Tharri Mohabbat", card_subtitle: "Membership Card",
+                card_section_title: "Student Details",
+                card_name: "Name", card_father: "Father's Name", card_occupation: "Occupation", 
+                card_dob: "Date of Birth", card_issue_date: "Issue Date", card_expiry: "Expiry",
+                card_librarian_sign: "Librarian's Signature", card_librarian_label: "(Issuer/Librarian)",
+                card_student_sign: "Student's Signature", card_student_label: "(Student Signature)",
+                card_id_label: "Membership ID Number",
+                card_footer: "Presented by Azad Mangi Foundation",
+                unknown: "Unknown"
+            }
         };
+
+        // --- GLOBAL LANGUAGE TOGGLE FUNCTION (Copied from index.html) ---
+        window.toggleLanguage = function() {
+            currentLang = (currentLang === 'sd' ? 'en' : 'sd');
+            localStorage.setItem('nirmalLang', currentLang);
+            updateContent();
+        };
+
+        // Helper function for date formatting
+        const formatDate = (dateValue) => {
+            if (!dateValue) return TRANSLATIONS[currentLang].unknown;
+            const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
+            return date.toLocaleDateString(currentLang === 'sd' ? 'sd-PK' : 'en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        };
+
+        function updateContent() {
+            const t = TRANSLATIONS[currentLang];
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = (currentLang === 'sd' ? 'rtl' : 'ltr');
+            document.querySelectorAll('.text-right-aligned').forEach(el => el.style.textAlign = currentLang === 'sd' ? 'right' : 'left');
+            
+            // Header/Navigation Updates
+            document.getElementById('page-title').textContent = t.title;
+            document.getElementById('header-title').textContent = t.title;
+            document.getElementById('header-subtitle').textContent = t.subtitle;
+            document.getElementById('back-to-portal-link').textContent = t.back_to_portal;
+            document.getElementById('nav-apply').textContent = t.nav_apply;
+            document.getElementById('nav-directory').textContent = t.nav_directory;
+            document.getElementById('nav-inventory').textContent = t.nav_inventory;
+            document.getElementById('nav-feedback').textContent = t.nav_feedback;
+            document.getElementById('nav-about').textContent = t.nav_about;
+            document.getElementById('mobile-nav-apply').textContent = t.nav_apply;
+            document.getElementById('mobile-nav-directory').textContent = t.nav_directory;
+            document.getElementById('mobile-nav-inventory').textContent = t.nav_inventory;
+            document.getElementById('mobile-nav-feedback').textContent = t.nav_feedback;
+            document.getElementById('mobile-nav-about').textContent = t.nav_about;
+            document.getElementById('mobile-nav-admin').textContent = t.nav_admin;
+            document.getElementById('lang-toggle-btn').textContent = t.lang_btn;
+            
+            // Checker Form Updates
+            document.getElementById('input-label').textContent = t.input_label;
+            document.getElementById('card-id-input').placeholder = t.input_placeholder;
+            document.getElementById('check-status-btn').textContent = t.check_status_btn;
+            
+            // Update status message dynamically if it's a known state
+            const statusElement = document.getElementById('status-message');
+            if (statusElement) {
+                const currentText = statusElement.textContent;
+                
+                if (currentText.includes('ميمبرشپ ID داخل ڪريو') || currentText.includes('Enter Membership ID')) {
+                     statusElement.textContent = t.status_missing_id;
+                } else if (currentText.includes('اسٽيٽس ڳولي رهيو آهي') || currentText.includes('Searching for status')) {
+                     statusElement.textContent = t.status_checking;
+                } else if (currentText.includes('توهان جي درخواست جائزي هيٺ آهي') || currentText.includes('Your application is currently under review')) {
+                     statusElement.innerHTML = `<span class="text-amber-600 font-bold">${t.status_pending}</span>`;
+                } else if (currentText.includes('توهان جي ميمبرشپ منظور ٿي چڪي آهي') || currentText.includes('Your membership has been approved')) {
+                     statusElement.innerHTML = `<span class="text-green-600 font-bold">${t.status_approved}</span>`;
+                } else if (currentText.includes('توهان جي ميمبرشپ درخواست رد ڪئي وئي آهي') || currentText.includes('Your membership application has been rejected')) {
+                    // This handles status_rejected which might have a reason appended
+                     const reasonMatch = currentText.match(/سبب: (.+)/) || currentText.match(/Reason: (.+)/);
+                     let reason = reasonMatch ? reasonMatch[1] : t.status_contact;
+                     if (reason.includes('نامعلوم آهي') || reason.includes('unknown')) reason = t.status_contact;
+                     
+                     statusElement.innerHTML = `
+                        <span class="text-red-600 font-bold">${t.status_rejected}</span><br>
+                        <span class="text-gray-700 text-sm mt-1 block">${t.status_reason} ${reason}</span>
+                    `;
+                } else if (currentText === ' ') {
+                    statusElement.textContent = t.status_initial;
+                }
+            }
+
+            // Re-render card if data exists and is approved
+            if (currentMemberData && currentMemberData.status === 'Approved') {
+                window.renderCard(currentMemberData);
+            }
+
+            // Update Print Button
+            const printButton = document.getElementById('print-card-button');
+            if (printButton) {
+                printButton.innerHTML = `<span class="mr-2">${t.print_btn}</span> <span class="latin">🖨️</span>`;
+            }
+
+        }
         
         async function initFirebaseAndAuth() {
             try {
@@ -197,15 +361,21 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 await signInAnonymously(auth);
+                
+                currentLang = localStorage.getItem('nirmalLang') || 'sd';
+                updateContent(); // Initial content update
+
                 const urlParams = new URLSearchParams(window.location.search);
                 const idFromUrl = urlParams.get('id');
                 if (idFromUrl) {
                     document.getElementById('card-id-input').value = idFromUrl;
                     window.checkStatus();
+                } else {
+                    document.getElementById('status-message').textContent = TRANSLATIONS[currentLang].status_initial;
                 }
             } catch (error) {
                 const statusElement = document.getElementById('status-message');
-                if (statusElement) statusElement.textContent = `ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})`;
+                if (statusElement) statusElement.textContent = `${TRANSLATIONS[currentLang].status_fetch_error} (${error.code})`;
                 if (statusElement) statusElement.className = 'text-center mb-4 font-semibold text-sm text-red-600';
                 console.error("Firebase Auth Error:", error);
             }
@@ -217,6 +387,7 @@
             const resultArea = document.getElementById('result-area');
             const cardArea = document.getElementById('card-area');
             const printButton = document.getElementById('print-card-button');
+            const t = TRANSLATIONS[currentLang];
             
             if (statusElement) {
                  statusElement.textContent = '';
@@ -229,11 +400,11 @@
             currentMemberData = null;
 
             if (!cardId) {
-                if (statusElement) statusElement.textContent = 'مھرباني ڪري ميمبرشپ ID داخل ڪريو.';
+                if (statusElement) statusElement.textContent = t.status_missing_id;
                 return;
             }
 
-            if (statusElement) statusElement.textContent = 'اسٽيٽس ڳولي رهيو آهي...';
+            if (statusElement) statusElement.textContent = t.status_checking;
             
             try {
                 const membersRef = collection(db, `artifacts/${appId}/public/data/members`);
@@ -241,7 +412,7 @@
                 const querySnapshot = await getDocs(q);
                 
                 if (querySnapshot.empty) {
-                    if (statusElement) statusElement.textContent = 'ڪابه درخواست يا ميمبرشپ ID نه ملي.';
+                    if (statusElement) statusElement.textContent = t.status_not_found;
                     return;
                 }
                 
@@ -251,46 +422,48 @@
                 if (resultArea) resultArea.classList.remove('hidden');
 
                 if (data.status === 'Pending') {
-                    if (statusElement) statusElement.innerHTML = `<span class="text-amber-600 font-bold">توهان جي درخواست جائزي هيٺ آهي. مهرباني ڪري صبر ڪيو.</span>`;
+                    if (statusElement) statusElement.innerHTML = `<span class="text-amber-600 font-bold">${t.status_pending}</span>`;
                 
                 } else if (data.status === 'Cancelled' || data.status === 'Rejected') {
-                    const reason = data.cancellationReason || 'سبب نامعلوم آهي. وڌيڪ معلومات لاءِ لائبريرين سان رابطو ڪريو.';
+                    const reason = data.cancellationReason || t.status_contact;
                     if (statusElement) statusElement.innerHTML = `
-                        <span class="text-red-600 font-bold">توهان جي ميمبرشپ درخواست رد ڪئي وئي آهي.</span><br>
-                        <span class="text-gray-700 text-sm mt-1 block">سبب: ${reason}</span>
+                        <span class="text-red-600 font-bold">${t.status_rejected}</span><br>
+                        <span class="text-gray-700 text-sm mt-1 block">${t.status_reason} ${reason}</span>
                     `;
 
                 } else if (data.status === 'Approved') {
-                    if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ميمبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ پرنٽ ڪريو.</span>`;
+                    if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">${t.status_approved}</span>`;
                     if (printButton) printButton.classList.remove('hidden');
                     window.renderCard(data); 
                 }
 
             } catch (error) {
                 console.error("Error fetching data:", error);
-                if (statusElement) statusElement.textContent = `ڊيٽابيس مان ڊيٽا حاصل ڪرڻ ۾ غلطي ٿي. (${error.message})`;
+                if (statusElement) statusElement.textContent = `${t.status_fetch_error}. (${error.message})`;
             }
         };
 
         window.renderCard = function(data) {
             const cardArea = document.getElementById('card-area');
             if (!cardArea) return;
+            const t = TRANSLATIONS[currentLang];
             
             const approvedDateStr = formatDate(data.approvedDate);
             const expiryDateStr = formatDate(data.expiryDate);
             const dobStr = formatDate(data.dob);
+            const align = currentLang === 'sd' ? 'text-right' : 'text-left';
 
             cardArea.innerHTML = `
                 <div class="card-container" id="membership-card-to-print">
                     
-                    <!-- Card Header (UPDATED: Raw URL) -->
+                    <!-- Card Header -->
                     <div class="card-header">
                          <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
                             alt="Nirmal Logo" 
                             class="card-header-logo">
                         <div>
-                            <h2 class="text-lg font-extrabold leading-none">نِرمل جيوتاڻي لائبريري ٿرڙي محبت</h2>
-                            <p class="text-sm">ميمبرشپ ڪارڊ</p>
+                            <h2 class="text-lg font-extrabold leading-none">${t.card_title}</h2>
+                            <p class="text-sm">${t.card_subtitle}</p>
                         </div>
                     </div>
                     
@@ -299,33 +472,33 @@
                         
                         <div class="card-details-wrapper">
                             <div class="card-details-section">
-                                <h3 class="text-sm font-bold text-teal-800 mb-1">شاگرد جي تفصيل</h3>
+                                <h3 class="text-sm font-bold text-teal-800 mb-1 ${align}">${t.card_section_title}</h3>
                                 <div class="card-details-grid">
-                                    <div class="detail-label">نالو</div>
-                                    <div class="detail-value text-teal-800 font-extrabold">${data.name}</div>
-                                    <div class="detail-label">پيءُ جو نالو</div>
-                                    <div class="detail-value">${data.fatherName}</div>
-                                    <div class="detail-label">پيشو</div>
-                                    <div class="detail-value">${data.occupation}</div>
-                                    <div class="detail-label">پيدائش جي تاريخ</div>
-                                    <div class="detail-value latin">${dobStr}</div>
-                                    <div class="detail-label">جاري ٿيڻ جي تاريخ</div>
-                                    <div class="detail-value latin">${approvedDateStr}</div>
-                                    <div class="detail-label text-red-600">مدت ختم</div>
-                                    <div class="detail-value latin text-red-600 font-extrabold">${expiryDateStr}</div>
+                                    <div class="detail-label ${align}">${t.card_name}</div>
+                                    <div class="detail-value text-teal-800 font-extrabold ${align}">${data.name}</div>
+                                    <div class="detail-label ${align}">${t.card_father}</div>
+                                    <div class="detail-value ${align}">${data.fatherName}</div>
+                                    <div class="detail-label ${align}">${t.card_occupation}</div>
+                                    <div class="detail-value ${align}">${data.occupation}</div>
+                                    <div class="detail-label ${align}">${t.card_dob}</div>
+                                    <div class="detail-value latin ${align}">${dobStr}</div>
+                                    <div class="detail-label ${align}">${t.card_issue_date}</div>
+                                    <div class="detail-value latin ${align}">${approvedDateStr}</div>
+                                    <div class="detail-label text-red-600 ${align}">${t.card_expiry}</div>
+                                    <div class="detail-value latin text-red-600 font-extrabold ${align}">${expiryDateStr}</div>
                                 </div>
                             </div>
                             
                             <div class="signature-row">
                                 <div class="signature-box">
                                     <div class="signature-line mr-auto"></div>
-                                    <p>لائبريرين جا دستخط</p>
-                                    <p class="latin text-gray-700">(Issuer/Librarian)</p>
+                                    <p>${t.card_librarian_sign}</p>
+                                    <p class="latin text-gray-700">${t.card_librarian_label}</p>
                                 </div>
                                 <div class="signature-box">
                                     <div class="signature-line ml-auto"></div>
-                                    <p>شاگرد جا دستخط</p>
-                                    <p class="latin text-gray-700">(Student Signature)</p>
+                                    <p>${t.card_student_sign}</p>
+                                    <p class="latin text-gray-700">${t.card_student_label}</p>
                                 </div>
                             </div>
                         </div>
@@ -333,13 +506,13 @@
                         <div class="card-photo-section">
                             <img src="${data.photoBase64}" class="card-photo" alt="${data.name} Photo">
                             <p class="card-id-display latin">${data.cardId}</p>
-                            <p class="text-[8px] text-gray-500 mt-0.5">ميمبرشپ ID نمبر</p>
+                            <p class="text-[8px] text-gray-500 mt-0.5">${t.card_id_label}</p>
                         </div>
 
                     </div>
                     
                     <div class="card-footer">
-                        آزاد منگي فائونڊيشن جي طرفان
+                        ${t.card_footer}
                     </div>
                 </div>
             `;
@@ -348,7 +521,7 @@
         window.printCard = function() {
             const cardElement = document.getElementById('membership-card-to-print');
             if (!cardElement) {
-                document.getElementById('status-message').textContent = 'ڪارڊ پرنٽ ڪرڻ لاءِ دستياب ناهي.';
+                document.getElementById('status-message').textContent = TRANSLATIONS[currentLang].print_error;
                 return;
             }
 
@@ -373,20 +546,77 @@
         document.addEventListener('DOMContentLoaded', initFirebaseAndAuth);
     </script>
 </head>
-<body class="bg-stone-50 text-gray-800 p-4 md:p-8">
+<body class="bg-stone-50 text-gray-800">
+
+    <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50 no-print">
+        <!-- Main Header Line: Logo/Title | Controls (Language Switcher, Admin Icon, Menu Toggle) -->
+        <div class="container mx-auto flex justify-between items-center">
+            
+            <!-- Logo/Title block -->
+            <div class="flex items-center">
+                 <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
+                     alt="Nirmal Library Logo" 
+                     class="nirmal-logo-header border-white ml-3">
+                <div>
+                    <h1 id="header-title" class="text-3xl md:text-4xl font-bold">نرمل جيوتاڻي لائبريري، ٿرڙي محبت</h1>
+                    <p id="header-subtitle" class="text-sm text-amber-300 mt-1">پنھنجو ID داخل ڪريو ته جيئن درخواست جي حيثيت معلوم ڪري سگھجي.</p>
+                </div>
+            </div>
+
+            <!-- Right Side Controls: Language Toggle & Admin Icon & Menu Button (Always visible on mobile) -->
+            <div class="flex items-center space-x-3 space-x-reverse">
+                
+                <!-- Admin Login Button/Icon (Visible on all screens) -->
+                <a href="librarian_admin.html" 
+                   class="bg-red-500 hover:bg-red-600 transition-colors p-2 rounded-full shadow-lg text-white group"
+                   title="لائبريرين جي رسائي">
+                   <svg class="w-6 h-6 transform group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                   </svg>
+                </a>
+                
+                <!-- Language Toggle (Always visible, responsive) -->
+                <button id="lang-toggle-btn" onclick="window.toggleLanguage()" 
+                        class="bg-amber-500 text-white text-sm font-semibold py-2 px-3 rounded-full shadow-lg hover:bg-amber-600 transition-colors whitespace-nowrap">
+                    English
+                </button>
+                
+                <!-- Mobile Menu Toggle -->
+                <button id="mobile-menu-button" class="md:hidden text-2xl p-1">☰</button>
+            </div>
+        </div>
+        
+        <!-- Desktop Navigation Links (Only visible on MD screens and above) -->
+        <nav class="hidden md:flex container mx-auto space-x-reverse space-x-6 items-center justify-end mt-2 border-t border-teal-700 pt-2">
+            <a id="nav-apply" href="membership_apply.html" class="hover:text-amber-300 font-bold text-green-300">درخواست فارم</a>
+            <a id="nav-directory" href="members_directory.html" class="hover:text-amber-300">ممبرز جي ڊائريڪٽري</a>
+            <a id="nav-inventory" href="index.html#inventory" class="hover:text-amber-300">ڪتابن جي فهرست</a>
+            <a id="nav-feedback" href="index.html#feedback" class="hover:text-amber-300">راءِ</a>
+            <a id="nav-about" href="index.html#about" class="hover:text-amber-300">اسان جي باري ۾</a>
+        </nav>
+
+        <!-- Mobile Navigation (Hidden until toggled, Admin link remains for accessibility) -->
+        <nav id="mobile-menu" class="md:hidden hidden bg-teal-700 text-center mt-2">
+            <a id="mobile-nav-apply" href="membership_apply.html" class="block py-2 font-bold text-green-300 hover:bg-teal-600">درخواست فارم</a>
+            <a id="mobile-nav-directory" href="members_directory.html" class="block py-2 hover:bg-teal-600">ممبرز جي ڊائريڪٽري</a>
+            <a id="mobile-nav-inventory" href="index.html#inventory" class="block py-2 hover:bg-teal-600">ڪتابن جي فهرست</a>
+            <a id="mobile-nav-feedback" href="index.html#feedback" class="block py-2 hover:bg-teal-600">راءِ</a>
+            <a id="mobile-nav-about" href="index.html#about" class="block py-2 hover:bg-teal-600">اسان جي باري ۾</a>
+            <a id="mobile-nav-admin" href="librarian_admin.html" class="block py-2 text-red-300 font-bold hover:bg-teal-600">لائبريرين جي رسائي</a>
+        </nav>
+    </header>
 
     <div class="container mx-auto max-w-2xl">
-        <header class="text-center mb-8 pb-4 border-b-2 border-teal-500 no-print">
-            <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
+        <header class="text-center mb-8 pt-4 pb-4 border-b-2 border-teal-500 no-print">
+            <a href="index.html" id="back-to-portal-link" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
             <h1 class="text-3xl font-bold text-teal-700">ميمبرشپ اسٽيٽس چيڪر</h1>
-            <p class="mt-1 text-gray-600">پنھنجو ID داخل ڪريو ته جيئن درخواست جي حيثيت معلوم ڪري سگھجي.</p>
         </header>
 
         <!-- Status Check Form -->
         <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-amber-500 mb-8 no-print">
-            <label for="card-id-input" class="block text-right mb-2 font-medium">پنهنجو منفرد ميمبرشپ ID نمبر داخل ڪريو</label>
+            <label for="card-id-input" id="input-label" class="block text-right mb-2 font-medium">پنهنجو منفرد ميمبرشپ ID نمبر داخل ڪريو</label>
             <div class="flex space-x-2 space-x-reverse">
-                <button onclick="window.checkStatus()" class="bg-teal-600 text-white font-bold py-3 px-6 rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap">چيڪ اسٽيٽس</button>
+                <button onclick="window.checkStatus()" id="check-status-btn" class="bg-teal-600 text-white font-bold py-3 px-6 rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap">چيڪ اسٽيٽس</button>
                 <input type="text" id="card-id-input" class="w-full p-3 border border-gray-300 rounded-md text-right-aligned latin" placeholder="مثال: NJL-F4A5B6C7">
             </div>
             

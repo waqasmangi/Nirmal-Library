@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لائبريري ميمبرز جي ڊائريڪٽري</title>
+    <title id="page-title">لائبريري ميمبرز جي ڊائريڪٽري</title>
     <!-- NEW: Favicon (Updated URL) -->
     <link rel="icon" href="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" type="image/png">
     
@@ -68,11 +68,87 @@
 
         let db;
         let auth;
+        let currentLang = 'sd';
+        
+        // --- TRANSLATION DATA ---
+        const TRANSLATIONS = {
+            sd: {
+                title: "لائبريري ميمبرز جي ڊائريڪٽري", subtitle: "آزاد منگي فائونڊيشن | منظور ٿيل لائبريري ميمبرز جي فهرست.",
+                nav_apply: "درخواست فارم", nav_directory: "ممبرز جي ڊائريڪٽري", nav_inventory: "ڪتابن جي فهرست", 
+                nav_feedback: "راءِ", nav_about: "اسان جي باري ۾", nav_admin: "لائبريرين جي رسائي", lang_btn: "English",
+                back_to_portal: "← مکيه پورٽل ڏانهن واپس",
+                main_header: "نِرمل جيوتاڻي لائبريري ميمبرز جي ڊائريڪٽري",
+                member_since_label: "ميمبر بڻجڻ جي تاريخ:",
+                loading: "لوڊ ٿي رهيو آهي...",
+                no_members: "اڃا تائين ڪو به منظور ٿيل ميمبر ناهي.",
+                load_error: "ميمبرز جي ڊيٽا لوڊ نه ٿي سگھي.",
+                unknown: "نامعلوم"
+            },
+            en: {
+                title: "Library Members Directory", subtitle: "Azad Mangi Foundation | List of Approved Library Members.",
+                nav_apply: "Apply for Membership", nav_directory: "Members Directory", nav_inventory: "Book Inventory", 
+                nav_feedback: "Feedback", nav_about: "About Us", nav_admin: "Librarian Access", lang_btn: "سنڌي",
+                back_to_portal: "← Back to Main Portal",
+                main_header: "Nirmal Jewtani Library Members Directory",
+                member_since_label: "Member Since:",
+                loading: "Loading...",
+                no_members: "No approved members yet.",
+                load_error: "Could not load members data.",
+                unknown: "Unknown"
+            }
+        };
+
+        // --- GLOBAL LANGUAGE TOGGLE FUNCTION (Copied from index.html) ---
+        window.toggleLanguage = function() {
+            currentLang = (currentLang === 'sd' ? 'en' : 'sd');
+            localStorage.setItem('nirmalLang', currentLang);
+            updateContent();
+            // Re-render the member list immediately after language switch
+            if (db) { 
+                listenForApprovedMembers(db, appId);
+            }
+        };
+
+        function updateContent() {
+            const t = TRANSLATIONS[currentLang];
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = (currentLang === 'sd' ? 'rtl' : 'ltr');
+            document.querySelectorAll('.text-right-aligned').forEach(el => el.style.textAlign = currentLang === 'sd' ? 'right' : 'left');
+            
+            // Header/Navigation Updates
+            document.getElementById('page-title').textContent = t.title;
+            document.getElementById('header-title').textContent = t.title;
+            document.getElementById('header-subtitle').textContent = t.subtitle;
+            document.getElementById('back-to-portal-link').textContent = t.back_to_portal;
+            document.getElementById('nav-apply').textContent = t.nav_apply;
+            document.getElementById('nav-directory').textContent = t.nav_directory;
+            document.getElementById('nav-inventory').textContent = t.nav_inventory;
+            document.getElementById('nav-feedback').textContent = t.nav_feedback;
+            document.getElementById('nav-about').textContent = t.nav_about;
+            document.getElementById('mobile-nav-apply').textContent = t.nav_apply;
+            document.getElementById('mobile-nav-directory').textContent = t.nav_directory;
+            document.getElementById('mobile-nav-inventory').textContent = t.nav_inventory;
+            document.getElementById('mobile-nav-feedback').textContent = t.nav_feedback;
+            document.getElementById('mobile-nav-about').textContent = t.nav_about;
+            document.getElementById('mobile-nav-admin').textContent = t.nav_admin;
+            document.getElementById('lang-toggle-btn').textContent = t.lang_btn;
+
+            // Page Specific Updates
+            document.getElementById('main-header-title').textContent = t.main_header;
+
+            // Re-render list if content is loading or empty
+            const directoryList = document.getElementById('directory-list');
+             if (directoryList.innerHTML.includes('لوڊ ٿي رهيو آهي') || directoryList.innerHTML.includes('Loading...')) {
+                 directoryList.innerHTML = `<p class="text-center text-gray-500 col-span-full">${t.loading}</p>`;
+             } else if (directoryList.innerHTML.includes('اڃا تائين ڪو به منظور ٿيل ميمبر ناهي') || directoryList.innerHTML.includes('No approved members yet')) {
+                 directoryList.innerHTML = `<p class="text-center text-gray-500 col-span-full mt-8 text-xl">${t.no_members}</p>`;
+             }
+        }
         
         const formatDate = (timestamp) => {
-            if (!timestamp) return 'نامعلوم';
+            if (!timestamp) return TRANSLATIONS[currentLang].unknown;
             const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-            return date.toLocaleDateString('sd-PK');
+            return date.toLocaleDateString(currentLang === 'sd' ? 'sd-PK' : 'en-US');
         };
 
         function sortMembers(members) {
@@ -89,9 +165,13 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 await signInAnonymously(auth);
+                
+                currentLang = localStorage.getItem('nirmalLang') || 'sd';
+                updateContent(); // Initial content update
+                
                 listenForApprovedMembers(db, appId);
             } catch (error) {
-                document.getElementById('directory-list').innerHTML = `<p class="text-center text-red-600 mt-4">ڊيٽابيس لوڊ ڪرڻ ۾ غلطي. (${error.code})</p>`;
+                document.getElementById('directory-list').innerHTML = `<p class="text-center text-red-600 mt-4">${TRANSLATIONS[currentLang].load_error} (${error.code})</p>`;
                 console.error("Firebase Auth Error:", error);
             }
         }
@@ -103,9 +183,10 @@
             onSnapshot(q, (snapshot) => {
                 const directoryList = document.getElementById('directory-list');
                 directoryList.innerHTML = '';
+                const t = TRANSLATIONS[currentLang];
                 
                 if (snapshot.empty) {
-                     directoryList.innerHTML = '<p class="text-center text-gray-500 mt-8 text-xl">اڃا تائين ڪو به منظور ٿيل ميمبر ناهي.</p>';
+                     directoryList.innerHTML = `<p class="text-center text-gray-500 col-span-full mt-8 text-xl">${t.no_members}</p>`;
                      return;
                 }
 
@@ -122,41 +203,94 @@
                         <img src="${data.photoBase64 || 'https://placehold.co/80x80/0d3b38/fff?text=N/A'}" alt="${data.name} Photo" class="member-photo mb-3">
                         <h3 class="text-xl font-bold text-teal-700">${data.name}</h3>
                         <p class="text-sm text-gray-600 mb-2">${data.occupation}</p>
-                        <p class="text-xs text-amber-600 font-semibold">ميمبر بڻجڻ جي تاريخ:</p>
-                        <p class="text-sm text-gray-500">${approvedDate}</p>
+                        <p class="text-xs text-amber-600 font-semibold">${t.member_since_label}</p>
+                        <p class="text-sm text-gray-500 latin">${approvedDate}</p>
                     `;
                     directoryList.appendChild(memberCard);
                 });
             }, (error) => {
                  console.error("Error listening to approved members: ", error);
-                 document.getElementById('directory-list').innerHTML = `<p class="text-center text-red-600 mt-4">ميمبرز جي ڊيٽا لوڊ نه ٿي سگھي. (${error.message})</p>`;
+                 document.getElementById('directory-list').innerHTML = `<p class="text-center text-red-600 mt-4">${TRANSLATIONS[currentLang].load_error} (${error.message})</p>`;
             });
         }
 
         document.addEventListener('DOMContentLoaded', initFirebaseAndAuth);
     </script>
 </head>
-<body class="bg-stone-50 text-gray-800 p-4 md:p-8">
+<body class="bg-stone-50 text-gray-800">
 
-    <div class="container mx-auto max-w-4xl">
-        <header class="text-center mb-10 pb-4 border-b-2 border-teal-500">
-            <a href="index.html" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
+    <header class="bg-teal-800 text-white p-4 shadow-md sticky top-0 z-50">
+        <!-- Main Header Line: Logo/Title | Controls (Language Switcher, Admin Icon, Menu Toggle) -->
+        <div class="container mx-auto flex justify-between items-center">
             
-             <!-- UPDATED: Header with Nirmal Image and Raw URL -->
-            <div class="flex items-center justify-center">
+            <!-- Logo/Title block -->
+            <div class="flex items-center">
                  <img src="https://raw.githubusercontent.com/waqasmangi/Nirmal-Library/37112ca6d5127e34450b8e6ad5041962e5240167/1000359794-removebg-preview.png" 
                      alt="Nirmal Library Logo" 
-                     class="nirmal-logo-header border-teal-600">
+                     class="nirmal-logo-header border-white ml-3">
                 <div>
-                    <h1 class="text-4xl font-bold text-teal-700">نِرمل جيوتاڻي لائبريري ميمبرز جي ڊائريڪٽري</h1>
-                    <p class="mt-2 text-gray-600">آزاد منگي فائونڊيشن | منظور ٿيل لائبريري ميمبرز جي فهرست.</p>
+                    <h1 id="header-title" class="text-3xl md:text-4xl font-bold">لائبريري ميمبرز جي ڊائريڪٽري</h1>
+                    <p id="header-subtitle" class="text-sm text-amber-300 mt-1">آزاد منگي فائونڊيشن | منظور ٿيل لائبريري ميمبرز جي فهرست.</p>
                 </div>
             </div>
+
+            <!-- Right Side Controls: Language Toggle & Admin Icon & Menu Button (Always visible on mobile) -->
+            <div class="flex items-center space-x-3 space-x-reverse">
+                
+                <!-- Admin Login Button/Icon (Visible on all screens) -->
+                <a href="librarian_admin.html" 
+                   class="bg-red-500 hover:bg-red-600 transition-colors p-2 rounded-full shadow-lg text-white group"
+                   title="لائبريرين جي رسائي">
+                   <!-- Icon representing admin/login (Lock/Key) -->
+                   <svg class="w-6 h-6 transform group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                   </svg>
+                </a>
+                
+                <!-- Language Toggle (Always visible, responsive) -->
+                <button id="lang-toggle-btn" onclick="window.toggleLanguage()" 
+                        class="bg-amber-500 text-white text-sm font-semibold py-2 px-3 rounded-full shadow-lg hover:bg-amber-600 transition-colors whitespace-nowrap">
+                    English
+                </button>
+                
+                <!-- Mobile Menu Toggle -->
+                <button id="mobile-menu-button" class="md:hidden text-2xl p-1">☰</button>
+            </div>
+        </div>
+        
+        <!-- Desktop Navigation Links (Only visible on MD screens and above) -->
+        <nav class="hidden md:flex container mx-auto space-x-reverse space-x-6 items-center justify-end mt-2 border-t border-teal-700 pt-2">
+            <a id="nav-apply" href="membership_apply.html" class="hover:text-amber-300 font-bold text-green-300">درخواست فارم</a>
+            <a id="nav-directory" href="members_directory.html" class="hover:text-amber-300">ممبرز جي ڊائريڪٽري</a>
+            <a id="nav-inventory" href="index.html#inventory" class="hover:text-amber-300">ڪتابن جي فهرست</a>
+            <a id="nav-feedback" href="index.html#feedback" class="hover:text-amber-300">راءِ</a>
+            <a id="nav-about" href="index.html#about" class="hover:text-amber-300">اسان جي باري ۾</a>
+        </nav>
+
+        <!-- Mobile Navigation (Hidden until toggled, Admin link remains for accessibility) -->
+        <nav id="mobile-menu" class="md:hidden hidden bg-teal-700 text-center mt-2">
+            <a id="mobile-nav-apply" href="membership_apply.html" class="block py-2 font-bold text-green-300 hover:bg-teal-600">درخواست فارم</a>
+            <a id="mobile-nav-directory" href="members_directory.html" class="block py-2 hover:bg-teal-600">ممبرز جي ڊائريڪٽري</a>
+            <a id="mobile-nav-inventory" href="index.html#inventory" class="block py-2 hover:bg-teal-600">ڪتابن جي فهرست</a>
+            <a id="mobile-nav-feedback" href="index.html#feedback" class="block py-2 hover:bg-teal-600">راءِ</a>
+            <a id="mobile-nav-about" href="index.html#about" class="block py-2 hover:bg-teal-600">اسان جي باري ۾</a>
+            <a id="mobile-nav-admin" href="librarian_admin.html" class="block py-2 text-red-300 font-bold hover:bg-teal-600">لائبريرين جي رسائي</a>
+        </nav>
+    </header>
+
+
+    <div class="container mx-auto max-w-4xl p-4 md:p-8">
+        <header class="text-center mb-10 pb-4 border-b-2 border-teal-500">
+            <a href="index.html" id="back-to-portal-link" class="text-sm text-blue-600 hover:text-blue-800 transition-colors flex items-center justify-start mb-4">← مکيه پورٽل ڏانهن واپس</a>
+            
+             <div class="flex items-center justify-center">
+                <h1 id="main-header-title" class="text-4xl font-bold text-teal-700">نِرمل جيوتاڻي لائبريري ميمبرز جي ڊائريڪٽري</h1>
+             </div>
             
         </header>
 
         <div id="directory-list" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-            <p class="text-center text-gray-500 col-span-full">لوڊ ٿي رهيو آهي...</p>
+            <p class="text-center text-gray-500 col-span-full" id="initial-loading-text">لوڊ ٿي رهيو آهي...</p>
         </div>
         
     </div>
