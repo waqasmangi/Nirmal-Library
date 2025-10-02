@@ -148,22 +148,7 @@
              bottom: 0;
              width: 100%;
         }
-        /* UPDATED: Download Image Button Style */
-        .download-image-button {
-            background-color: #3b82f6; /* Blue for download */
-            color: white;
-            font-weight: bold;
-            padding: 12px 32px;
-            border-radius: 9999px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: background-color 0.3s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .download-image-button:hover {
-            background-color: #2563eb;
-        }
+        
         @media print {
             body * { visibility: hidden; }
             #card-area, #card-area * { visibility: visible; }
@@ -233,8 +218,7 @@
             const resultArea = document.getElementById('result-area');
             const cardArea = document.getElementById('card-area');
             const printButton = document.getElementById('print-card-button');
-            const downloadImageButton = document.getElementById('download-image-button'); // UPDATED ID
-
+            
             if (statusElement) {
                  statusElement.textContent = '';
                  statusElement.className = 'text-center mb-4 font-semibold text-sm text-gray-600';
@@ -242,7 +226,6 @@
             if (resultArea) resultArea.classList.add('hidden');
             if (cardArea) cardArea.innerHTML = '';
             if (printButton) printButton.classList.add('hidden');
-            if (downloadImageButton) downloadImageButton.classList.add('hidden'); // UPDATED ID
             
             currentMemberData = null;
 
@@ -281,7 +264,6 @@
                 } else if (data.status === 'Approved') {
                     if (statusElement) statusElement.innerHTML = `<span class="text-green-600 font-bold">توهان جي ميمبرشپ منظور ٿي چڪي آهي! هيٺ ڏنل ڪارڊ پرنٽ ڪريو.</span>`;
                     if (printButton) printButton.classList.remove('hidden');
-                    if (downloadImageButton) downloadImageButton.classList.remove('hidden'); // UPDATED
                     window.renderCard(data); 
                 }
 
@@ -386,52 +368,8 @@
 
             html2pdf().from(cardElement).set(opt).save();
         };
-        
-        // UPDATED Function: Renamed and logic changed to just download image
-        window.downloadCardAsImage = function() {
-            const cardElement = document.getElementById('membership-card-to-print');
-            const statusElement = document.getElementById('status-message');
-            const downloadImageButton = document.getElementById('download-image-button'); // UPDATED ID
 
-            if (!cardElement) {
-                statusElement.textContent = 'ڪارڊ شيئر ڪرڻ لاءِ دستياب ناهي.';
-                return;
-            }
-            
-            statusElement.innerHTML = `<span class="text-amber-600 font-bold">تصوير تيار ڪري رهيو آهي... مھرباني ڪري انتظار ڪريو.</span>`;
-            downloadImageButton.disabled = true;
-
-            // Use html2canvas part of the bundle to convert the card to a canvas
-            const html2canvas = window.html2pdf.require('html2canvas');
-            
-            html2canvas(cardElement, {
-                scale: 3, 
-                useCORS: true 
-            }).then(canvas => {
-                // Convert canvas to data URL (PNG)
-                const imageData = canvas.toDataURL('image/png');
-                
-                // Create a temporary link element to trigger download
-                const a = document.createElement('a');
-                a.href = imageData;
-                a.download = `Nirmal_Library_Card_${currentMemberData.cardId}.png`;
-                
-                // Append to body, click, and remove
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-
-                // Set final success status message
-                statusElement.innerHTML = `<span class="text-green-600 font-bold">تصوير ڪاميابي سان ڊائونلوڊ ٿي وئي!</span> توهان جي ڊوائيس تي چيڪ ڪريو.`;
-                downloadImageButton.disabled = false;
-                
-            }).catch(error => {
-                console.error("Error converting card to image:", error);
-                statusElement.textContent = `تصوير ٺاهڻ ۾ غلطي ٿي. (${error.message})`;
-                downloadImageButton.disabled = false;
-            });
-        };
-
+        // Removed window.downloadCardAsImage function
 
         document.addEventListener('DOMContentLoaded', initFirebaseAndAuth);
     </script>
@@ -463,21 +401,11 @@
                 <!-- Membership Card will be rendered here -->
             </div>
             
-            <!-- Updated Buttons Container -->
-            <div class="mt-6 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 sm:space-x-reverse no-print">
+            <!-- ONLY PDF Print Button Remains -->
+            <div class="mt-6 flex justify-center no-print">
                 <button id="print-card-button" onclick="window.printCard()" class="hidden bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-amber-700 transition-colors">
                     <span class="mr-2">ڊائونلوڊ / پرنٽ ڪارڊ (PDF)</span>
                     <span class="latin">🖨️</span>
-                </button>
-                
-                <!-- UPDATED: Download Image Button -->
-                <button id="download-image-button" onclick="window.downloadCardAsImage()" class="hidden download-image-button">
-                    <svg class="w-6 h-6 ml-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    تصوير طور ڊائونلوڊ ڪريو (PNG)
                 </button>
             </div>
         </div>
